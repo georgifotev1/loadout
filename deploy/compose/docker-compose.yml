@@ -1,0 +1,38 @@
+# Local infrastructure for Loadout. The Go API and the web app run on the host (make run / make web).
+# Host ports can be overridden in .env if something else already uses them.
+name: loadout
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_USER: loadout
+      POSTGRES_PASSWORD: loadout
+      POSTGRES_DB: loadout
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loadout -d loadout"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.30.7
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "${MAILPIT_UI_HOST_PORT:-8025}:8025"   # web UI
+      - "${MAILPIT_SMTP_HOST_PORT:-1025}:1025" # SMTP
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+volumes:
+  postgres-data:
