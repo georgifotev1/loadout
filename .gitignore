@@ -1,0 +1,63 @@
+# Planning docs (local only)
+/plan/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*~
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+
+# Go
+/bin/
+*.exe
+*.test
+*.out
+coverage.*
+go.work
+go.work.sum
+
+# Node / pnpm / TanStack Start (Vite)
+node_modules/
+.pnpm-store/
+dist/
+.output/
+.vinxi/
+.tanstack/
+.nitro/
+*.tsbuildinfo
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Test / tooling output
+coverage/
+playwright-report/
+test-results/
+.turbo/
+.cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# Logs & temp
+*.log
+tmp/
