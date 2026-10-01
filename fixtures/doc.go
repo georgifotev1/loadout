@@ -9,3 +9,10 @@
 // normalization, that is Phase 2's job); dealer price, stock and updated_at are invented and
 // the `_mock` field says so. Hand edits are fine for test scenarios, but note them in `_mock`.
 package fixtures
+
+import "embed"
+
+// Vali holds the product files as vali/<category>/<sku>.json, for mock-vali to serve.
+//
+//go:embed vali/*/*.json
+var Vali embed.FS

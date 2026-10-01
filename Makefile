@@ -50,6 +50,11 @@ build:
 web:
 	pnpm -C web dev
 
+## mock-vali: run the fake Vali API on :8081 (make mock-vali args="-fail-rate 0.2 -latency 300ms")
+.PHONY: mock-vali
+mock-vali:
+	go run ./cmd/mock-vali $(args)
+
 ## migrate: apply pending migrations (make migrate cmd=down|status for the others)
 .PHONY: migrate
 migrate:
