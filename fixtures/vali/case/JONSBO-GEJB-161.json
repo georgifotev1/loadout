@@ -1,0 +1,43 @@
+{
+  "sku": "JONSBO-GEJB-161",
+  "manufacturer_code": "GEJB-161",
+  "ean": "6970620554860",
+  "brand": "JONSBO",
+  "name": "Кутия Jonsbo NV10 Mini ITX - Black",
+  "category_path": [
+    "Компютърни компоненти",
+    "Кутии за компютри",
+    "Кутии за компютри JONSBO"
+  ],
+  "url": "https://www.vali.bg/kutiya-jonsbo-nv10-mini-itx-black",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/gejb-161-38746649f8e8571b3778b031073a69ed6e812b4c.jpg"
+  ],
+  "specs": {
+    "Вентилатори": "-",
+    "Вид кутия": "Mini Tower",
+    "Височина CPU Охладител": "до 38 mm",
+    "Включени вентилатори": "-",
+    "Гнезда": "Не",
+    "Дължина GPU": "до 190 mm",
+    "Дължина PSU": "до 150 mm",
+    "Захранващ блок": "0 W",
+    "Портове": "1 x USB-C",
+    "Размери (mm)": "205 x 205 x 108 mm",
+    "Разширителни слотове": "2",
+    "Съвместимост на Радиатори": "Не",
+    "Тегло": "1.500 kg",
+    "Формат дънна платка": "Mini ITX",
+    "Цвят": "Черен"
+  },
+  "dealer_price_cents": 7722,
+  "rrp_cents": 9900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 10
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

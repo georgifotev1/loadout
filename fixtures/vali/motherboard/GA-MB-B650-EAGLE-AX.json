@@ -1,0 +1,52 @@
+{
+  "sku": "GA-MB-B650-EAGLE-AX",
+  "manufacturer_code": "B650 EAGLE AX",
+  "ean": "4719331860158",
+  "brand": "GIGABYTE",
+  "name": "Дънна платка GIGABYTE B650 EAGLE AX",
+  "category_path": [
+    "Компютърни компоненти",
+    "Дънни платки",
+    "Дънни платки GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/dienna-platka-gigabyte-b650-eagle-ax",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/96748BD4-F0FC-9A74-5036-E7C1687FC5AB.png"
+  ],
+  "specs": {
+    "USB портове": "1 x USB 3.2 Gen2 Type-C, 2 x USB 3.2 Gen2, 6 x USB 2.0",
+    "Брой слотове памет": "4",
+    "Вграден LAN": "Realtek® GbE LAN chip (1 Gbps/100 Mbps)",
+    "Вграден Wi-Fi и Bluetooth": "Bluetooth 5.3, Realtek® Wi-Fi 6E RTL8852CE 802.11 ax",
+    "Вградено аудио": "Realtek AUDIO CODEC",
+    "Други характеристики": "256 Mb Flash ROM, UEFI AMI BIOS",
+    "Интерфейс Serial ATA": "4 x SATA3 6.0 Gb/s",
+    "Конектор захранване": "1 x 24-pin Main Power connector, 1 x 8-pin +12V Power connector",
+    "М2 слот": "2 x M.2 connectors (Socket 3, M key, type 22110/2280 PCIe 4.0 x4/x2 SSD support, 1 x M.2 connector (Socket 3, M key, type 22110/2280 PCIe 5.0 x4/x2 SSD support)",
+    "Максимален капацитет поддържана памет": "192 GB",
+    "Максимална честота памет": "7600(OC) MHz",
+    "Поддръжка на Dualchannel": "Да",
+    "Поддръжка на RAID": "RAID 0/1/10 for M.2 NVMe",
+    "Поддържана памет": "DDR5",
+    "Поддържани процесори": "7-мо Поколение AMD процесори, 8-мо Поколение AMD процесори",
+    "Свързаност": "1 x HDMI, 1 x Display Port, 1 x RJ-45, 1 x PS/2 Mouse/Keyboard, 3 x Audio jacks, 1 x Q-Flash Plus button, 2 x SMA antenna connectors",
+    "Слотoве PCI-E x1": "3",
+    "Слотoве PCI-E x16": "1 x PCIe 4.0 x16",
+    "Слотoве PCI-E x4": "",
+    "Слотове PCI-E": "",
+    "Сокет": "AM5",
+    "Тегло": "1.740 kg",
+    "Форм фактор.": "ATX - 30.5 x 24.4 cm",
+    "Чипсет": "AMD B650"
+  },
+  "dealer_price_cents": 13072,
+  "rrp_cents": 16340,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 2,
+    "Sofia-Central": 20
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

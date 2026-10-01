@@ -1,0 +1,98 @@
+# Approved vali.bg product pages for the mock-vali fixtures
+# Format: <category> <url>  # note. Categories match fixtures/vali/<category>/.
+# Regenerate with: go run ./tools/vali-fixture   (skips URLs that already have a fixture; -force overwrites)
+
+# cpu
+cpu https://www.vali.bg/procesor-amd-ryzen-3-4100-am4-socket-4-cores-8-threads-38ghzup-to-40ghz-6mb-cache-65w-box  # Процесор AMD Ryzen 3 4100, AM4 Socket, 4 Cores, 8 Threads, 3.8GHz(Up to 4.0GHz),
+cpu https://www.vali.bg/procesor-amd-ryzen-5-5600g-39ghzup-to-44ghz-65w-am4  # Процесор AMD Ryzen 5 5600G, 3.9GHz(Up to 4.4GHz), 65W, AM4
+cpu https://www.vali.bg/procesor-amd-ryzen-5-7600-6-core-38-ghz-32mb-65w-am5-box  # Процесор AMD RYZEN 5 7600, 6-Core, 3.8 GHz, 32MB, 65W, AM5, BOX
+cpu https://www.vali.bg/procesor-amd-ryzen-7-7800x3d-8-core-42-ghz-am5  # Процесор AMD RYZEN 7 7800X3D, 8-Core, 4.2 GHz, AM5
+cpu https://www.vali.bg/procesor-intel-alder-lake-core-i5-12400f-6-cores-250-ghz-18mb-lga1700-65w-box  # Процесор Intel Alder Lake Core i5-12400F, 6 Cores, 2.50 GHz, 18MB, LGA1700, 65W,
+cpu https://www.vali.bg/procesor-intel-raptor-lake-i5-14600k-tray-14-cores-35-ghz-24mb-125w-lga1700  # Процесор Intel Raptor Lake i5-14600K TRAY, 14 Cores, 3.5 GHz, 24MB, 125W, LGA170
+cpu https://www.vali.bg/procesor-intel-core-ultra-5-245k-14-core-6p8e-36-ghz-26mb-lga1851-box  # Процесор Intel Core Ultra 5 245K, 14-Core (6P+8E) 3.6 GHz, 26MB, LGA1851, BOX
+
+# motherboard
+motherboard https://www.vali.bg/dienna-platka-gigabyte-a520m-k-v2-socket-am4  # Дънна платка GIGABYTE A520M K V2, Socket AM4
+motherboard https://www.vali.bg/dienna-platka-gigabyte-b550-gaming-x-v2-socket-am4-4-x-ddr4-rgb-fusion-v2-rev-10  # Дънна платка GIGABYTE B550 GAMING X V2 Socket AM4, 4 x DDR4, RGB Fusion, V2 (rev
+motherboard https://www.vali.bg/dienna-platka-gigabyte-b550i-aorus-pro-ax-socket-am4  # Дънна платка GIGABYTE B550I AORUS PRO AX, Socket AM4
+motherboard https://www.vali.bg/dienna-platka-gigabyte-b650m-d3hp-socket-am5  # Дънна платка GIGABYTE B650M D3HP socket AM5
+motherboard https://www.vali.bg/dienna-platka-gigabyte-b650-eagle-ax  # Дънна платка GIGABYTE B650 EAGLE AX
+motherboard https://www.vali.bg/danna-platka-gigabyte-b760m-d3hp-ddr4-socket-1700-matx  # Дънна платка GIGABYTE B760M D3HP DDR4 socket 1700, mATX
+motherboard https://www.vali.bg/danna-platka-gigabyte-b760m-ds3h-ddr5-socket-1700-matx  # Дънна платка GIGABYTE B760M D3HP DDR5, socket 1700, mATX
+motherboard https://www.vali.bg/danna-platka-gigabyte-b860-ds3h-lga-1851  # Дънна платка GIGABYTE B860M DS3H, LGA 1851
+
+# ram
+ram https://www.vali.bg/pamet-kingston-fury-renegade-rgb-8gb-ddr4-3200mhz-cl16  # Памет Kingston FURY Renegade RGB 8GB DDR4 3200MHz CL16
+ram https://www.vali.bg/pamet-kingston-fury-renegade-rgb-16gb2x8gb-ddr4-3200mhz-cl16  # Памет Kingston FURY Renegade RGB 16GB(2x8GB) DDR4 3200MHz CL16
+ram https://www.vali.bg/pamet-kingston-fury-beast-black-16gb-ddr5-5200mhz  # Памет Kingston FURY Beast Black 16GB DDR5 5200MHz
+ram https://www.vali.bg/pamet-kingston-fury-beast-black-32gb2x16gb-ddr5-6000mhz-kf560c40bbk2-32  # Памет Kingston FURY Beast Black 32GB(2x16GB) DDR5 6000MHz KF560C40BBK2-32
+ram https://www.vali.bg/pamet-gskill-ripjaws-s5-black-32gb2x16gb-ddr5-5200mhz-f5-5200j3636c16gx2-rs5k  # Памет G.SKILL Ripjaws S5 Black 32GB(2x16GB) DDR5 5200MHz F5-5200J3636C16GX2-RS5K
+
+# gpu
+gpu https://www.vali.bg/video-karta-gigabyte-rtx-5050-oc-low-profile-8gb-gddr6  # Видео карта GIGABYTE RTX 5050 OC Low Profile 8GB GDDR6
+gpu https://www.vali.bg/video-karta-asrock-intel-arc-b580-challenger-12gb-oc  # Видео карта ASRock Intel ARC B580 Challenger 12GB OC
+gpu https://www.vali.bg/video-karta-zotac-gaming-rtx-5060-twin-edge-8gb-gddr7  # Видео карта ZOTAC GAMING RTX 5060 Twin Edge 8GB GDDR7
+gpu https://www.vali.bg/video-karta-gigabyte-radeon-rx-9060-xt-gaming-oc-16gb-gddr6  # Видео карта GIGABYTE RADEON RX 9060 XT GAMING OC 16GB GDDR6
+gpu https://www.vali.bg/video-karta-powercolor-radeon-rx-9070-gre-red-devil-12gb-gddr6  # Видео карта PowerColor Radeon RX 9070 GRE Red Devil 12GB GDDR6
+gpu https://www.vali.bg/video-karta-gigabyte-rtx-5070-windforce-sff-12gb-gddr7  # Видео карта GIGABYTE RTX 5070 WINDFORCE SFF 12GB GDDR7
+
+# psu
+psu https://www.vali.bg/zaxranvashh-blok-gigabyte-p450b-450w-80-bronze  # Захранващ блок Gigabyte P450B, 450W, 80+, Bronze
+psu https://www.vali.bg/zahranvasht-blok-corsair-cx650-650w-80-bronze  # Захранващ блок Corsair CX650 650W 80+ Bronze
+psu https://www.vali.bg/zahranvasht-blok-seasonic-core-gx-750w-80-gold-fully-modular-atx-31-pcie-50  # Захранващ блок Seasonic CORE GX 750W 80+ Gold, Fully Modular, ATX 3.1, PCIe 5.0
+psu https://www.vali.bg/zahranvasht-blok-corsair-rm850e-850w-80-gold-atx-31-fully-modular  # Захранващ блок Corsair RM850e 850W 80+ Gold ATX 3.1, Fully Modular
+psu https://www.vali.bg/zaxranvashh-blok-fsp-group-dagger-pro-650w-sfx12v-v33  # Захранващ блок FSP Group Dagger Pro 650W SFX12V V3.3
+
+# case
+case https://www.vali.bg/kutiya-lian-li-lancool-207-mid-tower-tempered-glass-cherno  # Кутия Lian Li LANCOOL 207 Mid-Tower, Tempered Glass, Черно
+case https://www.vali.bg/kutiia-lian-li-lancool-216-mid-tower-tempered-glass-cerna  # Кутия Lian-Li LANCOOL 216 Mid-Tower, Tempered Glass, Черна
+case https://www.vali.bg/kutiya-nzxt-h3-flow-2025-micro-atx-tower-black  # Кутия NZXT H3 Flow 2025 Micro-ATX Tower - Black
+case https://www.vali.bg/kutiya-lian-li-dan-a3-matx-micro-tower-black  # Кутия Lian Li DAN A3-mATX, Micro Tower - Black
+case https://www.vali.bg/kutiya-jonsbo-nv10-mini-itx-black  # Кутия Jonsbo NV10 Mini ITX - Black
+
+# cooler
+cooler https://www.vali.bg/oxladitel-za-procesor-arctic-freezer-36-black-acfre00123a  # Охладител за процесор ARCTIC Freezer 36 Black - ACFRE00123A
+cooler https://www.vali.bg/ohladitel-cooler-master-hyper-212-black  # Охладител Cooler Master Hyper 212 Black
+cooler https://www.vali.bg/oxladitel-za-procesor-arctic-alpine-23-am4  # Охладител за процесор Arctic Alpine 23, AM4
+cooler https://www.vali.bg/oxladitel-za-procesor-noctua-nh-l9a-soket-am5  # Охладител за процесор Noctua NH-L9A, Сокет AM5
+cooler https://www.vali.bg/ohladitel-za-procesor-endorfy-navis-f240-black  # Охладител за процесор ENDORFY Navis F240 - Black
+cooler https://www.vali.bg/ohladitel-za-procesor-endorfy-navis-f360-black  # Охладител за процесор ENDORFY Navis F360 - Black
+
+# storage
+storage https://www.vali.bg/ssd-samsung-990-pro-1tb-m2-type-2280-mz-v9p1t0bw  # SSD SAMSUNG 990 PRO, 1TB, M.2 Type 2280, MZ-V9P1T0BW
+storage https://www.vali.bg/ssd-kingston-nv3-m2-2280-pcie-40-nvme-1000gb  # SSD KINGSTON NV3 M.2-2280 PCIe 4.0 NVMe 1000GB
+storage https://www.vali.bg/ssd-samsung-9100-pro-1tb-pcie-50-nvme-m2-type-2280  # SSD SAMSUNG 9100 PRO 1TB, PCIe 5.0 NVMe M.2 Type 2280
+storage https://www.vali.bg/ssd-samsung-870-evo-sata-25-500gb-sata-6-gbs-mz-77e500beu  # SSD SAMSUNG 870 EVO SATA 2.5”, 500GB, SATA 6 Gb/s, MZ-77E500B/EU
+storage https://www.vali.bg/ssd-silicon-power-a55-m2-2280-512-gb-sata  # SSD SILICON POWER A55, M.2 2280, 512 GB, SATA
+
+# peripheral.mouse
+peripheral.mouse https://www.vali.bg/logitech-g502-hero-black-geymarska-mishka  # Геймърска мишка Logitech G502 HERO Black
+peripheral.mouse https://www.vali.bg/geymarska-bezzhichna-mishka-logitech-g305-x-superlight-cheren  # Геймърска безжична мишка Logitech G305 X Superlight - Черен
+peripheral.mouse https://www.vali.bg/geymarska-mishka-steelseries-rival-3-gen2-wireless-aqua  # Геймърска мишка SteelSeries Rival 3 Gen2 Wireless - Aqua
+peripheral.mouse https://www.vali.bg/geymarska-bezzhichna-mishka-asus-rog-strix-impact-iii  # Геймърска безжична мишка ASUS ROG Strix Impact III
+
+# peripheral.keyboard
+peripheral.keyboard https://www.vali.bg/geimierska-mexanicna-klaviatura-keychron-k8-tkl-hot-swappable-gateron-optical-brown-switch-rgb-backlight  # Геймърска Механична клавиатура Keychron K8 TKL, Hot-Swappable Gateron Optical Br
+peripheral.keyboard https://www.vali.bg/geymarska-mehanichna-klaviatura-corsair-k70-core-rgb-corsair-mlx-red-switch-black  # Геймърска механична клавиатура CORSAIR K70 Core RGB Corsair MLX Red Switch - Bla
+peripheral.keyboard https://www.vali.bg/geymarska-klaviatura-steelseries-apex-3-tkl-white-quiet-switch-us-layout  # Геймърскa клавиатура SteelSeries Apex 3 TKL White - Quiet Switch US Layout
+peripheral.keyboard https://www.vali.bg/geimierska-mexanicna-klaviatura-logitech-g413-se-tactile-suicove  # Геймърска механична клавиатура Logitech G413 SE, Tactile суичове
+
+# peripheral.headset
+peripheral.headset https://www.vali.bg/geimierski-slusalki-steelseries-arctis-nova-1-cerno  # Геймърски слушалки SteelSeries Arctis Nova 1 Черно
+peripheral.headset https://www.vali.bg/geimierski-bezzicni-slusalki-logitech-g535-lightspeed-wireless-mikrofon-cerni  # Геймърски безжични слушалки Logitech G535 Lightspeed Wireless, Микрофон, Черни
+peripheral.headset https://www.vali.bg/geymarski-slushalki-s-mikrofon-corsair-hs80-rgb-carbon-bezzhichni-pcps5ps4  # Геймърски слушалки с микрофон Corsair HS80 RGB Carbon безжични PC/PS5/PS4
+peripheral.headset https://www.vali.bg/geymarski-slushalki-jbl-quantum-100m2-black  # Геймърски слушалки JBL Quantum 100M2 Black
+
+# peripheral.monitor
+peripheral.monitor https://www.vali.bg/geymarski-monitor-gigabyte-gs24f14-238-ss-ips-full-hd1920x1080-144hz-1ms-amd-freesync  # Геймърски монитор GIGABYTE GS24F14 - 23.8" SS IPS, Full HD(1920x1080), 144Hz, 1m
+peripheral.monitor https://www.vali.bg/monitor-asus-tuf-gaming-vg27aql5a-27-fast-ips-wqhd-210-hz-1ms  # Монитор ASUS TUF Gaming VG27AQL5A - 27" Fast IPS, WQHD, 210 Hz, 1ms
+peripheral.monitor https://www.vali.bg/monitor-aoc-25g3zmbk-245-fhd-va-240hz-05ms  # Монитор AOC 25G3ZM/BK - 24.5" FHD VA, 240Hz, 0.5ms
+peripheral.monitor https://www.vali.bg/monitor-samsung-odyssey-oled-g5-g50sf-27-qd-oled-wqhd2560x1440-180hz-003ms  # Монитор SAMSUNG Odyssey OLED G5 G50SF - 27" QD-OLED WQHD(2560x1440) 180Hz, 0.03m
+
+# peripheral.mousepad
+peripheral.mousepad https://www.vali.bg/geymarski-pad-steelseries-qck-m-white  # Геймърски пад Steelseries QcK M - White
+peripheral.mousepad https://www.vali.bg/geymarski-pad-dark-project-nostra-black-xl  # Геймърски пад Dark Project - Nostra Black XL
+
+# peripheral.chair
+peripheral.chair https://www.vali.bg/geimierski-stol-noblechairs-hero-black  # Геймърски стол noblechairs HERO, Black
+peripheral.chair https://www.vali.bg/geymarski-stol-endorfy-scrim-bk-cheren  # Геймърски стол ENDORFY Scrim BK - Черен

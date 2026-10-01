@@ -1,0 +1,46 @@
+{
+  "sku": "GA-VC-R9060XT-GAM-OC-16GB",
+  "manufacturer_code": "GV-R9060XTGAMING OC-16GD",
+  "ean": "4719331356248",
+  "brand": "GIGABYTE",
+  "name": "Видео карта GIGABYTE RADEON RX 9060 XT GAMING OC 16GB GDDR6",
+  "category_path": [
+    "Компютърни компоненти",
+    "Видео карти",
+    "Видео карти GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/video-karta-gigabyte-radeon-rx-9060-xt-gaming-oc-16gb-gddr6",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/radeon-rx-9060-xt-gaming-oc-16g-06.png"
+  ],
+  "specs": {
+    "Stream процесори": "2048",
+    "Брой слотове": "2.5 Slot",
+    "Вид охлаждане": "Активно, Въздушно",
+    "Видео изходи": "1 x HDMI 2.1, 2 x DisplayPort 2.1",
+    "Графичен процесор": "AMD Radeon RX 9070 XT",
+    "Други характеристики": "DirectX: 12, OpenGL®4.6",
+    "Капацитет на паметта": "16 GB",
+    "Конектори за захранване": "1 x 8-pin",
+    "Макс. резолюция": "7680 x 4320",
+    "Препоръчително захранване": "450W",
+    "Размер на шината (битове)": "128 b",
+    "Размери (mm)": "281 x 118 x 40 mm",
+    "Слот": "PCI Express 5.0",
+    "Тегло": "1.464 kg",
+    "Тип на паметта": "GDDR6",
+    "Честота на паметта": "20 Gbps",
+    "Честота процесор (MHz)": "TBD",
+    "Чипсет": "AMD"
+  },
+  "dealer_price_cents": 45342,
+  "rrp_cents": 56678,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 19
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

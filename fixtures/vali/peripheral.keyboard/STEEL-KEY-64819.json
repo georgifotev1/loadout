@@ -1,0 +1,41 @@
+{
+  "sku": "STEEL-KEY-64819",
+  "manufacturer_code": "64819",
+  "ean": "5707119060523",
+  "brand": "SteelSeries",
+  "name": "Геймърскa клавиатура SteelSeries Apex 3 TKL White - Quiet Switch US Layout",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски клавиатури",
+    "Геймърски клавиатури SteelSeries"
+  ],
+  "url": "https://www.vali.bg/geymarska-klaviatura-steelseries-apex-3-tkl-white-quiet-switch-us-layout",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/dc8020fd-0d5b-49f1-ae34-82e290838d6f.webp"
+  ],
+  "specs": {
+    "LED подсветка": "RGB (16,8M)",
+    "Включена мишка.": "Не",
+    "Други": "Tenkeyless, Steelseries Quiet Switch",
+    "Интерфейс": "USB",
+    "Макро бутони": "Не",
+    "Мултимедийни функции": "Да",
+    "Профил на бутоните": "Високо профилни",
+    "Свързване": "С кабел",
+    "Съвместимост": "PC",
+    "Тегло": "0.915 kg",
+    "Тип аксесоар.": "Gaming",
+    "Тип клавиатура": "Механична",
+    "Цвят.": "Бял"
+  },
+  "dealer_price_cents": 5073,
+  "rrp_cents": 5899,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 8
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

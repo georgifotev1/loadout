@@ -1,0 +1,33 @@
+{
+  "sku": "ARCTIC-FAN-ACALP00035A",
+  "manufacturer_code": "ACALP00035A",
+  "ean": "4895213702829",
+  "brand": "ARCTIC",
+  "name": "Охладител за процесор Arctic Alpine 23, AM4",
+  "category_path": [
+    "Компютърни компоненти",
+    "Охладители за процесори",
+    "Охладители за процесори ARCTIC"
+  ],
+  "url": "https://www.vali.bg/oxladitel-za-procesor-arctic-alpine-23-am4",
+  "warranty": "72 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/DE68E07E-A9C6-A732-3118-5A81DA40B532.png"
+  ],
+  "specs": {
+    "Размери (mm)": "121 x 98.6 x 65 mm",
+    "Скорост на въртене": "100-2000 RPM",
+    "Съвместими сокети": "AM4",
+    "Тегло": "0.276 kg",
+    "Тип охлаждане": "Въздух"
+  },
+  "dealer_price_cents": 715,
+  "rrp_cents": 894,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 24
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

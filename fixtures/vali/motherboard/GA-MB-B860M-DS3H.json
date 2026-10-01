@@ -1,0 +1,52 @@
+{
+  "sku": "GA-MB-B860M-DS3H",
+  "manufacturer_code": "B860M DS3H",
+  "ean": "4719331866709",
+  "brand": "GIGABYTE",
+  "name": "Дънна платка GIGABYTE B860M DS3H, LGA 1851",
+  "category_path": [
+    "Компютърни компоненти",
+    "Дънни платки",
+    "Дънни платки GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/danna-platka-gigabyte-b860-ds3h-lga-1851",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/b860m-ds3h-02.png"
+  ],
+  "specs": {
+    "USB портове": "1 x USB 3.2 Gen 2 Type-A, 2 x USB 3.2 Gen1, 3 x USB 2.0",
+    "Брой слотове памет": "4",
+    "Вграден LAN": "Realtek® 2.5GbE LAN chip (2.5 Gbps/1 Gbps/100 Mbps)",
+    "Вграден Wi-Fi и Bluetooth": "Не",
+    "Вградено аудио": "Realtek AUDIO CODEC",
+    "Други характеристики": "256 Mb Flash ROM, UEFI AMI BIOS",
+    "Интерфейс Serial ATA": "4 x SATA 6Gb/s",
+    "Конектор захранване": "1 x 24-pin Main Power connector, 1 x 8-pin +12V Power connector",
+    "М2 слот": "1 x M.2 connector (Socket 3, M key, type 25110/22110/2580/2280 PCIe 5.0 x4/x2 SSD support), 1 x M.2 connector (Socket 3, M key, type 25110/22110/2580/2280 PCIe 4.0 x4/x2 SSD support)",
+    "Максимален капацитет поддържана памет": "256 GB",
+    "Максимална честота памет": "9066(OC) MHz",
+    "Поддръжка на Dualchannel": "Да",
+    "Поддръжка на RAID": "0, 1, 5, 10",
+    "Поддържана памет": "DDR5",
+    "Поддържани процесори": "Intel® Core™ Ultra Процесори (Серия 2)",
+    "Свързаност": "1 x HDMI, 1 x Display Port, 1 x RJ-45, 1 x PS/2 Mouse/Keyboard, 3 x Audio jacks",
+    "Слотoве PCI-E x1": "1",
+    "Слотoве PCI-E x16": "1 x PCIe 5.0 x16 slot",
+    "Слотoве PCI-E x4": "",
+    "Слотове PCI-E": "",
+    "Сокет": "1851",
+    "Тегло": "0.404 kg",
+    "Форм фактор.": "ATX - 30.5 x 24.4 cm",
+    "Чипсет": "Intel B860"
+  },
+  "dealer_price_cents": 12894,
+  "rrp_cents": 15536,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 14
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

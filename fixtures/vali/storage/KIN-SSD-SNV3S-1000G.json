@@ -1,0 +1,36 @@
+{
+  "sku": "KIN-SSD-SNV3S-1000G",
+  "manufacturer_code": "SNV3S/1000G",
+  "ean": "740617344790",
+  "brand": "KINGSTON",
+  "name": "SSD KINGSTON NV3 M.2-2280 PCIe 4.0 NVMe 1000GB",
+  "category_path": [
+    "Компютърни компоненти",
+    "Solid State Drive (SSD) дискове",
+    "Solid State Drive (SSD) дискове KINGSTON"
+  ],
+  "url": "https://www.vali.bg/ssd-kingston-nv3-m2-2280-pcie-40-nvme-1000gb",
+  "warranty": "60 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/snv3s-1000gb-zm-lg.jpg"
+  ],
+  "specs": {
+    "Интерфейс": "PCIe 4.0 x4",
+    "Капацитет": "1 TB",
+    "Размери (мм)": "80 x 22 x 3.5",
+    "Скорост при запис (MB/s)": "4000 MB/s",
+    "Скорост при четене (MB/s)": "6000 MB/s",
+    "Тегло": "0.007 kg",
+    "Тип памет": "NVMe M.2",
+    "Форм фактор": "M.2"
+  },
+  "dealer_price_cents": 15659,
+  "rrp_cents": 19333,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 10
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

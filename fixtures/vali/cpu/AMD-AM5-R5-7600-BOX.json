@@ -1,0 +1,41 @@
+{
+  "sku": "AMD-AM5-R5-7600-BOX",
+  "manufacturer_code": "100-1000001015BOX",
+  "ean": "730143314572",
+  "brand": "AMD",
+  "name": "Процесор AMD RYZEN 5 7600, 6-Core, 3.8 GHz, 32MB, 65W, AM5, BOX",
+  "category_path": [
+    "Компютърни компоненти",
+    "Процесори",
+    "Процесори AMD"
+  ],
+  "url": "https://www.vali.bg/procesor-amd-ryzen-5-7600-6-core-38-ghz-32mb-65w-am5-box",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/F88DCE76-FBB6-FA5A-EADD-0B4A45A1C73B.png"
+  ],
+  "specs": {
+    "Turbo Boost честота": "5.1 GHz",
+    "Графичен ускорител": "Radeon™ Graphics, 2200 MHz, 2 Графични ядра",
+    "Кеш памет": "32 MB",
+    "Логически ядра": "12",
+    "Отключен множител": "Да",
+    "Охладител": "Да",
+    "Работна честота": "3.8 GHz",
+    "Серия процесори": "Zen 4 Raphael AM5",
+    "Сокет": "AM5",
+    "Тегло": "0.000 kg",
+    "Термична мощност - TDP (W)": "65 W",
+    "Технология на производството": "5 nm",
+    "Физически ядра": "6"
+  },
+  "dealer_price_cents": 18600,
+  "rrp_cents": 21137,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 17
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

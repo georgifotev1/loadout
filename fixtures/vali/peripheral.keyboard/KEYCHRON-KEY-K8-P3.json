@@ -1,0 +1,43 @@
+{
+  "sku": "KEYCHRON-KEY-K8-P3",
+  "manufacturer_code": "K8-P3",
+  "ean": "4895248806752",
+  "brand": "Keychron",
+  "name": "Геймърска Механична клавиатура Keychron K8 TKL, Hot-Swappable Gateron Optical Brown Switch RGB Backlight",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски клавиатури",
+    "Геймърски клавиатури Keychron"
+  ],
+  "url": "https://www.vali.bg/geimierska-mexanicna-klaviatura-keychron-k8-tkl-hot-swappable-gateron-optical-brown-switch-rgb-backlight",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/76E74302-A7AC-E442-E025-0359DB89A5CE.png"
+  ],
+  "specs": {
+    "LED подсветка": "RGB (16,8M)",
+    "Включена мишка.": "Не",
+    "Други": "Tenkeyless",
+    "Интерфейс": "USB",
+    "Макро бутони": "Не",
+    "Мултимедийни функции": "Да",
+    "Профил на бутоните": "Високо профилни",
+    "Размери": "355mm x 123mm x 42mm",
+    "Свързване": "Безжична, С кабел",
+    "Суичове": "Gateron Optical Brown",
+    "Съвместимост": "PC, Mac OS, iOS, Android",
+    "Тегло": "0.740 kg",
+    "Тип аксесоар.": "Gaming",
+    "Тип клавиатура": "Механична",
+    "Цвят.": "Черен"
+  },
+  "dealer_price_cents": 7172,
+  "rrp_cents": 8641,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 2,
+    "Sofia-Central": 10
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

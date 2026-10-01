@@ -1,0 +1,44 @@
+{
+  "sku": "CORSAIR-KEY-CH-910971E-NA",
+  "manufacturer_code": "CH-910971E-NA",
+  "ean": "840006666707",
+  "brand": "LOGITECH",
+  "name": "Геймърска механична клавиатура CORSAIR K70 Core RGB Corsair MLX Red Switch - Black",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски клавиатури",
+    "Геймърски клавиатури LOGITECH"
+  ],
+  "url": "https://www.vali.bg/geymarska-mehanichna-klaviatura-corsair-k70-core-rgb-corsair-mlx-red-switch-black",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/corsair-k70-core-rgb-527991.jpg"
+  ],
+  "specs": {
+    "LED подсветка": "RGB (16,8M)",
+    "БДС Кирилизация": "Не",
+    "Включена мишка.": "Не",
+    "Други": "Пълен размер",
+    "Интерфейс": "USB",
+    "Макро бутони": "Не",
+    "Мултимедийни функции": "Да",
+    "Профил на бутоните": "Високо профилни",
+    "Размери": "435 х 127 х 36.3 мм",
+    "Свързване": "С кабел",
+    "Суичове": "CORSAIR MLX Red",
+    "Съвместимост": "PC",
+    "Тегло": "0.780 kg",
+    "Тип аксесоар.": "Gaming",
+    "Тип клавиатура": "Механична",
+    "Цвят.": "Черен"
+  },
+  "dealer_price_cents": 8613,
+  "rrp_cents": 9900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 11
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

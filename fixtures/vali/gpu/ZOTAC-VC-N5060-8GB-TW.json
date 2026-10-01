@@ -1,0 +1,47 @@
+{
+  "sku": "ZOTAC-VC-N5060-8GB-TW",
+  "manufacturer_code": "ZT-B50600E-10M",
+  "ean": "8886307701534",
+  "brand": "ZOTAC",
+  "name": "Видео карта ZOTAC GAMING RTX 5060 Twin Edge 8GB GDDR7",
+  "category_path": [
+    "Компютърни компоненти",
+    "Видео карти",
+    "Видео карти ZOTAC"
+  ],
+  "url": "https://www.vali.bg/video-karta-zotac-gaming-rtx-5060-twin-edge-8gb-gddr7",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/zt-b50600e-10m-image02.jpg"
+  ],
+  "specs": {
+    "AI Производителност": "",
+    "CUDA ядра": "3840",
+    "Брой слотове": "2",
+    "Вид охлаждане": "Активно",
+    "Видео изходи": "1 x HDMI 2.1, 3 x DisplayPort 2.1",
+    "Графичен процесор": "GeForce RTX 5060",
+    "Други характеристики": "DirectX 12 API, DLSS 4.0, SFF Ready",
+    "Капацитет на паметта": "8 GB",
+    "Конектори за захранване": "1 x 8-pin",
+    "Макс. резолюция": "7680 x 4320",
+    "Препоръчително захранване": "550W",
+    "Размер на шината (битове)": "128 b",
+    "Размери (mm)": "220.5 x 120.25 x 41.6 mm",
+    "Слот": "PCI Express 5.0",
+    "Тегло": "1.204 kg",
+    "Тип на паметта": "GDDR7",
+    "Честота на паметта": "28 Gbps",
+    "Честота процесор (MHz)": "2497 MHz",
+    "Чипсет": "nVIDIA"
+  },
+  "dealer_price_cents": 33690,
+  "rrp_cents": 40108,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 0
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

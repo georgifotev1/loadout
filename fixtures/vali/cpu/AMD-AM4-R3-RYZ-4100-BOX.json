@@ -1,0 +1,41 @@
+{
+  "sku": "AMD-AM4-R3-RYZ-4100-BOX",
+  "manufacturer_code": "100-100000510BOX",
+  "ean": "730143314060",
+  "brand": "AMD",
+  "name": "Процесор AMD Ryzen 3 4100, AM4 Socket, 4 Cores, 8 Threads, 3.8GHz(Up to 4.0GHz), 6MB Cache, 65W, BOX",
+  "category_path": [
+    "Компютърни компоненти",
+    "Процесори",
+    "Процесори AMD"
+  ],
+  "url": "https://www.vali.bg/procesor-amd-ryzen-3-4100-am4-socket-4-cores-8-threads-38ghzup-to-40ghz-6mb-cache-65w-box",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/597B330E-A074-634E-980D-D6B3854304C7.jpg"
+  ],
+  "specs": {
+    "Turbo Boost честота": "4.0GHz",
+    "Графичен ускорител": "N/A",
+    "Кеш памет": "6 MB",
+    "Логически ядра": "8",
+    "Отключен множител": "Да",
+    "Охладител": "Да",
+    "Работна честота": "3.8 GHz",
+    "Серия процесори": "Zen2 Renoir-X",
+    "Сокет": "AM4",
+    "Тегло": "0.000 kg",
+    "Термична мощност - TDP (W)": "65 W",
+    "Технология на производството": "TSMC 7nm FinFET",
+    "Физически ядра": "4"
+  },
+  "dealer_price_cents": 5235,
+  "rrp_cents": 6233,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 3,
+    "Sofia-Central": 16
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

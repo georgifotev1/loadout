@@ -1,0 +1,41 @@
+{
+  "sku": "AMD-AM4-R5-RYZEN-5600G",
+  "manufacturer_code": "100-100000252BOX",
+  "ean": "730143313414",
+  "brand": "AMD",
+  "name": "Процесор AMD Ryzen 5 5600G, 3.9GHz(Up to 4.4GHz), 65W, AM4",
+  "category_path": [
+    "Компютърни компоненти",
+    "Процесори",
+    "Процесори AMD"
+  ],
+  "url": "https://www.vali.bg/procesor-amd-ryzen-5-5600g-39ghzup-to-44ghz-65w-am4",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/37AAB7A4-A41F-F0C3-92A3-AE46E55081EB.png"
+  ],
+  "specs": {
+    "Turbo Boost честота": "4.4 GHz",
+    "Графичен ускорител": "Radeon™ Graphics, 1900 MHz, 7 Графични ядра",
+    "Кеш памет": "20 MB",
+    "Логически ядра": "12",
+    "Отключен множител": "Да",
+    "Охладител": "Да",
+    "Работна честота": "3.9 GHz",
+    "Серия процесори": "AMD Ryzen 5",
+    "Сокет": "AM4",
+    "Тегло": "0.000 kg",
+    "Термична мощност - TDP (W)": "65 W",
+    "Технология на производството": "TSMC 7nm FinFET",
+    "Физически ядра": "6"
+  },
+  "dealer_price_cents": 15609,
+  "rrp_cents": 18583,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 24
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

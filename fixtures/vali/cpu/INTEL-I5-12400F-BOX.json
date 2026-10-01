@@ -1,0 +1,40 @@
+{
+  "sku": "INTEL-I5-12400F-BOX",
+  "manufacturer_code": "BX8071512400F",
+  "ean": "5032037237758",
+  "brand": "INTEL",
+  "name": "Процесор Intel Alder Lake Core i5-12400F, 6 Cores, 2.50 GHz, 18MB, LGA1700, 65W, BOX",
+  "category_path": [
+    "Компютърни компоненти",
+    "Процесори",
+    "Процесори INTEL"
+  ],
+  "url": "https://www.vali.bg/procesor-intel-alder-lake-core-i5-12400f-6-cores-250-ghz-18mb-lga1700-65w-box",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/F298B20B-4405-6CA1-C2B8-2774179D2D82.jpg"
+  ],
+  "specs": {
+    "Turbo Boost честота": "4.4 GHz",
+    "Кеш памет": "18 MB",
+    "Логически ядра": "12",
+    "Отключен множител": "Не",
+    "Охладител": "Да",
+    "Работна честота": "2.5 GHz",
+    "Серия процесори": "Intel Core i5",
+    "Сокет": "1700",
+    "Тегло": "0.000 kg",
+    "Термична мощност - TDP (W)": "Processor Base Power: 65 W, Maximum Turbo Power: 117 W",
+    "Технология на производството": "10 nm",
+    "Физически ядра": "6"
+  },
+  "dealer_price_cents": 12542,
+  "rrp_cents": 16080,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 15
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

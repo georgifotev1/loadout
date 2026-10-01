@@ -1,0 +1,44 @@
+{
+  "sku": "LL-CASE-GELI-963",
+  "manufacturer_code": "G99.LAN207RX.00",
+  "ean": "4718466015839",
+  "brand": "Lian-Li",
+  "name": "Кутия Lian Li LANCOOL 207 Mid-Tower, Tempered Glass, Черно",
+  "category_path": [
+    "Компютърни компоненти",
+    "Кутии за компютри",
+    "Кутии за компютри Lian-Li"
+  ],
+  "url": "https://www.vali.bg/kutiya-lian-li-lancool-207-mid-tower-tempered-glass-cherno",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/geli-963-56724409f0bbdbc4035410b6d3d55e19d314eeb1.webp"
+  ],
+  "specs": {
+    "Брой фиксирани вътрешни гнезда...": "2 x 3.5'', 2 x 2.5\"",
+    "Вентилатори": "Гор.Панел: 3 x 120 / 2 x 140 mm, Пр.Панел: 2 x 140 mm, Зад.Панел: 1 x 120 mm, Дол.Панел: 2 x 120mm",
+    "Вид кутия": "Middle Tower",
+    "Височина CPU Охладител": "до 180 mm",
+    "Включени вентилатори": "4",
+    "Гнезда": "Не",
+    "Дължина GPU": "до 375 mm",
+    "Дължина PSU": "до 160 mm",
+    "Захранващ блок": "0 W",
+    "Портове": "2 x USB 3.0, 1 x HD Audio, 1 x USB-C",
+    "Размери (mm)": "455.6 x 219 x 456 mm",
+    "Разширителни слотове": "7",
+    "Съвместимост на Радиатори": "Гор.Панел: 120/240/280/360mm",
+    "Тегло": "7.000 kg",
+    "Формат дънна платка": "ATX, Micro ATX, Mini ITX",
+    "Цвят": "Черен"
+  },
+  "dealer_price_cents": 7653,
+  "rrp_cents": 8899,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 8
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

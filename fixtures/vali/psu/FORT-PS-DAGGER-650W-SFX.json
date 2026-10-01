@@ -1,0 +1,39 @@
+{
+  "sku": "FORT-PS-DAGGER-650W-SFX",
+  "manufacturer_code": "PPA8504801",
+  "ean": "4713224522055",
+  "brand": "FSP GROUP",
+  "name": "Захранващ блок FSP Group Dagger Pro 650W SFX12V V3.3",
+  "category_path": [
+    "Компютърни компоненти",
+    "Захранвания",
+    "Захранвания FSP GROUP"
+  ],
+  "url": "https://www.vali.bg/zaxranvashh-blok-fsp-group-dagger-pro-650w-sfx12v-v33",
+  "warranty": "84 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/6AED288F-94CA-C29A-4D93-AC78EE0803B1.jpg"
+  ],
+  "specs": {
+    "PFC": "Active PFC",
+    "Входно напрежение": "200 - 240 V",
+    "Ефективност": "90 %",
+    "Конектори": "1 x 20+4 PIN, 5 x SATA, 2 x PCI-Express 6+2-pin, 2 x Molex, 1 x CPU 4+4 Pin, 1 x CPU 8 Pin, 1 x Floppy, 1 x 12VHPWR (12+4) Pin",
+    "Модулен захранващ блок": "Да",
+    "Мощност": "650 W",
+    "Размери": "100 x 125 x 63.5",
+    "Размери на вентилатора": "92 mm",
+    "Сертификати": "80 Plus Gold",
+    "Тегло": "2.320 kg",
+    "Форм фактор": "SFX"
+  },
+  "dealer_price_cents": 9432,
+  "rrp_cents": 11940,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 21
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

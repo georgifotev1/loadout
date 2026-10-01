@@ -1,0 +1,52 @@
+{
+  "sku": "GA-MB-B650M-D3HP",
+  "manufacturer_code": "B650M D3HP",
+  "ean": "4719331857851",
+  "brand": "GIGABYTE",
+  "name": "Дънна платка GIGABYTE B650M D3HP socket AM5",
+  "category_path": [
+    "Компютърни компоненти",
+    "Дънни платки",
+    "Дънни платки GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/dienna-platka-gigabyte-b650m-d3hp-socket-am5",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/CDFB6E1C-7EAE-07D0-6000-F409155CA5B3.png"
+  ],
+  "specs": {
+    "USB портове": "1 x USB 3.2 Gen2 Type-C, 3 x USB 3.2 Gen 1, 2 x USB 2.0",
+    "Брой слотове памет": "4",
+    "Вграден LAN": "1 x Realtek 2.5Gb Ethernet port",
+    "Вграден Wi-Fi и Bluetooth": "Не",
+    "Вградено аудио": "Realtek 7.1 Surround Sound High Definition Audio CODEC",
+    "Други характеристики": "",
+    "Интерфейс Serial ATA": "4 x SATA 6Gb/s",
+    "Конектор захранване": "1 x 24 pin ATX Power Connector, 1 x 8 pin 12V Power Connector",
+    "М2 слот": "1 x M.2 connector (Socket 3, M key, type 25110/2280 PCIe 4.0 x4/x2 SSD support), 1 x M.2 connector (Socket 3, M key, type 2580 PCIe 4.0 x4/x2 SSD support)",
+    "Максимален капацитет поддържана памет": "192 GB",
+    "Максимална честота памет": "7600(OC) MHz",
+    "Поддръжка на Dualchannel": "Да",
+    "Поддръжка на RAID": "0,1,10, RAID 0/1/10 for M.2 NVMe",
+    "Поддържана памет": "DDR5",
+    "Поддържани процесори": "7-мо Поколение AMD процесори",
+    "Свързаност": "1 x HDMI, 1 x Display Port, 1 x RJ-45, 1 x PS/2 Mouse/Keyboard, 3 x Audio jacks, 1 x Q-Flash Plus button",
+    "Слотoве PCI-E x1": "1",
+    "Слотoве PCI-E x16": "1 x PCIe 4.0 x16 (x16 mode)",
+    "Слотoве PCI-E x4": "",
+    "Слотове PCI-E": "",
+    "Сокет": "AM5",
+    "Тегло": "1.020 kg",
+    "Форм фактор.": "Micro ATX - 24.4 x 24.4 cm",
+    "Чипсет": "AMD B650"
+  },
+  "dealer_price_cents": 9905,
+  "rrp_cents": 12229,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 2,
+    "Sofia-Central": 23
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

@@ -1,0 +1,42 @@
+{
+  "sku": "LOGITECH-KEY-G413-SE",
+  "manufacturer_code": "920-010437",
+  "ean": "5099206097926",
+  "brand": "LOGITECH",
+  "name": "Геймърска механична клавиатура Logitech G413 SE, Tactile суичове",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски клавиатури",
+    "Геймърски клавиатури LOGITECH"
+  ],
+  "url": "https://www.vali.bg/geimierska-mexanicna-klaviatura-logitech-g413-se-tactile-suicove",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/70EE627A-6A80-C4C1-72EA-DF74A2A407B8.jpg"
+  ],
+  "specs": {
+    "LED подсветка": "Бяла",
+    "Включена мишка.": "Не",
+    "Други": "Пълен размер",
+    "Интерфейс": "USB",
+    "Макро бутони": "Не",
+    "Мултимедийни функции": "Да",
+    "Профил на бутоните": "Високо профилни",
+    "Размери": "435 х 127 х 36.3 мм",
+    "Свързване": "С кабел",
+    "Съвместимост": "PC",
+    "Тегло": "0.780 kg",
+    "Тип аксесоар.": "Gaming",
+    "Тип клавиатура": "Механична",
+    "Цвят.": "Черен"
+  },
+  "dealer_price_cents": 5976,
+  "rrp_cents": 7200,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 8
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

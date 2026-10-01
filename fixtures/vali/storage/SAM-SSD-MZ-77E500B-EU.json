@@ -1,0 +1,38 @@
+{
+  "sku": "SAM-SSD-MZ-77E500B-EU",
+  "manufacturer_code": "MZ-77E500B/EU",
+  "ean": "8806090545924",
+  "brand": "SAMSUNG",
+  "name": "SSD SAMSUNG 870 EVO SATA 2.5”, 500GB, SATA 6 Gb/s, MZ-77E500B/EU",
+  "category_path": [
+    "Компютърни компоненти",
+    "Solid State Drive (SSD) дискове",
+    "Solid State Drive (SSD) дискове SAMSUNG"
+  ],
+  "url": "https://www.vali.bg/ssd-samsung-870-evo-sata-25-500gb-sata-6-gbs-mz-77e500beu",
+  "warranty": "60 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/436F408B-D487-73D8-51FE-155DE029C9D6.jpg"
+  ],
+  "specs": {
+    "Интерфейс": "SATA III",
+    "Капацитет": "500 GB",
+    "Кеш памет": "512 MB",
+    "Размери (мм)": "100 X 69.85 X 6.8 мм",
+    "Скорост при запис (MB/s)": "530 MB/s",
+    "Скорост при четене (MB/s)": "560 MB/s",
+    "Тегло": "0.102 kg",
+    "Тип памет": "Samsung V-NAND 4bit MLC",
+    "Форм фактор": "2.5 инча",
+    "Цвят": "Черен"
+  },
+  "dealer_price_cents": 17658,
+  "rrp_cents": 21022,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 4
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

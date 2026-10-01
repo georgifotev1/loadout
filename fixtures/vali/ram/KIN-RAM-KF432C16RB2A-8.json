@@ -1,0 +1,38 @@
+{
+  "sku": "KIN-RAM-KF432C16RB2A-8",
+  "manufacturer_code": "KF432C16RB2A/8",
+  "ean": "740617338201",
+  "brand": "KINGSTON",
+  "name": "Памет Kingston FURY Renegade RGB 8GB DDR4 3200MHz CL16",
+  "category_path": [
+    "Компютърни компоненти",
+    "Памети",
+    "Памети KINGSTON"
+  ],
+  "url": "https://www.vali.bg/pamet-kingston-fury-renegade-rgb-8gb-ddr4-3200mhz-cl16",
+  "warranty": "Доживотна",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/D63B64E3-71CA-7E65-5C75-DC5DF3A9AF93.png"
+  ],
+  "specs": {
+    "LED Подсветка": "Не",
+    "Волтаж": "1.35 V",
+    "Други": "небуферирана non-ECC",
+    "Капацитет": "8 GB",
+    "Латентност": "CL16",
+    "Модули": "Single channel",
+    "Радиатор": "Да",
+    "Тегло": "0.055 kg",
+    "Тип памет": "DDR4",
+    "Честота (MHz)": "3200 MHz"
+  },
+  "dealer_price_cents": 2238,
+  "rrp_cents": 2764,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 14
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

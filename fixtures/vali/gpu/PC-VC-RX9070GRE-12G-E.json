@@ -1,0 +1,46 @@
+{
+  "sku": "PC-VC-RX9070GRE-12G-E",
+  "manufacturer_code": "RX9070GRE 12G-E/OC",
+  "ean": "4713436175995",
+  "brand": "PowerColor",
+  "name": "Видео карта PowerColor Radeon RX 9070 GRE Red Devil 12GB GDDR6",
+  "category_path": [
+    "Компютърни компоненти",
+    "Видео карти",
+    "Видео карти PowerColor"
+  ],
+  "url": "https://www.vali.bg/video-karta-powercolor-radeon-rx-9070-gre-red-devil-12gb-gddr6",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/rx-9070-gre-red-devil-01.png"
+  ],
+  "specs": {
+    "Stream процесори": "3072",
+    "Брой слотове": "Triple Slot",
+    "Вид охлаждане": "Активно, Въздушно",
+    "Видео изходи": "1 x HDMI 2.1, 3 x DisplayPort 2.1",
+    "Графичен процесор": "AMD Radeon RX 9070",
+    "Други характеристики": "OpenGL®4.6, DirectX: 12 Ultimate",
+    "Капацитет на паметта": "12 GB",
+    "Конектори за захранване": "2 x 8-pins",
+    "Макс. резолюция": "7680 x 4320",
+    "Препоръчително захранване": "750W",
+    "Размер на шината (битове)": "192 b",
+    "Размери (mm)": "340 x 132 x 69 mm",
+    "Слот": "PCI Express 5.0",
+    "Тегло": "1.214 kg",
+    "Тип на паметта": "GDDR6",
+    "Честота на паметта": "18 Gbps",
+    "Честота процесор (MHz)": "Boost 2920 MHz(OC)/ 2860 MHz(Silent)",
+    "Чипсет": "AMD"
+  },
+  "dealer_price_cents": 55216,
+  "rrp_cents": 67337,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 16
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

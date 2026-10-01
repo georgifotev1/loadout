@@ -1,0 +1,33 @@
+{
+  "sku": "STEEL-PAD-63461",
+  "manufacturer_code": "63461",
+  "ean": "5707119066365",
+  "brand": "SteelSeries",
+  "name": "Геймърски пад Steelseries QcK M - White",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски падове",
+    "Геймърски падове SteelSeries"
+  ],
+  "url": "https://www.vali.bg/geymarski-pad-steelseries-qck-m-white",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/white-buy-1-m.webp"
+  ],
+  "specs": {
+    "Размери (мм)": "320 x 270 x 2",
+    "Съвместимост": "Всички видове мишки",
+    "Тегло": "0.125 kg",
+    "Тип аксесоар": "Gaming",
+    "Цвят": "Бял"
+  },
+  "dealer_price_cents": 1170,
+  "rrp_cents": 1500,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 8
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

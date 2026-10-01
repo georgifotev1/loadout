@@ -1,0 +1,38 @@
+{
+  "sku": "KIN-RAM-KF552C36BBE-16",
+  "manufacturer_code": "KF552C36BBE-16",
+  "ean": "740617330885",
+  "brand": "KINGSTON",
+  "name": "Памет Kingston FURY Beast Black 16GB DDR5 5200MHz",
+  "category_path": [
+    "Компютърни компоненти",
+    "Памети",
+    "Памети KINGSTON"
+  ],
+  "url": "https://www.vali.bg/pamet-kingston-fury-beast-black-16gb-ddr5-5200mhz",
+  "warranty": "Доживотна",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/BC80D5A5-1B1F-E861-4980-A4EAE6ACE971.jpg"
+  ],
+  "specs": {
+    "LED Подсветка": "Не",
+    "Волтаж": "1.25 V",
+    "Други": "небуферирана non-ECC",
+    "Капацитет": "16 GB",
+    "Латентност": "CL36",
+    "Модули": "Single channel",
+    "Радиатор": "Да",
+    "Тегло": "0.062 kg",
+    "Тип памет": "DDR5",
+    "Честота (MHz)": "5200 MHz"
+  },
+  "dealer_price_cents": 4979,
+  "rrp_cents": 5659,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 22
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

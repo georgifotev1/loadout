@@ -1,0 +1,39 @@
+{
+  "sku": "END-FAN-EY3B003",
+  "manufacturer_code": "EY3B003",
+  "ean": "5903018665900",
+  "brand": "ENDORFY",
+  "name": "Охладител за процесор ENDORFY Navis F360 - Black",
+  "category_path": [
+    "Компютърни компоненти",
+    "Охладители за процесори",
+    "Охладители за процесори ENDORFY"
+  ],
+  "url": "https://www.vali.bg/ohladitel-za-procesor-endorfy-navis-f360-black",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/ey3b003-endorfy-navis-f360-01a-jpg.jpg"
+  ],
+  "specs": {
+    "Други": "",
+    "Конектор": "4-Pin (PWM)",
+    "Поток на въздух (CFM)": "56.3",
+    "Размери (mm)": "395 x 120 x 28 mm",
+    "Размери Вентилатор": "120 x 120 x 25 mm",
+    "Скорост на въртене": "200 - 1800 RPM",
+    "Скорост на помпата": "1600 - 2600 RPM",
+    "Съвместими сокети": "AM4, AM5, 1150, 1151, 1155, 1156, 2011, 2011-3, 1200, 1700, 1851",
+    "Съдържание": "Pactum PT-3 - термо паста",
+    "Тегло": "1.430 kg",
+    "Тип охлаждане": "Течност"
+  },
+  "dealer_price_cents": 6952,
+  "rrp_cents": 7900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 1
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

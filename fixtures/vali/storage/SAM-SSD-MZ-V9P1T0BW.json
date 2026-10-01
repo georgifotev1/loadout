@@ -1,0 +1,35 @@
+{
+  "sku": "SAM-SSD-MZ-V9P1T0BW",
+  "manufacturer_code": "MZ-V9P1T0BW",
+  "ean": "8806094215021",
+  "brand": "SAMSUNG",
+  "name": "SSD SAMSUNG 990 PRO, 1TB, M.2 Type 2280, MZ-V9P1T0BW",
+  "category_path": [
+    "Компютърни компоненти",
+    "Solid State Drive (SSD) дискове",
+    "Solid State Drive (SSD) дискове SAMSUNG"
+  ],
+  "url": "https://www.vali.bg/ssd-samsung-990-pro-1tb-m2-type-2280-mz-v9p1t0bw",
+  "warranty": "60 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/14E6B379-6BC9-C4CE-BA16-2712B36ECF81.jpg"
+  ],
+  "specs": {
+    "Интерфейс": "PCIe",
+    "Капацитет": "1 TB",
+    "Кеш памет": "1 GB",
+    "Скорост при запис (MB/s)": "6900 MB/s",
+    "Скорост при четене (MB/s)": "7450 MB/s",
+    "Тегло": "0.090 kg",
+    "Форм фактор": "M.2"
+  },
+  "dealer_price_cents": 18578,
+  "rrp_cents": 23819,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 14
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

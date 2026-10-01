@@ -1,0 +1,39 @@
+{
+  "sku": "CRS-PSU-9020278-EU",
+  "manufacturer_code": "CP-9020278-EU",
+  "ean": "840006670896",
+  "brand": "CORSAIR",
+  "name": "Захранващ блок Corsair CX650 650W 80+ Bronze",
+  "category_path": [
+    "Компютърни компоненти",
+    "Захранвания",
+    "Захранвания CORSAIR"
+  ],
+  "url": "https://www.vali.bg/zahranvasht-blok-corsair-cx650-650w-80-bronze",
+  "warranty": "60 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/650w-corsair-cx650-80-plus-bronze-560413.jpg"
+  ],
+  "specs": {
+    "PFC": "Active PFC",
+    "Входно напрежение": "100 - 240 V",
+    "Ефективност": "85 %",
+    "Конектори": "1 x 20+4 PIN, 3 x SATA, 2 x PCI-Express 6+2-pin, 1 x 4+4-pin ATX/EPS, 2 x Floppy",
+    "Модулен захранващ блок": "Да",
+    "Мощност": "650 W",
+    "Размери": "150 x 140 x 86",
+    "Размери на вентилатора": "120 mm",
+    "Сертификати": "80 PLUS® Bronze",
+    "Тегло": "0.840 kg",
+    "Форм фактор": "ATX"
+  },
+  "dealer_price_cents": 5316,
+  "rrp_cents": 6646,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 3
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

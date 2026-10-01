@@ -1,0 +1,52 @@
+{
+  "sku": "GA-MB-B550I-AORUS-PRO-AX",
+  "manufacturer_code": "B550I AORUS PRO AX",
+  "ean": "4719331809508",
+  "brand": "GIGABYTE",
+  "name": "Дънна платка GIGABYTE B550I AORUS PRO AX, Socket AM4",
+  "category_path": [
+    "Компютърни компоненти",
+    "Дънни платки",
+    "Дънни платки GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/dienna-platka-gigabyte-b550i-aorus-pro-ax-socket-am4",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/C154CE56-3A89-FF3F-ED69-A6C9F72E15A9.png"
+  ],
+  "specs": {
+    "USB портове": "1 x USB 3.2 Gen 2 Type-A, 4 x USB 3.2 Gen 1, USB 3.2 Gen 2 Type-C",
+    "Брой слотове памет": "2",
+    "Вграден LAN": "Intel GbE LAN chips (10/100/1000 Mbit)",
+    "Вграден Wi-Fi и Bluetooth": "Intel® Wi-Fi 6 AX200 2 x 2 Wi-Fi 6 (802.11 a/b/g/n/ac/ax) with MU-MIMO",
+    "Вградено аудио": "Realtek® ALC1220-VB",
+    "Други характеристики": "",
+    "Интерфейс Serial ATA": "4 x SATA3 6.0 Gb/s",
+    "Конектор захранване": "",
+    "М2 слот": "2 x M.2 Socket 3, with M key, type 2242/2260/2280/22110 storage devices support (both SATA & PCIE mode)",
+    "Максимален капацитет поддържана памет": "128 GB",
+    "Максимална честота памет": "5400(OC) MHz",
+    "Поддръжка на Dualchannel": "Да",
+    "Поддръжка на RAID": "0,1,10",
+    "Поддържана памет": "DDR4",
+    "Поддържани процесори": "3-то Поколение AMD, 4-то Поколение AMD, 5-то Поколение AMD",
+    "Свързаност": "2 x HDMI, 1 x Display Port, 1 x RJ-45, 3 x Audio jacks, 1 x Q-Flash Plus button, 2 x SMA antenna connectors",
+    "Слотoве PCI-E x1": "",
+    "Слотoве PCI-E x16": "1",
+    "Слотoве PCI-E x4": "",
+    "Слотове PCI-E": "",
+    "Сокет": "AM4",
+    "Тегло": "2.170 kg",
+    "Форм фактор.": "",
+    "Чипсет": "AMD B550"
+  },
+  "dealer_price_cents": 14422,
+  "rrp_cents": 17170,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 18
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

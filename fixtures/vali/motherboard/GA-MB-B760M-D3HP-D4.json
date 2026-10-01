@@ -1,0 +1,52 @@
+{
+  "sku": "GA-MB-B760M-D3HP-D4",
+  "manufacturer_code": "B760M D3HP DDR4",
+  "ean": "4719331862848",
+  "brand": "GIGABYTE",
+  "name": "Дънна платка GIGABYTE B760M D3HP DDR4 socket 1700, mATX",
+  "category_path": [
+    "Компютърни компоненти",
+    "Дънни платки",
+    "Дънни платки GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/danna-platka-gigabyte-b760m-d3hp-ddr4-socket-1700-matx",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/b760m-d3hp-ddr4-02.png"
+  ],
+  "specs": {
+    "USB портове": "3 x USB 3.2 Gen 1, 2 x USB 2.0",
+    "Брой слотове памет": "4",
+    "Вграден LAN": "10/100/1000 Mbps",
+    "Вграден Wi-Fi и Bluetooth": "Не",
+    "Вградено аудио": "Realtek AUDIO CODEC",
+    "Други характеристики": "",
+    "Интерфейс Serial ATA": "4 x SATA3 6.0 Gb/s",
+    "Конектор захранване": "1 x 24-pin Main Power connector, 1 x 8-pin +12V Power connector",
+    "М2 слот": "2 x M.2 connector (Socket 3, M key, type 2280 PCIe 4.0 x4/x2 SSD support)",
+    "Максимален капацитет поддържана памет": "128 GB",
+    "Максимална честота памет": "5333(OC) MHz",
+    "Поддръжка на Dualchannel": "Да",
+    "Поддръжка на RAID": "0, 1, 5, 10",
+    "Поддържана памет": "DDR4",
+    "Поддържани процесори": "12-то Поколение Intel, 13-то Поколение Intel, 14-то Поколение Intel",
+    "Свързаност": "1 x VGA, 1 x HDMI, 1 x Display Port, 1 x RJ-45, 1 x PS/2 Mouse/Keyboard, 3 x Audio jacks",
+    "Слотoве PCI-E x1": "2",
+    "Слотoве PCI-E x16": "1 x PCIe 4.0 x16",
+    "Слотoве PCI-E x4": "",
+    "Слотове PCI-E": "",
+    "Сокет": "1700",
+    "Тегло": "1.120 kg",
+    "Форм фактор.": "Micro ATX - 24.4 x 24.4 cm",
+    "Чипсет": "Intel B760"
+  },
+  "dealer_price_cents": 8500,
+  "rrp_cents": 10120,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 24
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

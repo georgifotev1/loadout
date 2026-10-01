@@ -1,0 +1,41 @@
+{
+  "sku": "INTEL-I5-14600K-TRAY",
+  "manufacturer_code": "INB71514600KSRN43",
+  "ean": "3807000012364",
+  "brand": "INTEL",
+  "name": "Процесор Intel Raptor Lake i5-14600K TRAY, 14 Cores, 3.5 GHz, 24MB, 125W, LGA1700",
+  "category_path": [
+    "Компютърни компоненти",
+    "Процесори",
+    "Процесори INTEL"
+  ],
+  "url": "https://www.vali.bg/procesor-intel-raptor-lake-i5-14600k-tray-14-cores-35-ghz-24mb-125w-lga1700",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/108-b5b414e2-755f-4a10-9c33-3868d12ba9c6-700x700.webp"
+  ],
+  "specs": {
+    "Turbo Boost честота": "5.3 GHz",
+    "Графичен ускорител": "Intel® UHD Graphics 770",
+    "Кеш памет": "24 MB",
+    "Логически ядра": "20",
+    "Отключен множител": "Да",
+    "Охладител": "Не",
+    "Работна честота": "3.5 GHz",
+    "Серия процесори": "Intel Core i5",
+    "Сокет": "1700",
+    "Тегло": "0.087 kg",
+    "Термична мощност - TDP (W)": "125 W",
+    "Технология на производството": "10 nm",
+    "Физически ядра": "14"
+  },
+  "dealer_price_cents": 26664,
+  "rrp_cents": 32126,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 20
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

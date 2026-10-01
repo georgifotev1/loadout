@@ -1,0 +1,38 @@
+{
+  "sku": "NOCTUA-FAN-NH-L9A-AM5",
+  "manufacturer_code": "NH-L9a-AM5",
+  "ean": "9010018000344",
+  "brand": "Noctua",
+  "name": "Охладител за процесор Noctua NH-L9A, Сокет AM5",
+  "category_path": [
+    "Компютърни компоненти",
+    "Охладители за процесори",
+    "Охладители за процесори Noctua"
+  ],
+  "url": "https://www.vali.bg/oxladitel-za-procesor-noctua-nh-l9a-soket-am5",
+  "warranty": "72 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/CC15F083-3126-DB64-0DE2-801A2B0FA69D.jpg"
+  ],
+  "specs": {
+    "Други": "",
+    "Конектор": "4-Pin (PWM)",
+    "Ниво на шум": "23.6 dBA",
+    "Поток на въздух (CFM)": "57.5",
+    "Размери (mm)": "114 x 92 x 37 mm",
+    "Размери Вентилатор": "92 x 92 x 14 mm",
+    "Скорост на въртене": "600 - 2500 RPM",
+    "Съвместими сокети": "AM5",
+    "Тегло": "0.465 kg",
+    "Тип охлаждане": "Въздух"
+  },
+  "dealer_price_cents": 4142,
+  "rrp_cents": 4932,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 21
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

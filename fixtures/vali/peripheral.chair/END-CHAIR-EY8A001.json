@@ -1,0 +1,40 @@
+{
+  "sku": "END-CHAIR-EY8A001",
+  "manufacturer_code": "EY8A001",
+  "ean": "5903018666549",
+  "brand": "ENDORFY",
+  "name": "Геймърски стол ENDORFY Scrim BK - Черен",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски столове",
+    "Геймърски столове ENDORFY"
+  ],
+  "url": "https://www.vali.bg/geymarski-stol-endorfy-scrim-bk-cheren",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/ey8a001-endorfy-scrim-bk-01a-jpg.jpg"
+  ],
+  "specs": {
+    "Височина на облегалката": "850 мм",
+    "Газов амортисьор": "Да",
+    "Дълбочина на седалката": "500 мм",
+    "Заключващ механизъм на облегалката": "да",
+    "Люлеещ механизъм": "да",
+    "Максимално тегло": "120 kg",
+    "Материал": "Изкуствена кожа, Текстил",
+    "Регулириеми подлакътници": "да",
+    "Съвместимост": "Универсален",
+    "Тегло": "27.700 kg",
+    "Цвят": "Черен, Сив",
+    "Ширина на седалката": "540 mm"
+  },
+  "dealer_price_cents": 19422,
+  "rrp_cents": 24900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 19
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

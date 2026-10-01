@@ -1,0 +1,57 @@
+{
+  "sku": "AOC-MON-25G3ZMBK",
+  "manufacturer_code": "25G3ZM/BK",
+  "ean": "4038986140911",
+  "brand": "AOC",
+  "name": "Монитор AOC 25G3ZM/BK - 24.5&quot; FHD VA, 240Hz, 0.5ms",
+  "category_path": [
+    "Монитори и дисплеи",
+    "Монитори и публични дисплеи",
+    "Монитори и публични дисплеи AOC"
+  ],
+  "url": "https://www.vali.bg/monitor-aoc-25g3zmbk-245-fhd-va-240hz-05ms",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/2212130955248.png"
+  ],
+  "specs": {
+    "USB Портове": "Не",
+    "Брой цветове": "16.7 милиона, sRGB: 108%",
+    "Вградени говорители": "2 x 2W",
+    "Видео портове": "HDMI, DisplayPort",
+    "Време за реакция": "1 ms (GTG)‎, 0.5 мс",
+    "Въртене(портрет)/Pivot": "Да",
+    "Динамичен контраст": "80 000 000:1",
+    "Допълнителни портове": "Headphone Jack",
+    "Енергиен клас": "",
+    "Консумирана мощност": "18 W",
+    "Монтиране на стена": "100 x 100 mm",
+    "Накланяне/Tilt": "+23° ~ -5°",
+    "Приложение": "Gaming",
+    "Размер на дисплея": "24.5 inch",
+    "Размери": "557.3 x 375~503 x 258.8 mm",
+    "Размери пиксел": "0.90 mm",
+    "Регулиране височина": "до 130 mm",
+    "Регулиране(ляво/дясно)/Swivel": "+30° ~ -30°",
+    "Резолюция": "1920 x 1080",
+    "Специални характеристики": "Adaptive-Sync, FreeSync Premium, Extreme Low Motion Blur",
+    "Статичен контраст": "3000:1",
+    "Тегло": "4.250 kg",
+    "Технология": "WLED",
+    "Тип на матрицата": "VA",
+    "Формат на картината": "Wide, 16:9",
+    "Цвят": "Черен, Червен",
+    "Честота на опресняване": "240 Hz",
+    "Ъгъл на видимост": "178°/178°",
+    "Яркост": "300 cd/m²"
+  },
+  "dealer_price_cents": 13572,
+  "rrp_cents": 17400,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 7
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

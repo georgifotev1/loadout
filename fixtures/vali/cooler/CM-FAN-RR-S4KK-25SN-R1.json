@@ -1,0 +1,39 @@
+{
+  "sku": "CM-FAN-RR-S4KK-25SN-R1",
+  "manufacturer_code": "RR-S4KK-25SN-R1",
+  "ean": "4719512143797",
+  "brand": "COOLER MASTER",
+  "name": "Охладител Cooler Master Hyper 212 Black",
+  "category_path": [
+    "Компютърни компоненти",
+    "Охладители за процесори",
+    "Охладители за процесори COOLER MASTER"
+  ],
+  "url": "https://www.vali.bg/ohladitel-cooler-master-hyper-212-black",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/rr-s4kk-25sn-r1.png"
+  ],
+  "specs": {
+    "Други": "",
+    "Конектор": "4-Pin (PWM)",
+    "Ниво на шум": "32 dBA",
+    "Поток на въздух (CFM)": "70.07 CFM",
+    "Размери (mm)": "125 x 74 x 152 mm",
+    "Размери Вентилатор": "120 x 120 x 25 mm",
+    "Скорост на въртене": "650-2050 RPM ± 10%, 690 - 2500 ± 10% RPM",
+    "Съвместими сокети": "AM4, AM5, 1150, 1151, 1155, 1156, 1200, 1700",
+    "Съдържание": "",
+    "Тегло": "0.212 kg",
+    "Тип охлаждане": "Въздух"
+  },
+  "dealer_price_cents": 2349,
+  "rrp_cents": 2700,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 17
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

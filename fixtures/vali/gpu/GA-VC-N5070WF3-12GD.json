@@ -1,0 +1,47 @@
+{
+  "sku": "GA-VC-N5070WF3-12GD",
+  "manufacturer_code": "GV-N5070WF3-12GD",
+  "ean": "4719331356132",
+  "brand": "GIGABYTE",
+  "name": "Видео карта GIGABYTE RTX 5070 WINDFORCE SFF 12GB GDDR7",
+  "category_path": [
+    "Компютърни компоненти",
+    "Видео карти",
+    "Видео карти GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/video-karta-gigabyte-rtx-5070-windforce-sff-12gb-gddr7",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/geforce-rtx-5070-windforce-sff-12g-07.png"
+  ],
+  "specs": {
+    "AI Производителност": "N/A",
+    "CUDA ядра": "6144",
+    "Брой слотове": "2.5 Slot",
+    "Вид охлаждане": "Активно",
+    "Видео изходи": "1 x HDMI 2.1, 3 x DisplayPort 2.1",
+    "Графичен процесор": "GeForce RTX 5070",
+    "Други характеристики": "DirectX 12 API, DLSS 4.0",
+    "Капацитет на паметта": "12 GB",
+    "Конектори за захранване": "1 x 16-pin",
+    "Макс. резолюция": "7680 x 4320",
+    "Препоръчително захранване": "750W",
+    "Размер на шината (битове)": "192 b",
+    "Размери (mm)": "282 x 110 x 50 mm",
+    "Слот": "PCI Express 5.0",
+    "Тегло": "2.400 kg",
+    "Тип на паметта": "GDDR7",
+    "Честота на паметта": "28 Gbps",
+    "Честота процесор (MHz)": "2542 MHz",
+    "Чипсет": "nVIDIA"
+  },
+  "dealer_price_cents": 53034,
+  "rrp_cents": 66293,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 3,
+    "Sofia-Central": 10
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

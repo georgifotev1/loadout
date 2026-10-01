@@ -1,0 +1,38 @@
+{
+  "sku": "ASUS-MOUSE-ROG-IMPACT-WL",
+  "manufacturer_code": "90MP03D0-BMUA00",
+  "ean": "4711387278161",
+  "brand": "ASUS",
+  "name": "Геймърска безжична мишка ASUS ROG Strix Impact III",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски мишки",
+    "Геймърски мишки ASUS"
+  ],
+  "url": "https://www.vali.bg/geymarska-bezzhichna-mishka-asus-rog-strix-impact-iii",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/p520-01.png"
+  ],
+  "specs": {
+    "Брой бутони": "5+1",
+    "Други": "70M ROG Micro Switches, Тип Батерия: AA/AAA",
+    "Размери": "120 x 62 x 39 mm",
+    "Свързване": "Безжична",
+    "Сензор": "ROG AimPoint",
+    "Съвместимост": "PC",
+    "Тегло": "0.059 kg",
+    "Тип аксесоар": "Gaming",
+    "Цвят": "Черен",
+    "Чувствителност": "36 000 DPI"
+  },
+  "dealer_price_cents": 5214,
+  "rrp_cents": 6600,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 0
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

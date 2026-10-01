@@ -1,0 +1,47 @@
+{
+  "sku": "GA-VC-N5050-OC-8GL",
+  "manufacturer_code": "GV-N5050OC-8GL",
+  "ean": "4719331356736",
+  "brand": "GIGABYTE",
+  "name": "Видео карта GIGABYTE RTX 5050 OC Low Profile 8GB GDDR6",
+  "category_path": [
+    "Компютърни компоненти",
+    "Видео карти",
+    "Видео карти GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/video-karta-gigabyte-rtx-5050-oc-low-profile-8gb-gddr6",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/geforce-rtx-5050-oc-low-profile-8g-06444.png"
+  ],
+  "specs": {
+    "AI Производителност": "N/A",
+    "CUDA ядра": "2560",
+    "Брой слотове": "2",
+    "Вид охлаждане": "Активно",
+    "Видео изходи": "2 x HDMI 2.1, 1 x DisplayPort 1.4, 1 x DisplayPort 2.1",
+    "Графичен процесор": "GeForce RTX 5050",
+    "Други характеристики": "DirectX 12 API, DLSS 4.0",
+    "Капацитет на паметта": "8 GB",
+    "Конектори за захранване": "1 x 8-pin",
+    "Макс. резолюция": "7680 x 4320",
+    "Препоръчително захранване": "550W",
+    "Размер на шината (битове)": "128 b",
+    "Размери (mm)": "182 x 69 x 36 mm",
+    "Слот": "PCI Express 5.0",
+    "Тегло": "1.204 kg",
+    "Тип на паметта": "GDDR6",
+    "Честота на паметта": "20 Gbps",
+    "Честота процесор (MHz)": "2587 MHz",
+    "Чипсет": "nVIDIA"
+  },
+  "dealer_price_cents": 36502,
+  "rrp_cents": 46798,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 14
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

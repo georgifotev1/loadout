@@ -1,0 +1,39 @@
+{
+  "sku": "LOGITECH-HEAD-G535-BL",
+  "manufacturer_code": "981-000972",
+  "ean": "5099206094772",
+  "brand": "LOGITECH",
+  "name": "Геймърски безжични слушалки Logitech G535 Lightspeed Wireless, Микрофон, Черни",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски слушалки",
+    "Геймърски слушалки LOGITECH"
+  ],
+  "url": "https://www.vali.bg/geimierski-bezzicni-slusalki-logitech-g535-lightspeed-wireless-mikrofon-cerni",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/A78C9A20-8E30-2BC8-847B-EC19DC534869.jpg"
+  ],
+  "specs": {
+    "Диаметър високоговорител (mm)": "40 мм",
+    "Интерфейс": "USB",
+    "Микрофон": "Да",
+    "Приложение": "Gaming",
+    "Съвместимост": "PC & Console",
+    "Съпротивление на слушалките (Ω)": "36 Ω",
+    "Тегло": "0.236 kg",
+    "Технология": "Безжична",
+    "Тип аксесоар": "Gaming",
+    "Цвят": "Черен",
+    "Честотен диапазон на слушалките (Hz)": "20Hz - 20 000Hz"
+  },
+  "dealer_price_cents": 8514,
+  "rrp_cents": 9900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 20
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

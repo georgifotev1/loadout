@@ -1,0 +1,35 @@
+{
+  "sku": "SAM-SSD-MZ-VAP1T0BW",
+  "manufacturer_code": "MZ-VAP1T0BW",
+  "ean": "8806095811628",
+  "brand": "SAMSUNG",
+  "name": "SSD SAMSUNG 9100 PRO 1TB, PCIe 5.0 NVMe M.2 Type 2280",
+  "category_path": [
+    "Компютърни компоненти",
+    "Solid State Drive (SSD) дискове",
+    "Solid State Drive (SSD) дискове SAMSUNG"
+  ],
+  "url": "https://www.vali.bg/ssd-samsung-9100-pro-1tb-pcie-50-nvme-m2-type-2280",
+  "warranty": "60 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/au-9100-pro-nvme-m2-ssd-mz-vap1t0bw-544968575.png"
+  ],
+  "specs": {
+    "Интерфейс": "PCIe 5.0 x4",
+    "Капацитет": "1 TB",
+    "Кеш памет": "1 GB",
+    "Скорост при запис (MB/s)": "13300 MB/s",
+    "Скорост при четене (MB/s)": "14700 MB/s",
+    "Тегло": "0.090 kg",
+    "Форм фактор": "M.2"
+  },
+  "dealer_price_cents": 22472,
+  "rrp_cents": 26438,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 2,
+    "Sofia-Central": 5
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

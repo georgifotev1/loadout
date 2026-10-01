@@ -1,0 +1,41 @@
+{
+  "sku": "STEEL-HEAD-61606",
+  "manufacturer_code": "61606",
+  "ean": "5707119043571",
+  "brand": "SteelSeries",
+  "name": "Геймърски слушалки SteelSeries Arctis Nova 1 Черно",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски слушалки",
+    "Геймърски слушалки SteelSeries"
+  ],
+  "url": "https://www.vali.bg/geimierski-slusalki-steelseries-arctis-nova-1-cerno",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/17DE69F2-4A09-01A2-7F1A-2AFAAB54869D.jpeg"
+  ],
+  "specs": {
+    "Диаметър високоговорител (mm)": "40 мм",
+    "Други": "Чувствителност: 93 dB SPL/mW",
+    "Дължина кабел (m)": "1.2m / 3m",
+    "Интерфейс": "3.5 mm комбо жак",
+    "Микрофон": "Да",
+    "Приложение": "Gaming",
+    "Съвместимост": "PC;Console;Mobile device;",
+    "Съпротивление на слушалките (Ω)": "36 Ω",
+    "Тегло": "0.700 kg",
+    "Технология": "С кабел",
+    "Тип аксесоар": "Gaming",
+    "Цвят": "Черен",
+    "Честотен диапазон на слушалките (Hz)": "20 - 22 000"
+  },
+  "dealer_price_cents": 5658,
+  "rrp_cents": 6900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 18
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

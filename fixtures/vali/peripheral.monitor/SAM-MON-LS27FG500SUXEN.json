@@ -1,0 +1,61 @@
+{
+  "sku": "SAM-MON-LS27FG500SUXEN",
+  "manufacturer_code": "LS27FG500SUXEN",
+  "ean": "8806097684039",
+  "brand": "SAMSUNG",
+  "name": "Монитор SAMSUNG Odyssey OLED G5 G50SF - 27&quot; QD-OLED WQHD(2560x1440) 180Hz, 0.03ms",
+  "category_path": [
+    "Монитори и дисплеи",
+    "Монитори и публични дисплеи",
+    "Монитори и публични дисплеи SAMSUNG"
+  ],
+  "url": "https://www.vali.bg/monitor-samsung-odyssey-oled-g5-g50sf-27-qd-oled-wqhd2560x1440-180hz-003ms",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/bg-odyssey-oled-g5-27g50sf-ls27fg500suxen-550177888.jpg"
+  ],
+  "specs": {
+    "USB Портове": "Не",
+    "Брой точки при допир": "",
+    "Брой цветове": "1.07 билиона",
+    "Вградени говорители": "Не",
+    "Видео портове": "HDMI, DisplayPort",
+    "Време за реакция": "0.03 ms (GTG)",
+    "Време за реакция (Touch System)": "",
+    "Въртене(портрет)/Pivot": "Не",
+    "Динамичен контраст": "1000000:1",
+    "Допълнителни портове": "1 x Earphone Jack",
+    "Енергиен клас": "Class G",
+    "Интерфейс за връзка": "",
+    "Консумирана мощност": "31 W",
+    "Монтиране на стена": "100 x 100 mm",
+    "Накланяне/Tilt": "Не",
+    "Приложение": "Gaming",
+    "Размер на дисплея": "27 inch",
+    "Размери": "609.9 x 463.8 x 234.5 mm",
+    "Размери пиксел": "0.229 мм",
+    "Регулиране височина": "Не",
+    "Регулиране(ляво/дясно)/Swivel": "Не",
+    "Резолюция": "2560 x 1440",
+    "Специални характеристики": "AMD FreeSync, G-SYNC Compatible, Low Blue Light, HDR10+ Gaming",
+    "Статичен контраст": "1000:1",
+    "Тегло": "4.900 kg",
+    "Технология": "Quantum Dot OLED",
+    "Тип на матрицата": "QD OLED",
+    "Тъч сензор": "",
+    "Формат на картината": "Wide",
+    "Цвят": "Сребрист",
+    "Честота на опресняване": "180 Hz",
+    "Ъгъл на видимост": "178°/178°",
+    "Яркост": "200 cd/m²"
+  },
+  "dealer_price_cents": 32215,
+  "rrp_cents": 37900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 3,
+    "Sofia-Central": 8
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

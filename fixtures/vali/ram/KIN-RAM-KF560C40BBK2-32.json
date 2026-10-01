@@ -1,0 +1,38 @@
+{
+  "sku": "KIN-RAM-KF560C40BBK2-32",
+  "manufacturer_code": "KF560C40BBK2-32",
+  "ean": "740617325690",
+  "brand": "KINGSTON",
+  "name": "Памет Kingston FURY Beast Black 32GB(2x16GB) DDR5 6000MHz KF560C40BBK2-32",
+  "category_path": [
+    "Компютърни компоненти",
+    "Памети",
+    "Памети KINGSTON"
+  ],
+  "url": "https://www.vali.bg/pamet-kingston-fury-beast-black-32gb2x16gb-ddr5-6000mhz-kf560c40bbk2-32",
+  "warranty": "Доживотна",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/E5AA2A13-10ED-1E38-C5C3-6EE014A53239.jpg"
+  ],
+  "specs": {
+    "LED Подсветка": "",
+    "Волтаж": "1.25 V",
+    "Други": "небуферирана non-ECC",
+    "Капацитет": "32 GB",
+    "Латентност": "CL40",
+    "Модули": "Dual channel",
+    "Радиатор": "Да",
+    "Тегло": "0.110 kg",
+    "Тип памет": "DDR5",
+    "Честота (MHz)": "6000 MHz"
+  },
+  "dealer_price_cents": 9773,
+  "rrp_cents": 12217,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 23
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

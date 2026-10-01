@@ -1,0 +1,38 @@
+{
+  "sku": "GA-PS-P450B",
+  "manufacturer_code": "GP-P450B",
+  "ean": "4719331551612",
+  "brand": "GIGABYTE",
+  "name": "Захранващ блок Gigabyte P450B, 450W, 80+, Bronze",
+  "category_path": [
+    "Компютърни компоненти",
+    "Захранвания",
+    "Захранвания GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/zaxranvashh-blok-gigabyte-p450b-450w-80-bronze",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/DF4F1FEE-267F-FD79-9051-C4D257633D77.png"
+  ],
+  "specs": {
+    "PFC": "Active PFC",
+    "Входно напрежение": "100 - 240 V",
+    "Ефективност": "85 %",
+    "Конектори": "1 x 20+4 PIN, 6 x SATA, 4 x PCI-Express 6+2-pin, 1 x CPU 4+4 Pin, 3 x 4 Pin Peripheral, 1 x Floppy",
+    "Модулен захранващ блок": "Не",
+    "Мощност": "450 W",
+    "Размери": "140 x 150 x 86 мм",
+    "Сертификати": "80 PLUS BRONZE",
+    "Тегло": "2.900 kg",
+    "Форм фактор": "ATX"
+  },
+  "dealer_price_cents": 4163,
+  "rrp_cents": 4956,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 2,
+    "Sofia-Central": 11
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

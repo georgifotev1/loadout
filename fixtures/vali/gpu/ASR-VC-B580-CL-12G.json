@@ -1,0 +1,45 @@
+{
+  "sku": "ASR-VC-B580-CL-12G",
+  "manufacturer_code": "B580 CL 12GO",
+  "ean": "4711581490031",
+  "brand": "ASROCK",
+  "name": "Видео карта ASRock Intel ARC B580 Challenger 12GB OC",
+  "category_path": [
+    "Компютърни компоненти",
+    "Видео карти",
+    "Видео карти ASROCK"
+  ],
+  "url": "https://www.vali.bg/video-karta-asrock-intel-arc-b580-challenger-12gb-oc",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/intel-arc-b580-challenger-12gb-ocl2.png"
+  ],
+  "specs": {
+    "Брой слотове": "Dual-slot",
+    "Вид охлаждане": "Активно, Въздушно",
+    "Видео изходи": "1 x HDMI 2.1, 3 x DisplayPort 2.0",
+    "Графичен процесор": "Intel Arc B580",
+    "Други характеристики": "OpenGL® 4.6",
+    "Капацитет на паметта": "12 GB",
+    "Конектори за захранване": "2 x 8-pin",
+    "Макс. резолюция": "7680 x 4320",
+    "Препоръчително захранване": "650W",
+    "Размер на шината (битове)": "192 b",
+    "Размери (mm)": "249 x 132 x 41 mm",
+    "Слот": "PCI Express 4.0 x16",
+    "Тегло": "0.720 kg",
+    "Тип на паметта": "GDDR6",
+    "Честота на паметта": "19 Gbps",
+    "Честота процесор (MHz)": "2740 MHz",
+    "Чипсет": "INTEL"
+  },
+  "dealer_price_cents": 31309,
+  "rrp_cents": 36406,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 20
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

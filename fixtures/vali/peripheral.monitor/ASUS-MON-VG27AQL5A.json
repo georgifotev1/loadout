@@ -1,0 +1,57 @@
+{
+  "sku": "ASUS-MON-VG27AQL5A",
+  "manufacturer_code": "90LM0BM0-B01371",
+  "ean": "4711387919149",
+  "brand": "ASUS",
+  "name": "Монитор ASUS TUF Gaming VG27AQL5A - 27&quot; Fast IPS, WQHD, 210 Hz, 1ms",
+  "category_path": [
+    "Монитори и дисплеи",
+    "Монитори и публични дисплеи",
+    "Монитори и публични дисплеи ASUS"
+  ],
+  "url": "https://www.vali.bg/monitor-asus-tuf-gaming-vg27aql5a-27-fast-ips-wqhd-210-hz-1ms",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/vg27aql5a-1.webp"
+  ],
+  "specs": {
+    "USB Портове": "1 x USB Type C",
+    "Брой цветове": "1073.7M (10bit), 95% DCI-P3, sRGB: 130%",
+    "Вградени говорители": "2 x 2W",
+    "Видео портове": "2 x HDMI, 1 x Displayport 1.4",
+    "Време за реакция": "1 ms (GTG)‎",
+    "Въртене(портрет)/Pivot": "+90° ~ -90°",
+    "Динамичен контраст": "100 000 000:1",
+    "Допълнителни портове": "1 x Earphone Jack",
+    "Енергиен клас": "Class G",
+    "Консумирана мощност": "23 W",
+    "Монтиране на стена": "100 x 100 mm",
+    "Накланяне/Tilt": "+20° ~ -5°",
+    "Приложение": "Gaming",
+    "Размер на дисплея": "27 inch",
+    "Размери": "641.8 x 512.9 x 218.8 mm",
+    "Размери пиксел": "0.233 мм",
+    "Регулиране височина": "до 130 mm",
+    "Регулиране(ляво/дясно)/Swivel": "+20° ~ -20°",
+    "Резолюция": "2560 x 1440",
+    "Специални характеристики": "HDR10, VESA Display HDR400, FreeSync Premium, Trace Free Technology, ELMB SYNC, GamePlus, HDCP, Extreme Low Motion Blur, Shadow Boost, DisplayWidget, Low Blue Light",
+    "Статичен контраст": "1000:1",
+    "Тегло": "6.900 kg",
+    "Технология": "LED/IPS",
+    "Тип на матрицата": "Fast IPS",
+    "Формат на картината": "Wide",
+    "Цвят": "Черен",
+    "Честота на опресняване": "210 Hz",
+    "Ъгъл на видимост": "178°/178°",
+    "Яркост": "400 cd/m²"
+  },
+  "dealer_price_cents": 22456,
+  "rrp_cents": 28070,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 13
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

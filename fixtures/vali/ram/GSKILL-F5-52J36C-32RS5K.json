@@ -1,0 +1,38 @@
+{
+  "sku": "GSKILL-F5-52J36C-32RS5K",
+  "manufacturer_code": "F5-5200J3636C16GX2-RS5K",
+  "ean": "4713294230874",
+  "brand": "G.Skill",
+  "name": "Памет G.SKILL Ripjaws S5 Black 32GB(2x16GB) DDR5 5200MHz F5-5200J3636C16GX2-RS5K",
+  "category_path": [
+    "Компютърни компоненти",
+    "Памети",
+    "Памети G.Skill"
+  ],
+  "url": "https://www.vali.bg/pamet-gskill-ripjaws-s5-black-32gb2x16gb-ddr5-5200mhz-f5-5200j3636c16gx2-rs5k",
+  "warranty": "Доживотна",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/15F25C72-6DD9-8CEC-A321-654E024E5828.png"
+  ],
+  "specs": {
+    "LED Подсветка": "",
+    "Волтаж": "1.2 V",
+    "Други": "небуферирана non-ECC",
+    "Капацитет": "32 GB",
+    "Латентност": "CL36",
+    "Модули": "Dual channel",
+    "Радиатор": "Да",
+    "Тегло": "0.110 kg",
+    "Тип памет": "DDR5",
+    "Честота (MHz)": "5200 MHz"
+  },
+  "dealer_price_cents": 10263,
+  "rrp_cents": 12218,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 23
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

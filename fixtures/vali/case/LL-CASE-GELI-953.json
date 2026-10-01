@@ -1,0 +1,43 @@
+{
+  "sku": "LL-CASE-GELI-953",
+  "manufacturer_code": "G99.A3X.00",
+  "ean": "4718466015624",
+  "brand": "Lian-Li",
+  "name": "Кутия Lian Li DAN A3-mATX, Micro Tower - Black",
+  "category_path": [
+    "Компютърни компоненти",
+    "Кутии за компютри",
+    "Кутии за компютри Lian-Li"
+  ],
+  "url": "https://www.vali.bg/kutiya-lian-li-dan-a3-matx-micro-tower-black",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/geli-953-04dc43c17ee9acb286cb18c54b7e630491f71249.webp"
+  ],
+  "specs": {
+    "Вентилатори": "Гор.Панел: 3 x 120 mm, Зад.Панел: 1 x 120 mm, Стр.Панел: 3 x 120mm, Дол.Панел: 3 x 120 mm",
+    "Вид кутия": "Micro-ATX Tower",
+    "Височина CPU Охладител": "до 165 mm",
+    "Включени вентилатори": "-",
+    "Гнезда": "1 x 3.5'', 3 x 2.5\"",
+    "Дължина GPU": "до 414 mm",
+    "Дължина PSU": "до 220 mm, SFX/SFX-L",
+    "Захранващ блок": "0 W",
+    "Портове": "2 x USB 3.0, 1 x USB-C, 1 x Microphone, 1 x Headphones",
+    "Размери (mm)": "443 x 194 x 321.5 mm",
+    "Разширителни слотове": "4",
+    "Съвместимост на Радиатори": "Гор.Панел: 280/360 mm, Стр.Панел: 240/280/360 mm",
+    "Тегло": "5.000 kg",
+    "Формат дънна платка": "Micro ATX, Mini ITX",
+    "Цвят": "Черен"
+  },
+  "dealer_price_cents": 5451,
+  "rrp_cents": 6900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 2,
+    "Sofia-Central": 3
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

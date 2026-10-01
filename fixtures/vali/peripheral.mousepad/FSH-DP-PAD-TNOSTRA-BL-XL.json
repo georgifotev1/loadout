@@ -1,0 +1,34 @@
+{
+  "sku": "FSH-DP-PAD-TNOSTRA-BL-XL",
+  "manufacturer_code": "DPMP_NOSTRA_BLACK_XL",
+  "ean": "5292910038173",
+  "brand": "DARK PROJECT",
+  "name": "Геймърски пад Dark Project - Nostra Black XL",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски падове",
+    "Геймърски падове DARK PROJECT"
+  ],
+  "url": "https://www.vali.bg/geymarski-pad-dark-project-nostra-black-xl",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/dpmp-nostra-black-xl-1.jpg"
+  ],
+  "specs": {
+    "Други": "Самозалепващ - Не",
+    "Размери (мм)": "900 x 400 x 4",
+    "Съвместимост": "Всички видове мишки",
+    "Тегло": "1.000 kg",
+    "Тип аксесоар": "Gaming",
+    "Цвят": "Черен"
+  },
+  "dealer_price_cents": 1711,
+  "rrp_cents": 1990,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 15
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

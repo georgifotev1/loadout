@@ -1,0 +1,41 @@
+{
+  "sku": "INTEL-ULTRA-5-245K-BOX",
+  "manufacturer_code": "BX80768245К",
+  "ean": "5032037282086",
+  "brand": "INTEL",
+  "name": "Процесор Intel Core Ultra 5 245K, 14-Core (6P+8E) 3.6 GHz, 26MB, LGA1851, BOX",
+  "category_path": [
+    "Компютърни компоненти",
+    "Процесори",
+    "Процесори INTEL"
+  ],
+  "url": "https://www.vali.bg/procesor-intel-core-ultra-5-245k-14-core-6p8e-36-ghz-26mb-lga1851-box",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/bx80768245k.jpg"
+  ],
+  "specs": {
+    "Turbo Boost честота": "5.2 GHz",
+    "Графичен ускорител": "Intel Graphics",
+    "Кеш памет": "26 MB",
+    "Логически ядра": "14",
+    "Отключен множител": "Да",
+    "Охладител": "Не",
+    "Работна честота": "3.6 GHz",
+    "Серия процесори": "Ultra 5 Серия 2",
+    "Сокет": "1851",
+    "Тегло": "0.087 kg",
+    "Термична мощност - TDP (W)": "125 W",
+    "Технология на производството": "3 nm",
+    "Физически ядра": "14"
+  },
+  "dealer_price_cents": 20481,
+  "rrp_cents": 24977,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 3,
+    "Sofia-Central": 9
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

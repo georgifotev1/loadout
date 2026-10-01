@@ -1,0 +1,37 @@
+{
+  "sku": "LOGITECH-MOUSE-G305X-BK",
+  "manufacturer_code": "910-007739",
+  "ean": "5099206134737",
+  "brand": "LOGITECH",
+  "name": "Геймърска безжична мишка Logitech G305 X Superlight - Черен",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски мишки",
+    "Геймърски мишки LOGITECH"
+  ],
+  "url": "https://www.vali.bg/geymarska-bezzhichna-mishka-logitech-g305-x-superlight-cheren",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/geyming-mishka-logitech-g305-x-superlight-bezzhichna-optichna-cherna-30.jpg"
+  ],
+  "specs": {
+    "Брой бутони": "5+1",
+    "Размери": "117.3 x 63.9 x 38.2 mm",
+    "Свързване": "Безжична",
+    "Сензор": "HERO",
+    "Съвместимост": "PC",
+    "Тегло": "0.059 kg",
+    "Тип аксесоар": "Gaming",
+    "Цвят": "Бял",
+    "Чувствителност": "44 000 dpi"
+  },
+  "dealer_price_cents": 6320,
+  "rrp_cents": 7900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 11
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

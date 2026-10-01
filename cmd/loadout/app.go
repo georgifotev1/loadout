@@ -11,9 +11,9 @@ import (
 )
 
 type application struct {
-	cfg    config.Config
-	logger *slog.Logger
-	db     *pgxpool.Pool
+	cfg          config.Config
+	logger       *slog.Logger
+	db           *pgxpool.Pool
 	shuttingDown atomic.Bool
 }
 

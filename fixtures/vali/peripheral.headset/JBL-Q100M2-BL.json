@@ -1,0 +1,42 @@
+{
+  "sku": "JBL-Q100M2-BL",
+  "manufacturer_code": "46001012",
+  "ean": "1200130015519",
+  "brand": "JBL",
+  "name": "Геймърски слушалки JBL Quantum 100M2 Black",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски слушалки",
+    "Геймърски слушалки JBL"
+  ],
+  "url": "https://www.vali.bg/geymarski-slushalki-jbl-quantum-100m2-black",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/01jbl-quantum-100m2-product-image-hero-black.png"
+  ],
+  "specs": {
+    "SURROUND 7.1 Dolby": "",
+    "Диаметър високоговорител (mm)": "50 мм",
+    "Дължина кабел (m)": "1.2 м",
+    "Интерфейс": "3.5 mm жак",
+    "Микрофон": "Да",
+    "Приложение": "Gaming",
+    "Съвместимост": "PC;MAC;Console;Mobile device;",
+    "Съпротивление на слушалките (Ω)": "32 Ω",
+    "Тегло": "0.220 kg",
+    "Технология": "С кабел",
+    "Тип аксесоар": "Gaming",
+    "Цвят": "Черен",
+    "Честотен диапазон на слушалките (Hz)": "20Hz - 20 000Hz",
+    "Чувствителност на слушалките(dB)": "96 dB SPL @1 kHz / 1mW"
+  },
+  "dealer_price_cents": 3315,
+  "rrp_cents": 3900,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 18
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

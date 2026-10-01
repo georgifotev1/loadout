@@ -1,0 +1,47 @@
+{
+  "sku": "GA-MB-B550-GAMING-X-V2",
+  "manufacturer_code": "B550 GAMING X V2",
+  "ean": "4719331810702",
+  "brand": "GIGABYTE",
+  "name": "Дънна платка GIGABYTE B550 GAMING X V2 Socket AM4, 4 x DDR4, RGB Fusion, V2 (rev. 1.0)",
+  "category_path": [
+    "Компютърни компоненти",
+    "Дънни платки",
+    "Дънни платки GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/dienna-platka-gigabyte-b550-gaming-x-v2-socket-am4-4-x-ddr4-rgb-fusion-v2-rev-10",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/415F2FC0-397D-8F55-B76E-11BA7EEFF40A.png"
+  ],
+  "specs": {
+    "Брой слотове памет": "4",
+    "Вграден LAN": "Intel GbE LAN chips (10/100/1000 Mbit)",
+    "Вградено аудио": "Realtek ALC887",
+    "Други характеристики": "",
+    "Интерфейс Serial ATA": "4 x SATA3 6.0 Gb/s",
+    "Конектор захранване": "",
+    "М2 слот": "2 x M.2 Socket 3, with M key, type 2242/2260/2280/22110 storage devices support (both SATA & PCIE mode)",
+    "Максимален капацитет поддържана памет": "128 GB",
+    "Максимална честота памет": "4733(OC) MHz",
+    "Поддръжка на Dualchannel": "Да",
+    "Поддръжка на RAID": "0,1,10",
+    "Поддържана памет": "DDR4",
+    "Поддържани процесори": "AMD Socket AM4, support for: AMD Socket AM4, support for: AMD Ryzen™ 5000 Series/ Ryzen™ 5000 G-Series/ 3rd Gen Ryzen™ and 3rd Gen Ryzen™ with Radeon™ Graphics Processors",
+    "Свързаност": "",
+    "Слотoве PCI-E x1": "2",
+    "Слотoве PCI-E x16": "2 x PCIe 4.0/3.0 x16",
+    "Сокет": "AM4",
+    "Тегло": "2.230 kg",
+    "Чипсет": "AMD B550"
+  },
+  "dealer_price_cents": 10647,
+  "rrp_cents": 12238,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 2,
+    "Sofia-Central": 24
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

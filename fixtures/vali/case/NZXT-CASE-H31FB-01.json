@@ -1,0 +1,43 @@
+{
+  "sku": "NZXT-CASE-H31FB-01",
+  "manufacturer_code": "CC-H31FB-01",
+  "ean": "5056547207988",
+  "brand": "NZXT",
+  "name": "Кутия NZXT H3 Flow 2025 Micro-ATX Tower - Black",
+  "category_path": [
+    "Компютърни компоненти",
+    "Кутии за компютри",
+    "Кутии за компютри NZXT"
+  ],
+  "url": "https://www.vali.bg/kutiya-nzxt-h3-flow-2025-micro-atx-tower-black",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/11-146-376-08.webp"
+  ],
+  "specs": {
+    "Вентилатори": "Гор.Панел: 2 x 120 / 140 mm, Пр.Панел: 2 x 120 / 140 mm, Зад.Панел: 1 x 120 mm, Дол.Панел: 2 x 120mm",
+    "Вид кутия": "Micro-ATX Tower",
+    "Височина CPU Охладител": "до 170 mm",
+    "Включени вентилатори": "1",
+    "Гнезда": "2 x 2.5\"/3.5\"",
+    "Дължина GPU": "до 375 mm",
+    "Дължина PSU": "до 185 mm",
+    "Захранващ блок": "0 W",
+    "Портове": "1 x USB 3.2 Gen 2, 1 x HD Audio, 1 x USB-C",
+    "Размери (mm)": "400 x 225 x 389 mm",
+    "Разширителни слотове": "4",
+    "Съвместимост на Радиатори": "Гор.Панел: 120/240mm, Пр.Панел: 240/280 mm",
+    "Тегло": "4.800 kg",
+    "Формат дънна платка": "Micro ATX, Mini ITX",
+    "Цвят": "Черен"
+  },
+  "dealer_price_cents": 6703,
+  "rrp_cents": 7618,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 0
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

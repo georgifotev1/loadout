@@ -1,0 +1,56 @@
+{
+  "sku": "GA-MON-GS24F14",
+  "manufacturer_code": "GS24F14",
+  "ean": "4719331877217",
+  "brand": "GIGABYTE",
+  "name": "Геймърски монитор GIGABYTE GS24F14 - 23.8&quot; SS IPS, Full HD(1920x1080), 144Hz, 1ms, AMD FreeSync",
+  "category_path": [
+    "Монитори и дисплеи",
+    "Монитори и публични дисплеи",
+    "Монитори и публични дисплеи GIGABYTE"
+  ],
+  "url": "https://www.vali.bg/geymarski-monitor-gigabyte-gs24f14-238-ss-ips-full-hd1920x1080-144hz-1ms-amd-freesync",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/gs24f14-gaming-monitor-01.png"
+  ],
+  "specs": {
+    "USB Портове": "Не",
+    "Брой цветове": "16.7 милиона, 104% sRGB, 81% DCI-P3",
+    "Вградени говорители": "Не",
+    "Видео портове": "HDMI(v1.4), 1 x Displayport 1.4",
+    "Време за реакция": "1ms MPRT",
+    "Въртене(портрет)/Pivot": "Не",
+    "Допълнителни портове": "Headphone Jack",
+    "Енергиен клас": "Class G",
+    "Консумирана мощност": "11 W",
+    "Монтиране на стена": "75 x 75 мм",
+    "Накланяне/Tilt": "-5~20‎°‎",
+    "Приложение": "Gaming",
+    "Размер на дисплея": "23.8 inch",
+    "Размери": "537.7 x 414.5 x 152 mm",
+    "Размери пиксел": "0.2745 мм",
+    "Регулиране височина": "до 130 mm",
+    "Регулиране(ляво/дясно)/Swivel": "Не",
+    "Резолюция": "1920 x 1080",
+    "Специални характеристики": "HDR10, FreeSync Premium",
+    "Статичен контраст": "1500:1",
+    "Тегло": "3.140 kg",
+    "Технология": "LED/IPS",
+    "Тип на матрицата": "IPS",
+    "Формат на картината": "Ultra wide",
+    "Цвят": "Черен",
+    "Честота на опресняване": "144 Hz",
+    "Ъгъл на видимост": "178°/178°",
+    "Яркост": "300 cd/m²"
+  },
+  "dealer_price_cents": 7598,
+  "rrp_cents": 9498,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 3
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

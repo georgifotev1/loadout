@@ -1,0 +1,38 @@
+{
+  "sku": "SS-PS-SSR-750W-CORE",
+  "manufacturer_code": "1C275GFRT3A10X",
+  "ean": "4711173878469",
+  "brand": "SEASONIC",
+  "name": "Захранващ блок Seasonic CORE GX 750W 80+ Gold, Fully Modular, ATX 3.1, PCIe 5.0",
+  "category_path": [
+    "Компютърни компоненти",
+    "Захранвания",
+    "Захранвания SEASONIC"
+  ],
+  "url": "https://www.vali.bg/zahranvasht-blok-seasonic-core-gx-750w-80-gold-fully-modular-atx-31-pcie-50",
+  "warranty": "84 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/1-core-v2-black-650-back-panel-angled-1462x1080.png"
+  ],
+  "specs": {
+    "PFC": "Active PFC",
+    "Входно напрежение": "",
+    "Ефективност": "88 %",
+    "Конектори": "1 x 20+4 PIN, 6 x SATA, 3 x PCI-Express 6+2-pin, 3 x Molex, 2 x 4+4-pin ATX/EPS, 1 x 12VHPWR (12+4) Pin",
+    "Модулен захранващ блок": "Не",
+    "Мощност": "750 W",
+    "Размери": "140 x 150 x 86 мм",
+    "Сертификати": "80 PLUS® Gold",
+    "Тегло": "1.600 kg",
+    "Форм фактор": "ATX"
+  },
+  "dealer_price_cents": 10216,
+  "rrp_cents": 11880,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 0
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

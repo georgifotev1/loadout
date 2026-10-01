@@ -1,0 +1,41 @@
+{
+  "sku": "AMD-AM5-R7-7800X3D-BOX",
+  "manufacturer_code": "100-100000910WOF",
+  "ean": "730143314930",
+  "brand": "AMD",
+  "name": "Процесор AMD RYZEN 7 7800X3D, 8-Core, 4.2 GHz, AM5",
+  "category_path": [
+    "Компютърни компоненти",
+    "Процесори",
+    "Процесори AMD"
+  ],
+  "url": "https://www.vali.bg/procesor-amd-ryzen-7-7800x3d-8-core-42-ghz-am5",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/1F72D765-1C21-EEB8-B37C-37A1B166327C.png"
+  ],
+  "specs": {
+    "Turbo Boost честота": "5.0 GHz",
+    "Графичен ускорител": "Radeon™ Graphics, 2200 MHz, 2 Графични ядра",
+    "Кеш памет": "96 MB",
+    "Логически ядра": "16",
+    "Отключен множител": "Да",
+    "Охладител": "Не",
+    "Работна честота": "4.2 GHz",
+    "Серия процесори": "Zen 4 Raphael AM5",
+    "Сокет": "AM5",
+    "Тегло": "0.000 kg",
+    "Термична мощност - TDP (W)": "120 W",
+    "Технология на производството": "5 nm",
+    "Физически ядра": "8"
+  },
+  "dealer_price_cents": 32562,
+  "rrp_cents": 40200,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 0,
+    "Sofia-Central": 16
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

@@ -1,0 +1,37 @@
+{
+  "sku": "SLP-SSD-A55M28-512GB",
+  "manufacturer_code": "SP512GBSS3A55M28",
+  "ean": "4713436121756",
+  "brand": "SILICON POWER",
+  "name": "SSD SILICON POWER A55, M.2 2280, 512 GB, SATA",
+  "category_path": [
+    "Компютърни компоненти",
+    "Solid State Drive (SSD) дискове",
+    "Solid State Drive (SSD) дискове SILICON POWER"
+  ],
+  "url": "https://www.vali.bg/ssd-silicon-power-a55-m2-2280-512-gb-sata",
+  "warranty": "36 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/1957948E-8D1B-7FD8-C1E9-725D8CB862E3.jpg"
+  ],
+  "specs": {
+    "Интерфейс": "SATA III",
+    "Капацитет": "512 GB",
+    "Размери (мм)": "80 x 22 x 3.5",
+    "Скорост при запис (MB/s)": "530 MB/s",
+    "Скорост при четене (MB/s)": "560 MB/s",
+    "Тегло": "0.008 kg",
+    "Тип памет": "SLC",
+    "Форм фактор": "M.2",
+    "Цвят": "Зелен"
+  },
+  "dealer_price_cents": 8279,
+  "rrp_cents": 10222,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 1,
+    "Sofia-Central": 20
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

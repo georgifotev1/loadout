@@ -1,0 +1,36 @@
+{
+  "sku": "LOGITE-MOUSE-G502-HERO-BK",
+  "manufacturer_code": "910-005471",
+  "ean": "5099206080270",
+  "brand": "LOGITECH",
+  "name": "Геймърска мишка Logitech G502 HERO Black",
+  "category_path": [
+    "Геймърска периферия",
+    "Геймърски мишки",
+    "Геймърски мишки LOGITECH"
+  ],
+  "url": "https://www.vali.bg/logitech-g502-hero-black-geymarska-mishka",
+  "warranty": "24 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/hero.jpg"
+  ],
+  "specs": {
+    "Брой бутони": "10+1",
+    "Размери": "132 x 75 x 40 мм",
+    "Свързване": "С кабел",
+    "Съвместимост": "PC",
+    "Тегло": "0.120 kg",
+    "Тип аксесоар": "Gaming",
+    "Цвят": "Черен",
+    "Чувствителност": "16000 dpi"
+  },
+  "dealer_price_cents": 4386,
+  "rrp_cents": 5100,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 4,
+    "Sofia-Central": 4
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

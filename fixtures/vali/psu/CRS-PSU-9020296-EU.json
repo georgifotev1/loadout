@@ -1,0 +1,39 @@
+{
+  "sku": "CRS-PSU-9020296-EU",
+  "manufacturer_code": "CP-9020296-EU",
+  "ean": "840006691204",
+  "brand": "CORSAIR",
+  "name": "Захранващ блок Corsair RM850e 850W 80+ Gold ATX 3.1, Fully Modular",
+  "category_path": [
+    "Компютърни компоненти",
+    "Захранвания",
+    "Захранвания CORSAIR"
+  ],
+  "url": "https://www.vali.bg/zahranvasht-blok-corsair-rm850e-850w-80-gold-atx-31-fully-modular",
+  "warranty": "84 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/cp-9020296-eu-1.jpg"
+  ],
+  "specs": {
+    "PFC": "Active PFC",
+    "Входно напрежение": "100 - 240 V",
+    "Ефективност": "90 %",
+    "Конектори": "1 x 20+4 PIN, 6 x SATA, 3 x PCI-Express 6+2-pin, 2 x 4+4-pin ATX/EPS, 2 x 4 Pin Peripheral, 1 x 12V-2x6",
+    "Модулен захранващ блок": "Да",
+    "Мощност": "850 W",
+    "Размери": "140 x 150 x 86",
+    "Размери на вентилатора": "135 mm",
+    "Сертификати": "80 PLUS® Gold",
+    "Тегло": "2.930 kg",
+    "Форм фактор": "ATX 3.1"
+  },
+  "dealer_price_cents": 11350,
+  "rrp_cents": 12898,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 3,
+    "Sofia-Central": 19
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}

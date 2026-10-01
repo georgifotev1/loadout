@@ -1,0 +1,38 @@
+{
+  "sku": "ARCTIC-FAN-ACFRE00123A",
+  "manufacturer_code": "ACFRE00123A",
+  "ean": "4895213704144",
+  "brand": "ARCTIC",
+  "name": "Охладител за процесор ARCTIC Freezer 36 Black - ACFRE00123A",
+  "category_path": [
+    "Компютърни компоненти",
+    "Охладители за процесори",
+    "Охладители за процесори ARCTIC"
+  ],
+  "url": "https://www.vali.bg/oxladitel-za-procesor-arctic-freezer-36-black-acfre00123a",
+  "warranty": "72 месеца",
+  "images": [
+    "https://www.vali.bg/UserFiles/Product/gallery_1/FA840DC5-D501-7FBB-E395-E06F30F26312.png"
+  ],
+  "specs": {
+    "Други": "",
+    "Конектор": "4-Pin (PWM)",
+    "Поток на въздух (CFM)": "43.7 - 55",
+    "Размери (mm)": "104 x 126 x 159 mm",
+    "Размери Вентилатор": "120 x 120 x 25 mm",
+    "Скорост на въртене": "200 - 1800 RPM",
+    "Съвместими сокети": "AM4, AM5, 1700",
+    "Съдържание": "MX-6 (0.8 g) Термо паста, 2x P12 PWM PST Вентилатори",
+    "Тегло": "0.890 kg",
+    "Тип охлаждане": "Въздух"
+  },
+  "dealer_price_cents": 3336,
+  "rrp_cents": 3835,
+  "currency": "EUR",
+  "stock": {
+    "Plovdiv": 5,
+    "Sofia-Central": 15
+  },
+  "updated_at": "2026-09-30T08:00:00Z",
+  "_mock": "Copied from the public vali.bg page on 2026-09-30. rrp_cents is the public price. dealer_price_cents, stock and updated_at are invented."
+}
