@@ -33,6 +33,24 @@ services:
       timeout: 3s
       retries: 10
 
+  # River UI: browse jobs, retry or cancel them. Shows an error until `make migrate` has created
+  # the river schema.
+  riverui:
+    image: ghcr.io/riverqueue/riverui:0.20.0
+    environment:
+      DATABASE_URL: postgres://loadout:loadout@postgres:5432/loadout?sslmode=disable
+      RIVER_SCHEMA: river
+    ports:
+      - "${RIVERUI_HOST_PORT:-8082}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # "minimal" doesn't need the database, so `make up` works before the first migrate.
+      test: ["CMD", "/bin/riverui", "-healthcheck=minimal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   postgres-data:

@@ -30,6 +30,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DB.StatementTimeout != 5*time.Second {
 		t.Errorf("DB.StatementTimeout = %s, want 5s", cfg.DB.StatementTimeout)
 	}
+	if cfg.Jobs.StopTimeout != 7*time.Second {
+		t.Errorf("Jobs.StopTimeout = %s, want 7s", cfg.Jobs.StopTimeout)
+	}
 	if cfg.Vali.URL != "http://localhost:8081" {
 		t.Errorf("Vali.URL = %q, want the local mock-vali", cfg.Vali.URL)
 	}

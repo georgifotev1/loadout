@@ -16,13 +16,15 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"github.com/gfotev/loadout/internal/platform/db"
+	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/migrations"
 )
 
 // Image matches deploy/compose so tests run against the same Postgres as local dev.
 const Image = "postgres:17.11-alpine"
 
-// New starts Postgres, applies every migration and returns a pool. Skipped under -short.
+// New starts Postgres, applies every migration (ours and River's) and returns a pool. Skipped
+// under -short.
 func New(t testing.TB) *pgxpool.Pool {
 	t.Helper()
 	if testing.Short() {
@@ -57,6 +59,9 @@ func New(t testing.TB) *pgxpool.Pool {
 	}
 	defer m.Close()
 	if err := m.Up(ctx, io.Discard); err != nil {
+		t.Fatalf("dbtest: %v", err)
+	}
+	if err := jobs.MigrateUp(ctx, pool, io.Discard); err != nil {
 		t.Fatalf("dbtest: %v", err)
 	}
 	return pool

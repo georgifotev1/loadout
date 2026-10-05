@@ -6,9 +6,11 @@ import (
 	"sync/atomic"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/config"
+	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/specs"
 )
 
@@ -18,17 +20,29 @@ type application struct {
 	db           *pgxpool.Pool
 	catalog      *catalog.Service
 	specs        *specs.Service
+	jobs         *jobs.Client
 	shuttingDown atomic.Bool
 }
 
-// serve runs the HTTP API until ctx is cancelled, then drains and returns.
+// serve runs the HTTP API and the job workers until ctx is cancelled, then drains both and
+// returns. If either fails, the other is shut down too: an instance that serves requests but
+// silently stopped working jobs (or the other way round) is worse than one that exits.
 func (app *application) serve(ctx context.Context) error {
-	return runServer(ctx, serverConfig{
-		Addr:            app.cfg.HTTP.Addr,
-		Handler:         app.routes(),
-		Logger:          app.logger,
-		ShutdownTimeout: app.cfg.HTTP.ShutdownTimeout,
-		DrainDelay:      app.cfg.HTTP.DrainDelay,
-		BeforeShutdown:  func() { app.shuttingDown.Store(true) },
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return runServer(ctx, serverConfig{
+			Addr:            app.cfg.HTTP.Addr,
+			Handler:         app.routes(),
+			Logger:          app.logger,
+			ShutdownTimeout: app.cfg.HTTP.ShutdownTimeout,
+			DrainDelay:      app.cfg.HTTP.DrainDelay,
+			BeforeShutdown:  func() { app.shuttingDown.Store(true) },
+		})
 	})
+	if app.jobs.Working() {
+		g.Go(func() error {
+			return app.jobs.Run(ctx)
+		})
+	}
+	return g.Wait()
 }

@@ -14,8 +14,7 @@ import (
 )
 
 // Migrator runs goose migrations from an fs.FS (the app passes the embedded /migrations).
-//
-// TODO(phase-3): also run River's migrations from `loadout migrate up`.
+// River's own migrations are separate: see jobs.MigrateUp.
 type Migrator struct {
 	sqlDB    *sql.DB
 	provider *goose.Provider

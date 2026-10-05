@@ -15,7 +15,7 @@ LDFLAGS := -X main.version=$(VERSION)
 help:
 	@grep -E '^## ' $(MAKEFILE_LIST) | sed -e 's/^## //' | column -t -s ':'
 
-## up: start local infrastructure (Postgres, Mailpit) and wait until it is healthy
+## up: start local infrastructure (Postgres, Mailpit, River UI on :8082) and wait until it is healthy
 .PHONY: up
 up:
 	$(COMPOSE) up -d --wait
@@ -55,7 +55,7 @@ web:
 mock-vali:
 	go run ./cmd/mock-vali $(args)
 
-## migrate: apply pending migrations (make migrate cmd=down|status for the others)
+## migrate: apply pending migrations, ours and River's (make migrate cmd=down|status for the others)
 .PHONY: migrate
 migrate:
 	go run ./cmd/loadout migrate $(or $(cmd),up)

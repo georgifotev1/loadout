@@ -14,6 +14,7 @@ import (
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/db"
+	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/platform/obs"
 	"github.com/gfotev/loadout/internal/specs"
 	"github.com/gfotev/loadout/internal/vali"
@@ -27,7 +28,8 @@ const usage = `usage: loadout <command> [args]
 
 commands:
   serve                     run the HTTP API
-  migrate up|down|status    manage the database schema
+  migrate up|down|status    manage the database schema (up also applies River's migrations;
+                            down only rolls back our own)
   sync                      pull products from the supplier (Vali, VALI_URL) into the catalog
   version                   print the version
 `
@@ -86,12 +88,22 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 
 	switch cmd {
 	case "serve":
+		// TODO(phase-3): register the vali_sync worker and its queue here; until then the client
+		// is insert-only and serve doesn't work jobs.
+		jobsClient, err := jobs.New(pool, jobs.Config{
+			Logger:      logger.With("component", "jobs"),
+			StopTimeout: cfg.Jobs.StopTimeout,
+		})
+		if err != nil {
+			return err
+		}
 		app := &application{
 			cfg:     cfg,
 			logger:  logger,
 			db:      pool,
 			catalog: catalogSvc,
 			specs:   specsSvc,
+			jobs:    jobsClient,
 		}
 		return app.serve(ctx)
 	case "migrate":
@@ -126,11 +138,18 @@ func migrate(ctx context.Context, pool *pgxpool.Pool, args []string, stdout io.W
 
 	switch args[0] {
 	case "up":
-		return m.Up(ctx, stdout)
+		if err := m.Up(ctx, stdout); err != nil {
+			return err
+		}
+		return jobs.MigrateUp(ctx, pool, stdout)
 	case "down":
+		// River's schema isn't ours to roll back step by step; its CLI (`river migrate-down`) can.
 		return m.Down(ctx, stdout)
 	case "status":
-		return m.Status(ctx, stdout)
+		if err := m.Status(ctx, stdout); err != nil {
+			return err
+		}
+		return jobs.Status(ctx, pool, stdout)
 	default:
 		return fmt.Errorf("%w: unknown migrate command %q", errUsage, args[0])
 	}

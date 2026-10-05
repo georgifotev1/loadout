@@ -42,6 +42,13 @@ type Config struct {
 		StatementTimeout time.Duration
 	}
 
+	Jobs struct {
+		// StopTimeout is how long running jobs get to finish after SIGTERM before they are
+		// cancelled (and retried later). It runs alongside the HTTP shutdown, and the hard stop
+		// after it takes up to 1s more, so keep it under Cloud Run's 10s.
+		StopTimeout time.Duration
+	}
+
 	Vali struct {
 		// URL is the supplier API that `loadout sync` pulls products from. Until the dealership
 		// is signed it's cmd/mock-vali (http://localhost:8081 by default in development).
@@ -83,6 +90,8 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	cfg.DB.MaxConns = int32(integer(getenv, "DATABASE_MAX_CONNS", 10, &errs))
 	cfg.DB.StatementTimeout = duration(getenv, "DATABASE_STATEMENT_TIMEOUT", 5*time.Second, &errs)
+
+	cfg.Jobs.StopTimeout = duration(getenv, "JOBS_STOP_TIMEOUT", 7*time.Second, &errs)
 
 	// No default in production: syncing from localhost there would be a silent mistake.
 	defaultValiURL := ""
