@@ -10,33 +10,132 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PreviewRouteRouteImport } from './routes/preview/route'
+import { Route as PreviewIndexRouteImport } from './routes/preview/index'
+import { Route as PreviewCartRouteImport } from './routes/preview/cart'
+import { Route as PreviewCategoryRouteImport } from './routes/preview/category'
+import { Route as PreviewCheckoutRouteImport } from './routes/preview/checkout'
+import { Route as PreviewConfirmationRouteImport } from './routes/preview/confirmation'
+import { Route as PreviewHomeRouteImport } from './routes/preview/home'
+import { Route as PreviewProductRouteImport } from './routes/preview/product'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PreviewRouteRoute = PreviewRouteRouteImport.update({
+  id: '/preview',
+  path: '/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PreviewIndexRoute = PreviewIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PreviewRouteRoute,
+} as any)
+const PreviewCartRoute = PreviewCartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => PreviewRouteRoute,
+} as any)
+const PreviewCategoryRoute = PreviewCategoryRouteImport.update({
+  id: '/category',
+  path: '/category',
+  getParentRoute: () => PreviewRouteRoute,
+} as any)
+const PreviewCheckoutRoute = PreviewCheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => PreviewRouteRoute,
+} as any)
+const PreviewConfirmationRoute = PreviewConfirmationRouteImport.update({
+  id: '/confirmation',
+  path: '/confirmation',
+  getParentRoute: () => PreviewRouteRoute,
+} as any)
+const PreviewHomeRoute = PreviewHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => PreviewRouteRoute,
+} as any)
+const PreviewProductRoute = PreviewProductRouteImport.update({
+  id: '/product',
+  path: '/product',
+  getParentRoute: () => PreviewRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/preview': typeof PreviewRouteRouteWithChildren
+  '/preview/cart': typeof PreviewCartRoute
+  '/preview/category': typeof PreviewCategoryRoute
+  '/preview/checkout': typeof PreviewCheckoutRoute
+  '/preview/confirmation': typeof PreviewConfirmationRoute
+  '/preview/home': typeof PreviewHomeRoute
+  '/preview/product': typeof PreviewProductRoute
+  '/preview/': typeof PreviewIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/preview/cart': typeof PreviewCartRoute
+  '/preview/category': typeof PreviewCategoryRoute
+  '/preview/checkout': typeof PreviewCheckoutRoute
+  '/preview/confirmation': typeof PreviewConfirmationRoute
+  '/preview/home': typeof PreviewHomeRoute
+  '/preview/product': typeof PreviewProductRoute
+  '/preview': typeof PreviewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/preview': typeof PreviewRouteRouteWithChildren
+  '/preview/cart': typeof PreviewCartRoute
+  '/preview/category': typeof PreviewCategoryRoute
+  '/preview/checkout': typeof PreviewCheckoutRoute
+  '/preview/confirmation': typeof PreviewConfirmationRoute
+  '/preview/home': typeof PreviewHomeRoute
+  '/preview/product': typeof PreviewProductRoute
+  '/preview/': typeof PreviewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/preview'
+    | '/preview/cart'
+    | '/preview/category'
+    | '/preview/checkout'
+    | '/preview/confirmation'
+    | '/preview/home'
+    | '/preview/product'
+    | '/preview/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/preview/cart'
+    | '/preview/category'
+    | '/preview/checkout'
+    | '/preview/confirmation'
+    | '/preview/home'
+    | '/preview/product'
+    | '/preview'
+  id:
+    | '__root__'
+    | '/'
+    | '/preview'
+    | '/preview/cart'
+    | '/preview/category'
+    | '/preview/checkout'
+    | '/preview/confirmation'
+    | '/preview/home'
+    | '/preview/product'
+    | '/preview/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PreviewRouteRoute: typeof PreviewRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +147,92 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/preview': {
+      id: '/preview'
+      path: '/preview'
+      fullPath: '/preview'
+      preLoaderRoute: typeof PreviewRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/preview/': {
+      id: '/preview/'
+      path: '/'
+      fullPath: '/preview/'
+      preLoaderRoute: typeof PreviewIndexRouteImport
+      parentRoute: typeof PreviewRouteRoute
+    }
+    '/preview/cart': {
+      id: '/preview/cart'
+      path: '/cart'
+      fullPath: '/preview/cart'
+      preLoaderRoute: typeof PreviewCartRouteImport
+      parentRoute: typeof PreviewRouteRoute
+    }
+    '/preview/category': {
+      id: '/preview/category'
+      path: '/category'
+      fullPath: '/preview/category'
+      preLoaderRoute: typeof PreviewCategoryRouteImport
+      parentRoute: typeof PreviewRouteRoute
+    }
+    '/preview/checkout': {
+      id: '/preview/checkout'
+      path: '/checkout'
+      fullPath: '/preview/checkout'
+      preLoaderRoute: typeof PreviewCheckoutRouteImport
+      parentRoute: typeof PreviewRouteRoute
+    }
+    '/preview/confirmation': {
+      id: '/preview/confirmation'
+      path: '/confirmation'
+      fullPath: '/preview/confirmation'
+      preLoaderRoute: typeof PreviewConfirmationRouteImport
+      parentRoute: typeof PreviewRouteRoute
+    }
+    '/preview/home': {
+      id: '/preview/home'
+      path: '/home'
+      fullPath: '/preview/home'
+      preLoaderRoute: typeof PreviewHomeRouteImport
+      parentRoute: typeof PreviewRouteRoute
+    }
+    '/preview/product': {
+      id: '/preview/product'
+      path: '/product'
+      fullPath: '/preview/product'
+      preLoaderRoute: typeof PreviewProductRouteImport
+      parentRoute: typeof PreviewRouteRoute
+    }
   }
 }
 
+interface PreviewRouteRouteChildren {
+  PreviewCartRoute: typeof PreviewCartRoute
+  PreviewCategoryRoute: typeof PreviewCategoryRoute
+  PreviewCheckoutRoute: typeof PreviewCheckoutRoute
+  PreviewConfirmationRoute: typeof PreviewConfirmationRoute
+  PreviewHomeRoute: typeof PreviewHomeRoute
+  PreviewProductRoute: typeof PreviewProductRoute
+  PreviewIndexRoute: typeof PreviewIndexRoute
+}
+
+const PreviewRouteRouteChildren: PreviewRouteRouteChildren = {
+  PreviewCartRoute: PreviewCartRoute,
+  PreviewCategoryRoute: PreviewCategoryRoute,
+  PreviewCheckoutRoute: PreviewCheckoutRoute,
+  PreviewConfirmationRoute: PreviewConfirmationRoute,
+  PreviewHomeRoute: PreviewHomeRoute,
+  PreviewProductRoute: PreviewProductRoute,
+  PreviewIndexRoute: PreviewIndexRoute,
+}
+
+const PreviewRouteRouteWithChildren = PreviewRouteRoute._addFileChildren(
+  PreviewRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PreviewRouteRoute: PreviewRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
