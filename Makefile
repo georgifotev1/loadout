@@ -96,7 +96,7 @@ test:
 test-short:
 	go test -short ./...
 
-## audit: format check, vet, staticcheck, tests, and web lint/typecheck/test
+## audit: format check, vet, staticcheck, tests, and web check (lint + format)/typecheck/test
 .PHONY: audit
 audit:
 	@echo "==> gen-check"
@@ -112,6 +112,6 @@ audit:
 	@echo "==> go test"
 	go test -race ./...
 	@echo "==> web"
-	pnpm -C web lint
+	pnpm -C web check
 	pnpm -C web typecheck
 	pnpm -C web test
