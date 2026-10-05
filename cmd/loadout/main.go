@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
 
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/config"
@@ -88,10 +89,17 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 
 	switch cmd {
 	case "serve":
-		// TODO(phase-3): register the vali_sync worker and its queue here; until then the client
-		// is insert-only and serve doesn't work jobs.
+		workers := river.NewWorkers()
+		river.AddWorker(workers, catalog.NewSyncWorker(catalogSvc))
 		jobsClient, err := jobs.New(pool, jobs.Config{
-			Logger:      logger.With("component", "jobs"),
+			Logger:  logger.With("component", "jobs"),
+			Workers: workers,
+			Queues: map[string]river.QueueConfig{
+				jobs.QueueSync: {MaxWorkers: 1},
+			},
+			PeriodicJobs: []*river.PeriodicJob{
+				catalog.PeriodicSync(),
+			},
 			StopTimeout: cfg.Jobs.StopTimeout,
 		})
 		if err != nil {

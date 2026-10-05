@@ -23,6 +23,9 @@ import (
 // sharing public.
 const Schema = "river"
 
+// QueueSync runs supplier syncs, one at a time.
+const QueueSync = "sync"
+
 // hardStopTimeout is how long jobs get to return after their context is cancelled at shutdown.
 const hardStopTimeout = time.Second
 
