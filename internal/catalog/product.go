@@ -1,5 +1,5 @@
-// Package catalog owns products, prices, stock, markup rules and the Vali sync. Other modules
-// reach this data only through the Service (added with the sync); the store is unexported.
+// Package catalog owns products, prices, stock, markup rules and the supplier sync. Other modules
+// reach this data only through the Service; the store is unexported.
 package catalog
 
 import (
@@ -22,34 +22,28 @@ var (
 	ErrSyncRunNotRunning = errors.New("catalog: sync run not found or already finished")
 )
 
-// Product is a catalog product as we store it: Vali's content plus our own flags. Prices and
-// stock live in their own tables because they change far more often than the content.
+// Product is a catalog product as we store it: the supplier's content plus our own state.
+// Prices and stock live in their own tables because they change far more often than the content.
 type Product struct {
 	ID             uuid.UUID
-	Provider       Provider
+	Provider       string // the supplier.Source it came from: "vali"
 	ProviderSKU    string // unique only within Provider
-	EAN            string
-	MPN            string
-	Brand          string
 	Name           string
+	Brand          string
 	Slug           string
 	Category       string
-	URL            string
-	RawSpecs       map[string]string
+	Attributes     map[string]string // the supplier's spec rows, for display
 	Images         []string
-	WarrantyMonths *int // nil = lifetime or unknown
-	WarrantyText   string
-	RawHash        string
+	ContentHash    string
 	CommercialHash string
 	MissingRuns    int
 	Active         bool
-	Featured       bool
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
 
 // Categories are the canonical product categories. Suppliers' own category trees are mapped
-// onto these by their adapters.
+// onto these by their adapters (internal/vali).
 var Categories = []string{
 	"cpu",
 	"motherboard",
@@ -72,16 +66,10 @@ func IsCategory(c string) bool {
 	return slices.Contains(Categories, c)
 }
 
-// Provider is the supplier a product comes from.
-type Provider string
-
-const ProviderVali Provider = "vali"
-
 // Price is a product's current price. All amounts are euro cents and include VAT.
 type Price struct {
 	ProductID   uuid.UUID
 	DealerCents money.Cents
-	RRPCents    money.Cents
 	RetailCents money.Cents
 	VATbp       int    // 2000 = 20%
 	RuleID      *int64 // the markup rule that produced RetailCents; nil if it was deleted
@@ -132,7 +120,7 @@ const (
 	SyncFailed    SyncStatus = "failed"
 )
 
-// SyncRun records one Vali sync.
+// SyncRun records one supplier sync.
 type SyncRun struct {
 	ID           int64
 	StartedAt    time.Time
@@ -152,7 +140,7 @@ type ProductSummary struct {
 	Category    string
 	Image       string // the first image, "" if there is none
 	RetailCents money.Cents
-	StockQty    int // total over all warehouses
+	StockQty    int
 }
 
 // ProductDetail is everything the product page shows. It has the retail price only: the dealer
@@ -160,7 +148,8 @@ type ProductSummary struct {
 type ProductDetail struct {
 	Product
 	RetailCents money.Cents
-	StockQty    int // total over all warehouses
+	StockQty    int
+	Specs       map[string]any // canonical specs with an approved value; empty if none
 }
 
 // ProductPage is one page of a product listing.

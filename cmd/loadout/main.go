@@ -15,6 +15,7 @@ import (
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/obs"
+	"github.com/gfotev/loadout/internal/specs"
 	"github.com/gfotev/loadout/internal/vali"
 	"github.com/gfotev/loadout/migrations"
 )
@@ -27,7 +28,7 @@ const usage = `usage: loadout <command> [args]
 commands:
   serve                     run the HTTP API
   migrate up|down|status    manage the database schema
-  sync                      pull products from Vali (VALI_URL) into the catalog
+  sync                      pull products from the supplier (Vali, VALI_URL) into the catalog
   version                   print the version
 `
 
@@ -79,8 +80,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	defer pool.Close()
 
-	// ASSUMPTION: mock-vali until the dealership is signed; the real client replaces it here.
-	catalogSvc := catalog.NewService(pool, vali.NewMockClient(cfg.Vali.URL, nil), logger)
+	specsSvc := specs.NewService(pool)
+	// TODO(vali-api): mock-vali until the dealership is signed; the real client replaces it here.
+	catalogSvc := catalog.NewService(pool, vali.NewMockClient(cfg.Vali.URL, nil), specsSvc, logger)
 
 	switch cmd {
 	case "serve":
@@ -89,6 +91,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			logger:  logger,
 			db:      pool,
 			catalog: catalogSvc,
+			specs:   specsSvc,
 		}
 		return app.serve(ctx)
 	case "migrate":

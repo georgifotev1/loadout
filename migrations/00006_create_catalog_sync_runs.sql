@@ -1,5 +1,5 @@
 -- +goose Up
--- One row per Vali sync run, for the admin dashboard and for spotting failing syncs.
+-- One row per supplier sync run, for the admin dashboard and for spotting failing syncs.
 CREATE TABLE catalog.sync_runs (
     id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     started_at    timestamptz NOT NULL DEFAULT now(),

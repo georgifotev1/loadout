@@ -3,7 +3,6 @@ package catalog
 import (
 	"context"
 	"errors"
-	"maps"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,17 +13,15 @@ import (
 
 func testProduct() Product {
 	return Product{
-		Provider:       ProviderVali,
+		Provider:       "vali",
 		ProviderSKU:    "AMD-AM4-R3-RYZ-4100-BOX",
-		MPN:            "100-100000510BOX",
 		Brand:          "AMD",
 		Name:           "Процесор AMD Ryzen 3 4100",
 		Slug:           "amd-ryzen-3-4100",
 		Category:       "cpu",
-		RawSpecs:       map[string]string{"Сокет": "AM4"},
+		Attributes:     map[string]string{"Сокет": "AM4"},
 		Images:         []string{"https://www.vali.bg/a.jpg"},
-		WarrantyText:   "36 месеца",
-		RawHash:        "raw-1",
+		ContentHash:    "content-1",
 		CommercialHash: "com-1",
 	}
 }
@@ -57,11 +54,8 @@ func TestUpsertProduct(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.ID != id || got.RawSpecs["Сокет"] != "AM4" || len(got.Images) != 1 || !got.Active {
+		if got.ID != id || got.Attributes["Сокет"] != "AM4" || len(got.Images) != 1 || !got.Active {
 			t.Errorf("read back %+v", got)
-		}
-		if got.EAN != "" || got.WarrantyMonths != nil {
-			t.Errorf("empty optional fields: ean=%q warranty_months=%v", got.EAN, got.WarrantyMonths)
 		}
 	})
 
@@ -102,7 +96,7 @@ func TestUpsertProduct(t *testing.T) {
 
 	t.Run("either hash changing updates the row", func(t *testing.T) {
 		for name, change := range map[string]func(*Product){
-			"content":    func(p *Product) { p.RawHash = "raw-2"; p.Name = "Ryzen 3 4100 (new name)" },
+			"content":    func(p *Product) { p.ContentHash = "content-2"; p.Name = "Ryzen 3 4100 (new name)" },
 			"commercial": func(p *Product) { p.CommercialHash = "com-2" },
 		} {
 			t.Run(name, func(t *testing.T) {
@@ -119,7 +113,7 @@ func TestUpsertProduct(t *testing.T) {
 					t.Fatalf("written=%v id=%v, want an update of %v", written, id, first)
 				}
 				got, _ := s.productBySlug(ctx, pool, p.Slug)
-				if got.Name != p.Name || got.RawHash != p.RawHash || got.CommercialHash != p.CommercialHash {
+				if got.Name != p.Name || got.ContentHash != p.ContentHash || got.CommercialHash != p.CommercialHash {
 					t.Errorf("not updated: %+v", got)
 				}
 				if !got.UpdatedAt.After(got.CreatedAt) {
@@ -129,24 +123,17 @@ func TestUpsertProduct(t *testing.T) {
 		}
 	})
 
-	t.Run("update keeps slug and featured", func(t *testing.T) {
+	t.Run("update keeps the slug", func(t *testing.T) {
 		reset(t)
 		mustUpsert(t, s, pool, testProduct())
-		if _, err := pool.Exec(ctx, `UPDATE catalog.products SET featured = true`); err != nil {
-			t.Fatal(err)
-		}
 
 		p := testProduct()
 		p.Slug = "something-else"
-		p.RawHash = "raw-2"
+		p.ContentHash = "content-2"
 		mustUpsert(t, s, pool, p)
 
-		got, err := s.productBySlug(ctx, pool, "amd-ryzen-3-4100")
-		if err != nil {
+		if _, err := s.productBySlug(ctx, pool, "amd-ryzen-3-4100"); err != nil {
 			t.Fatalf("original slug: %v", err)
-		}
-		if !got.Featured {
-			t.Error("featured was reset by sync")
 		}
 	})
 
@@ -184,7 +171,7 @@ func TestPrices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	price := Price{ProductID: productID, DealerCents: 5235, RRPCents: 6233, RetailCents: 6282, VATbp: 2000, RuleID: &ruleID}
+	price := Price{ProductID: productID, DealerCents: 5235, RetailCents: 6282, VATbp: 2000, RuleID: &ruleID}
 
 	if written, err := s.upsertPrice(ctx, pool, price); err != nil || !written {
 		t.Fatalf("first upsert: written=%v err=%v", written, err)
@@ -233,7 +220,7 @@ func TestPrices(t *testing.T) {
 	})
 }
 
-func TestReplaceStock(t *testing.T) {
+func TestSetStock(t *testing.T) {
 	pool := dbtest.New(t)
 	ctx := context.Background()
 	var s store
@@ -241,31 +228,32 @@ func TestReplaceStock(t *testing.T) {
 
 	steps := []struct {
 		name        string
-		qty         map[string]int
-		wantChanged int64
+		qty         int
+		wantChanged bool
 	}{
-		{"initial", map[string]int{"Sofia-Central": 16, "Plovdiv": 3}, 2},
-		{"unchanged writes nothing", map[string]int{"Sofia-Central": 16, "Plovdiv": 3}, 0},
-		{"one qty changes", map[string]int{"Sofia-Central": 15, "Plovdiv": 3}, 1},
-		{"warehouse disappears, another appears", map[string]int{"Sofia-Central": 15, "Varna": 1}, 2},
-		{"no stock anywhere", map[string]int{}, 2},
+		{"initial", 19, true},
+		{"unchanged writes nothing", 19, false},
+		{"qty changes", 18, true},
+		{"none left", 0, true},
 	}
 	for _, st := range steps {
-		n, err := s.replaceStock(ctx, pool, productID, st.qty)
+		changed, err := s.setStock(ctx, pool, productID, st.qty)
 		if err != nil {
 			t.Fatalf("%s: %v", st.name, err)
 		}
-		if n != st.wantChanged {
-			t.Errorf("%s: changed %d rows, want %d", st.name, n, st.wantChanged)
+		if changed != st.wantChanged {
+			t.Errorf("%s: changed = %v, want %v", st.name, changed, st.wantChanged)
 		}
-		got, err := s.stockByProduct(ctx, pool, productID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !maps.Equal(got, st.qty) {
-			t.Errorf("%s: stock = %v, want %v", st.name, got, st.qty)
+		if got, err := s.stockByProduct(ctx, pool, productID); err != nil || got != st.qty {
+			t.Errorf("%s: stock = %d, %v; want %d", st.name, got, err, st.qty)
 		}
 	}
+
+	t.Run("rejects negative stock", func(t *testing.T) {
+		if _, err := s.setStock(ctx, pool, productID, -1); err == nil {
+			t.Error("want a CHECK violation")
+		}
+	})
 }
 
 func TestMarkupRules(t *testing.T) {

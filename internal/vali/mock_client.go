@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gfotev/loadout/internal/supplier"
 )
 
 const (
@@ -21,8 +23,9 @@ const (
 	firstBackoff = 250 * time.Millisecond
 )
 
-// MockClient talks to cmd/mock-vali over HTTP. It's the Client until the real dealer API is
-// known; everything it assumes about the wire format is marked ASSUMPTION in mock-vali.
+// MockClient is the supplier.Source for Vali until the real dealer API is known: it talks to
+// cmd/mock-vali over HTTP. Everything it assumes about the wire format is marked ASSUMPTION in
+// mock-vali.
 type MockClient struct {
 	baseURL string
 	http    *http.Client
@@ -44,17 +47,27 @@ type page struct {
 	NextPage *int         `json:"next_page"` // null on the last page
 }
 
-func (c *MockClient) ListProducts(ctx context.Context, since time.Time) iter.Seq2[RawProduct, error] {
-	return func(yield func(RawProduct, error) bool) {
+var _ supplier.Source = (*MockClient)(nil)
+
+func (c *MockClient) Name() string { return Name }
+
+// Products pages through the whole catalog. A product that can't be mapped is yielded as a
+// *supplier.ItemError and the listing carries on.
+func (c *MockClient) Products(ctx context.Context) iter.Seq2[supplier.Product, error] {
+	return func(yield func(supplier.Product, error) bool) {
 		next := 1
 		for {
-			pg, err := c.fetchPage(ctx, since, next)
+			pg, err := c.fetchPage(ctx, next)
 			if err != nil {
-				yield(RawProduct{}, err)
+				yield(supplier.Product{}, err)
 				return
 			}
-			for _, p := range pg.Products {
-				if !yield(p, nil) {
+			for _, raw := range pg.Products {
+				p, err := toProduct(raw)
+				if err != nil {
+					err = &supplier.ItemError{SKU: raw.SKU, Err: err}
+				}
+				if !yield(p, err) {
 					return
 				}
 			}
@@ -67,13 +80,10 @@ func (c *MockClient) ListProducts(ctx context.Context, since time.Time) iter.Seq
 }
 
 // fetchPage gets one page, retrying network errors and 5xx/429 responses with backoff.
-func (c *MockClient) fetchPage(ctx context.Context, since time.Time, n int) (page, error) {
+func (c *MockClient) fetchPage(ctx context.Context, n int) (page, error) {
 	q := url.Values{}
 	q.Set("page", strconv.Itoa(n))
 	q.Set("page_size", strconv.Itoa(pageSize))
-	if !since.IsZero() {
-		q.Set("since", since.UTC().Format(time.RFC3339))
-	}
 	u := c.baseURL + "/v1/products?" + q.Encode()
 
 	backoff := c.backoff

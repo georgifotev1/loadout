@@ -17,35 +17,28 @@ type store struct{}
 func (store) upsertProduct(ctx context.Context, q db.DBTX, p Product) (uuid.UUID, bool, error) {
 	query := `
 		INSERT INTO catalog.products AS p (
-			provider, provider_sku, ean, mpn, brand, name, slug, category, url,
-			raw_specs, images, warranty_months, warranty_text, raw_hash, commercial_hash
+			provider, provider_sku, name, brand, slug, category, attributes, images, content_hash, commercial_hash
 		) VALUES (
-			$1, $2, NULLIF($3, ''), NULLIF($4, ''), $5, $6, $7, $8, NULLIF($9, ''),
-			$10, $11, $12, NULLIF($13, ''), $14, $15
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 		)
 		ON CONFLICT ON CONSTRAINT products_provider_sku_key DO UPDATE SET
-			ean             = EXCLUDED.ean,
-			mpn             = EXCLUDED.mpn,
-			brand           = EXCLUDED.brand,
 			name            = EXCLUDED.name,
+			brand           = EXCLUDED.brand,
 			category        = EXCLUDED.category,
-			url             = EXCLUDED.url,
-			raw_specs       = EXCLUDED.raw_specs,
+			attributes      = EXCLUDED.attributes,
 			images          = EXCLUDED.images,
-			warranty_months = EXCLUDED.warranty_months,
-			warranty_text   = EXCLUDED.warranty_text,
-			raw_hash        = EXCLUDED.raw_hash,
+			content_hash    = EXCLUDED.content_hash,
 			commercial_hash = EXCLUDED.commercial_hash,
 			updated_at      = now()
-		WHERE p.raw_hash        IS DISTINCT FROM EXCLUDED.raw_hash
+		WHERE p.content_hash    IS DISTINCT FROM EXCLUDED.content_hash
 		   OR p.commercial_hash IS DISTINCT FROM EXCLUDED.commercial_hash
 		RETURNING id`
 
 	// pgx encodes maps and slices as JSON for jsonb parameters. Nil would become JSON null,
 	// which the NOT NULL columns reject, so send empty values instead.
-	specs, images := p.RawSpecs, p.Images
-	if specs == nil {
-		specs = map[string]string{}
+	attributes, images := p.Attributes, p.Images
+	if attributes == nil {
+		attributes = map[string]string{}
 	}
 	if images == nil {
 		images = []string{}
@@ -54,18 +47,13 @@ func (store) upsertProduct(ctx context.Context, q db.DBTX, p Product) (uuid.UUID
 	args := []any{
 		p.Provider,
 		p.ProviderSKU,
-		p.EAN,
-		p.MPN,
-		p.Brand,
 		p.Name,
+		p.Brand,
 		p.Slug,
 		p.Category,
-		p.URL,
-		specs,
+		attributes,
 		images,
-		p.WarrantyMonths,
-		p.WarrantyText,
-		p.RawHash,
+		p.ContentHash,
 		p.CommercialHash,
 	}
 
@@ -84,9 +72,8 @@ func (store) upsertProduct(ctx context.Context, q db.DBTX, p Product) (uuid.UUID
 // productColumns (catalog.products aliased as p) and scans the row with scanProduct, so the two
 // can't drift apart.
 const productColumns = `
-	p.id, p.provider, p.provider_sku, coalesce(p.ean, ''), coalesce(p.mpn, ''), p.brand, p.name, p.slug, p.category,
-	coalesce(p.url, ''), p.raw_specs, p.images, p.warranty_months, coalesce(p.warranty_text, ''),
-	p.raw_hash, p.commercial_hash, p.missing_runs, p.active, p.featured, p.created_at, p.updated_at`
+	p.id, p.provider, p.provider_sku, p.name, p.brand, p.slug, p.category, p.attributes, p.images,
+	p.content_hash, p.commercial_hash, p.missing_runs, p.active, p.created_at, p.updated_at`
 
 // scanProduct scans a row that starts with productColumns; extra receives any columns the
 // query selects after them.
@@ -96,22 +83,16 @@ func scanProduct(row pgx.Row, extra ...any) (Product, error) {
 		&p.ID,
 		&p.Provider,
 		&p.ProviderSKU,
-		&p.EAN,
-		&p.MPN,
-		&p.Brand,
 		&p.Name,
+		&p.Brand,
 		&p.Slug,
 		&p.Category,
-		&p.URL,
-		&p.RawSpecs,
+		&p.Attributes,
 		&p.Images,
-		&p.WarrantyMonths,
-		&p.WarrantyText,
-		&p.RawHash,
+		&p.ContentHash,
 		&p.CommercialHash,
 		&p.MissingRuns,
 		&p.Active,
-		&p.Featured,
 		&p.CreatedAt,
 		&p.UpdatedAt,
 	}
@@ -138,23 +119,21 @@ func (store) productBySlug(ctx context.Context, q db.DBTX, slug string) (Product
 // (same amounts, VAT and rule) is skipped, like an unchanged product in upsertProduct.
 func (store) upsertPrice(ctx context.Context, q db.DBTX, p Price) (bool, error) {
 	query := `
-		INSERT INTO catalog.prices AS pr (product_id, dealer_cents, rrp_cents, retail_cents, vat_bp, rule_id, computed_at)
-		VALUES ($1, $2, $3, $4, $5, $6, now())
+		INSERT INTO catalog.prices AS pr (product_id, dealer_cents, retail_cents, vat_bp, rule_id, computed_at)
+		VALUES ($1, $2, $3, $4, $5, now())
 		ON CONFLICT (product_id) DO UPDATE SET
 			dealer_cents = EXCLUDED.dealer_cents,
-			rrp_cents    = EXCLUDED.rrp_cents,
 			retail_cents = EXCLUDED.retail_cents,
 			vat_bp       = EXCLUDED.vat_bp,
 			rule_id      = EXCLUDED.rule_id,
 			computed_at  = EXCLUDED.computed_at
-		WHERE (pr.dealer_cents, pr.rrp_cents, pr.retail_cents, pr.vat_bp, pr.rule_id)
+		WHERE (pr.dealer_cents, pr.retail_cents, pr.vat_bp, pr.rule_id)
 		      IS DISTINCT FROM
-		      (EXCLUDED.dealer_cents, EXCLUDED.rrp_cents, EXCLUDED.retail_cents, EXCLUDED.vat_bp, EXCLUDED.rule_id)`
+		      (EXCLUDED.dealer_cents, EXCLUDED.retail_cents, EXCLUDED.vat_bp, EXCLUDED.rule_id)`
 
 	args := []any{
 		p.ProductID,
 		p.DealerCents,
-		p.RRPCents,
 		p.RetailCents,
 		p.VATbp,
 		p.RuleID,
@@ -169,7 +148,7 @@ func (store) upsertPrice(ctx context.Context, q db.DBTX, p Price) (bool, error) 
 
 func (store) priceByProduct(ctx context.Context, q db.DBTX, productID uuid.UUID) (Price, error) {
 	query := `
-		SELECT product_id, dealer_cents, rrp_cents, retail_cents, vat_bp, rule_id, computed_at
+		SELECT product_id, dealer_cents, retail_cents, vat_bp, rule_id, computed_at
 		FROM catalog.prices
 		WHERE product_id = $1`
 
@@ -177,7 +156,6 @@ func (store) priceByProduct(ctx context.Context, q db.DBTX, productID uuid.UUID)
 	err := q.QueryRow(ctx, query, productID).Scan(
 		&p.ProductID,
 		&p.DealerCents,
-		&p.RRPCents,
 		&p.RetailCents,
 		&p.VATbp,
 		&p.RuleID,
@@ -192,70 +170,35 @@ func (store) priceByProduct(ctx context.Context, q db.DBTX, productID uuid.UUID)
 	return p, nil
 }
 
-// replaceStock makes the product's stock rows exactly qty (warehouse → quantity) and returns how
-// many rows it wrote or deleted. Warehouses not in qty are deleted; unchanged quantities are not
-// rewritten, so their observed_at keeps the time the quantity was first seen. It is one
-// statement, so it's atomic even outside a transaction.
-func (store) replaceStock(ctx context.Context, q db.DBTX, productID uuid.UUID, qty map[string]int) (int64, error) {
-	// Both CTEs see the table as it was before the statement, and touch different rows (the
-	// DELETE only rows not in the input, the INSERT only rows in it), so they don't conflict.
+// setStock sets a product's stock quantity and reports whether it changed. An unchanged
+// quantity isn't rewritten, so updated_at keeps the time it last changed.
+func (store) setStock(ctx context.Context, q db.DBTX, productID uuid.UUID, qty int) (bool, error) {
 	query := `
-		WITH deleted AS (
-			DELETE FROM catalog.stock
-			WHERE product_id = $1 AND warehouse <> ALL ($2::text[])
-			RETURNING 1
-		), written AS (
-			INSERT INTO catalog.stock AS s (product_id, warehouse, qty, observed_at)
-			SELECT $1, w, n, now() FROM unnest($2::text[], $3::int[]) AS input (w, n)
-			ON CONFLICT (product_id, warehouse) DO UPDATE SET
-				qty         = EXCLUDED.qty,
-				observed_at = EXCLUDED.observed_at
-			WHERE s.qty <> EXCLUDED.qty
-			RETURNING 1
-		)
-		SELECT (SELECT count(*) FROM deleted) + (SELECT count(*) FROM written)`
+		INSERT INTO catalog.stock AS s (product_id, qty)
+		VALUES ($1, $2)
+		ON CONFLICT (product_id) DO UPDATE SET
+			qty        = EXCLUDED.qty,
+			updated_at = now()
+		WHERE s.qty <> EXCLUDED.qty`
 
-	// unnest takes parallel arrays, so split the map into two slices in the same order.
-	warehouses := make([]string, 0, len(qty))
-	counts := make([]int32, 0, len(qty))
-	for w, n := range qty {
-		warehouses = append(warehouses, w)
-		counts = append(counts, int32(n))
+	tag, err := q.Exec(ctx, query, productID, qty)
+	if err != nil {
+		return false, fmt.Errorf("catalog: set stock of %s: %w", productID, err)
 	}
-	args := []any{
-		productID,
-		warehouses,
-		counts,
-	}
-
-	var n int64
-	if err := q.QueryRow(ctx, query, args...).Scan(&n); err != nil {
-		return 0, fmt.Errorf("catalog: replace stock of %s: %w", productID, err)
-	}
-	return n, nil
+	return tag.RowsAffected() == 1, nil
 }
 
-// stockByProduct returns warehouse → quantity. A product with no rows has an empty map.
-func (store) stockByProduct(ctx context.Context, q db.DBTX, productID uuid.UUID) (map[string]int, error) {
-	query := `SELECT warehouse, qty FROM catalog.stock WHERE product_id = $1`
-
-	rows, err := q.Query(ctx, query, productID)
-	if err != nil {
-		return nil, fmt.Errorf("catalog: stock of %s: %w", productID, err)
+// stockByProduct returns a product's stock quantity, or ErrNotFound if it has none recorded.
+func (store) stockByProduct(ctx context.Context, q db.DBTX, productID uuid.UUID) (int, error) {
+	var qty int
+	err := q.QueryRow(ctx, `SELECT qty FROM catalog.stock WHERE product_id = $1`, productID).Scan(&qty)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return 0, ErrNotFound
+	case err != nil:
+		return 0, fmt.Errorf("catalog: stock of %s: %w", productID, err)
 	}
-	stock := map[string]int{}
-	var (
-		w string
-		n int
-	)
-	_, err = pgx.ForEachRow(rows, []any{&w, &n}, func() error {
-		stock[w] = n
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("catalog: stock of %s: %w", productID, err)
-	}
-	return stock, nil
+	return qty, nil
 }
 
 // upsertMarkupRule creates the rule for r's target (scope + category/brand/sku) or updates the
@@ -414,7 +357,7 @@ func (store) syncRun(ctx context.Context, q db.DBTX, id int64) (SyncRun, error) 
 // one changed, and whether its price needs recomputing.
 type productState struct {
 	ID             uuid.UUID
-	RawHash        string
+	ContentHash    string
 	CommercialHash string
 	RetailCents    money.Cents // 0 and RuleID nil if the product has no price yet
 	RuleID         *int64
@@ -422,9 +365,9 @@ type productState struct {
 
 // productStates returns provider SKU → state for every product of the provider. One query per
 // sync run instead of one per product.
-func (store) productStates(ctx context.Context, q db.DBTX, provider Provider) (map[string]productState, error) {
+func (store) productStates(ctx context.Context, q db.DBTX, provider string) (map[string]productState, error) {
 	query := `
-		SELECT p.provider_sku, p.id, p.raw_hash, p.commercial_hash, coalesce(pr.retail_cents, 0), pr.rule_id
+		SELECT p.provider_sku, p.id, p.content_hash, p.commercial_hash, coalesce(pr.retail_cents, 0), pr.rule_id
 		FROM catalog.products p
 		LEFT JOIN catalog.prices pr ON pr.product_id = p.id
 		WHERE p.provider = $1`
@@ -441,7 +384,7 @@ func (store) productStates(ctx context.Context, q db.DBTX, provider Provider) (m
 	scan := []any{
 		&sku,
 		&st.ID,
-		&st.RawHash,
+		&st.ContentHash,
 		&st.CommercialHash,
 		&st.RetailCents,
 		&st.RuleID,
@@ -458,7 +401,7 @@ func (store) productStates(ctx context.Context, q db.DBTX, provider Provider) (m
 
 // markSeen resets missing_runs and reactivates the provider's products in skus that a previous
 // run counted as missing. Products that were never missing aren't rewritten.
-func (store) markSeen(ctx context.Context, q db.DBTX, provider Provider, skus []string) (int64, error) {
+func (store) markSeen(ctx context.Context, q db.DBTX, provider string, skus []string) (int64, error) {
 	query := `
 		UPDATE catalog.products
 		SET missing_runs = 0, active = true, updated_at = now()
@@ -480,7 +423,7 @@ func (store) markSeen(ctx context.Context, q db.DBTX, provider Provider, skus []
 // markMissing bumps missing_runs for the provider's products NOT in seen, and deactivates those
 // that have now been missing for threshold runs in a row. It returns how many it deactivated.
 // Products are never deleted: order lines and saved builds still point at them.
-func (store) markMissing(ctx context.Context, q db.DBTX, provider Provider, seen []string, threshold int) (int64, error) {
+func (store) markMissing(ctx context.Context, q db.DBTX, provider string, seen []string, threshold int) (int64, error) {
 	// SET expressions see the row as it was, so missing_runs + 1 is the new count.
 	query := `
 		WITH bumped AS (
@@ -514,18 +457,18 @@ const visibleProducts = `
 	JOIN catalog.prices pr ON pr.product_id = p.id
 	WHERE p.active`
 
-// stockTotal is a product's quantity over all warehouses, for a query over visibleProducts.
-const stockTotal = `coalesce((SELECT sum(s.qty) FROM catalog.stock s WHERE s.product_id = p.id), 0)`
+// stockQty is a product's stock quantity, for a query over visibleProducts.
+const stockQty = `coalesce((SELECT s.qty FROM catalog.stock s WHERE s.product_id = p.id), 0)`
 
-// listProducts returns one page of visible products, featured first, then by name, and the
+// listProducts returns one page of visible products by name, and the
 // number of matching products over all pages. A page past the end has no rows, so its total
 // is 0.
 func (store) listProducts(ctx context.Context, q db.DBTX, category string, limit, offset int) ([]ProductSummary, int, error) {
 	query := `
 		SELECT p.slug, p.name, p.brand, p.category, coalesce(p.images ->> 0, ''), pr.retail_cents,
-		       ` + stockTotal + `, count(*) OVER ()
+		       ` + stockQty + `, count(*) OVER ()
 		` + visibleProducts + ` AND ($1 = '' OR p.category = $1)
-		ORDER BY p.featured DESC, p.name, p.id
+		ORDER BY p.name, p.id
 		LIMIT $2 OFFSET $3`
 
 	args := []any{
@@ -559,10 +502,10 @@ func (store) listProducts(ctx context.Context, q db.DBTX, category string, limit
 	return products, total, nil
 }
 
-// visibleProductBySlug returns a visible product with its retail price and stock total in one
+// visibleProductBySlug returns a visible product with its retail price and stock in one
 // query. Hidden products are ErrNotFound, the same as a slug that doesn't exist.
 func (store) visibleProductBySlug(ctx context.Context, q db.DBTX, slug string) (ProductDetail, error) {
-	query := `SELECT ` + productColumns + `, pr.retail_cents, ` + stockTotal + `
+	query := `SELECT ` + productColumns + `, pr.retail_cents, ` + stockQty + `
 		` + visibleProducts + ` AND p.slug = $1`
 
 	var d ProductDetail

@@ -15,7 +15,7 @@ var ErrLockHeld = errors.New("db: advisory lock is held by another session")
 
 // TryAdvisoryLock takes the session-level advisory lock key without waiting, on a connection
 // it keeps out of the pool until release is called. It's for locks held through a long run
-// (the Vali sync): the run's own work uses other connections and short transactions, so no
+// (the supplier sync): the run's own work uses other connections and short transactions, so no
 // transaction stays open for minutes.
 //
 // The lock belongs to the connection, not to a transaction, so release must always be called

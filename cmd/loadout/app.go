@@ -9,6 +9,7 @@ import (
 
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/config"
+	"github.com/gfotev/loadout/internal/specs"
 )
 
 type application struct {
@@ -16,6 +17,7 @@ type application struct {
 	logger       *slog.Logger
 	db           *pgxpool.Pool
 	catalog      *catalog.Service
+	specs        *specs.Service
 	shuttingDown atomic.Bool
 }
 

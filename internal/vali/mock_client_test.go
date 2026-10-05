@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/gfotev/loadout/internal/supplier"
 )
 
 // pagedServer serves n products in pages of pageSize, like mock-vali. fail decides, per request
@@ -35,7 +38,11 @@ func pagedServer(t *testing.T, n int, fail func(req int) int) (*httptest.Server,
 		var resp page
 		resp.Products = []RawProduct{}
 		for i := (pg - 1) * size; i < min(pg*size, n); i++ {
-			resp.Products = append(resp.Products, RawProduct{SKU: fmt.Sprintf("SKU-%03d", i), Currency: "EUR"})
+			resp.Products = append(resp.Products, RawProduct{
+				SKU:          fmt.Sprintf("SKU-%03d", i),
+				CategoryPath: []string{"Компютърни компоненти", "Процесори"},
+				Currency:     "EUR",
+			})
 		}
 		if pg*size < n {
 			next := pg + 1
@@ -53,10 +60,10 @@ func newTestClient(url string) *MockClient {
 	return c
 }
 
-func collect(t *testing.T, c Client) ([]RawProduct, error) {
+func collect(t *testing.T, c *MockClient) ([]supplier.Product, error) {
 	t.Helper()
-	var got []RawProduct
-	for p, err := range c.ListProducts(context.Background(), time.Time{}) {
+	var got []supplier.Product
+	for p, err := range c.Products(context.Background()) {
 		if err != nil {
 			return got, err
 		}
@@ -65,7 +72,7 @@ func collect(t *testing.T, c Client) ([]RawProduct, error) {
 	return got, nil
 }
 
-func TestListProductsPaginates(t *testing.T) {
+func TestProductsPaginates(t *testing.T) {
 	srv, reqs := pagedServer(t, 250, nil) // 3 pages of 100
 	got, err := collect(t, newTestClient(srv.URL))
 	if err != nil {
@@ -79,23 +86,35 @@ func TestListProductsPaginates(t *testing.T) {
 	}
 }
 
-func TestListProductsSendsSince(t *testing.T) {
-	var gotSince string
+func TestProductsSkipsUnmappableItems(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotSince = r.URL.Query().Get("since")
-		_, _ = w.Write([]byte(`{"products": [], "next_page": null}`))
+		_, _ = w.Write([]byte(`{"products": [
+			{"sku": "A", "category_path": ["x", "Процесори"], "currency": "EUR"},
+			{"sku": "B", "category_path": ["x", "Принтери"], "currency": "EUR"},
+			{"sku": "C", "category_path": ["x", "Памети"], "currency": "EUR"}
+		], "next_page": null}`))
 	}))
 	defer srv.Close()
 
-	since := time.Date(2026, 9, 30, 10, 0, 0, 0, time.FixedZone("EEST", 3*3600))
-	for range newTestClient(srv.URL).ListProducts(context.Background(), since) {
+	var skus []string
+	var itemErrs []*supplier.ItemError
+	for p, err := range newTestClient(srv.URL).Products(context.Background()) {
+		var ie *supplier.ItemError
+		switch {
+		case errors.As(err, &ie):
+			itemErrs = append(itemErrs, ie)
+		case err != nil:
+			t.Fatal(err)
+		default:
+			skus = append(skus, p.SKU)
+		}
 	}
-	if gotSince != "2026-09-30T07:00:00Z" {
-		t.Errorf("since = %q", gotSince)
+	if !slices.Equal(skus, []string{"A", "C"}) || len(itemErrs) != 1 || itemErrs[0].SKU != "B" {
+		t.Errorf("products %v, item errors %v; want A and C, and an error for B", skus, itemErrs)
 	}
 }
 
-func TestListProductsRetriesServerErrors(t *testing.T) {
+func TestProductsRetriesServerErrors(t *testing.T) {
 	// Requests 1 and 2 fail (page 1 succeeds on the 3rd attempt), then page 2 fails once.
 	srv, reqs := pagedServer(t, 150, func(req int) int {
 		if req <= 2 || req == 4 {
@@ -112,7 +131,7 @@ func TestListProductsRetriesServerErrors(t *testing.T) {
 	}
 }
 
-func TestListProductsGivesUp(t *testing.T) {
+func TestProductsGivesUp(t *testing.T) {
 	t.Run("after the last attempt", func(t *testing.T) {
 		srv, reqs := pagedServer(t, 10, func(int) int { return http.StatusBadGateway })
 		_, err := collect(t, newTestClient(srv.URL))
@@ -141,9 +160,9 @@ func TestListProductsGivesUp(t *testing.T) {
 	})
 }
 
-func TestListProductsStopsWhenTheConsumerDoes(t *testing.T) {
+func TestProductsStopsWhenTheConsumerDoes(t *testing.T) {
 	srv, reqs := pagedServer(t, 250, nil)
-	for p, err := range newTestClient(srv.URL).ListProducts(context.Background(), time.Time{}) {
+	for p, err := range newTestClient(srv.URL).Products(context.Background()) {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -156,7 +175,7 @@ func TestListProductsStopsWhenTheConsumerDoes(t *testing.T) {
 	}
 }
 
-func TestListProductsCancelledDuringBackoff(t *testing.T) {
+func TestProductsCancelledDuringBackoff(t *testing.T) {
 	srv, _ := pagedServer(t, 10, func(int) int { return http.StatusServiceUnavailable })
 	c := NewMockClient(srv.URL, nil)
 	c.backoff = time.Hour
@@ -165,7 +184,7 @@ func TestListProductsCancelledDuringBackoff(t *testing.T) {
 	defer cancel()
 	start := time.Now()
 	var gotErr error
-	for _, err := range c.ListProducts(ctx, time.Time{}) {
+	for _, err := range c.Products(ctx) {
 		gotErr = err
 	}
 	if !errors.Is(gotErr, context.DeadlineExceeded) {

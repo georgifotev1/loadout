@@ -11,6 +11,8 @@ import (
 	"github.com/gfotev/loadout/fixtures"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/db/dbtest"
+	"github.com/gfotev/loadout/internal/specs"
+	"github.com/gfotev/loadout/internal/supplier"
 	"github.com/gfotev/loadout/internal/vali"
 )
 
@@ -18,13 +20,14 @@ import (
 func newCatalogApp(t *testing.T) *application {
 	t.Helper()
 	pool := dbtest.New(t)
-	products, err := vali.LoadFixtures(fixtures.Vali)
+	products, err := vali.FixtureProducts(fixtures.Vali)
 	if err != nil {
 		t.Fatal(err)
 	}
 	app := newTestApp()
 	app.db = pool
-	app.catalog = catalog.NewService(pool, &vali.FakeClient{Products: products}, app.logger)
+	app.specs = specs.NewService(pool)
+	app.catalog = catalog.NewService(pool, &supplier.Fake{Items: products}, app.specs, app.logger)
 	if _, err := app.catalog.Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -97,8 +100,8 @@ func TestProductsAPI(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Seeded default rule: 52.35 € + 15% = 60.20 €, rounded up to 60.90 €.
-		if p.Brand != "AMD" || p.Category != "cpu" || p.RawSpecs["Сокет"] != "AM4" || !p.InStock ||
-			p.Price != (priceJSON{AmountCents: 6090, Currency: "EUR"}) || p.WarrantyMonths == nil || *p.WarrantyMonths != 36 {
+		if p.Brand != "AMD" || p.Category != "cpu" || p.Attributes["Сокет"] != "AM4" || !p.InStock ||
+			p.Price != (priceJSON{AmountCents: 6090, Currency: "EUR"}) || p.Specs == nil {
 			t.Errorf("got %+v", p)
 		}
 	})

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/validate"
+	"github.com/gfotev/loadout/internal/specs"
 )
 
 const statusClientClosedRequest = 499
@@ -32,7 +33,7 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 		app.writeError(w, r, http.StatusBadRequest, "invalid_body", bodyErr.Error())
 	case errors.As(err, &validationErr):
 		app.writeValidation(w, r, validationErr)
-	case errors.Is(err, catalog.ErrNotFound):
+	case errors.Is(err, catalog.ErrNotFound), errors.Is(err, specs.ErrNotFound):
 		app.writeError(w, r, http.StatusNotFound, "not_found", "resource not found")
 	case errors.Is(err, context.Canceled) && r.Context().Err() != nil:
 		w.WriteHeader(statusClientClosedRequest)

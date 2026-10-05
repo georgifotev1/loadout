@@ -26,7 +26,7 @@ func eur(c money.Cents) priceJSON {
 }
 
 // The JSON types below are what shoppers see. They are separate from the catalog types on
-// purpose: the dealer price, markup rule, hashes and Vali's source URL never leave the server.
+// purpose: the dealer price, markup rule and hashes never leave the server.
 
 type productSummaryJSON struct {
 	Slug     string    `json:"slug"`
@@ -46,18 +46,15 @@ type productListJSON struct {
 }
 
 type productDetailJSON struct {
-	Slug           string            `json:"slug"`
-	Name           string            `json:"name"`
-	Brand          string            `json:"brand"`
-	Category       string            `json:"category"`
-	MPN            string            `json:"mpn,omitempty"`
-	EAN            string            `json:"ean,omitempty"`
-	Images         []string          `json:"images"`
-	RawSpecs       map[string]string `json:"raw_specs"` // TODO(phase-2): canonical specs next to these
-	WarrantyMonths *int              `json:"warranty_months"`
-	WarrantyText   string            `json:"warranty_text,omitempty"`
-	Price          priceJSON         `json:"price"`
-	InStock        bool              `json:"in_stock"`
+	Slug       string            `json:"slug"`
+	Name       string            `json:"name"`
+	Brand      string            `json:"brand"`
+	Category   string            `json:"category"`
+	Images     []string          `json:"images"`
+	Attributes map[string]string `json:"attributes"` // the supplier's spec rows, for display
+	Specs      map[string]any    `json:"specs"`      // canonical: socket, tdp_w, ...
+	Price      priceJSON         `json:"price"`
+	InStock    bool              `json:"in_stock"`
 }
 
 // GET /api/products?category=&page=&page_size=
@@ -109,18 +106,15 @@ func (app *application) showProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	app.writeJSON(w, r, http.StatusOK, productDetailJSON{
-		Slug:           p.Slug,
-		Name:           p.Name,
-		Brand:          p.Brand,
-		Category:       p.Category,
-		MPN:            p.MPN,
-		EAN:            p.EAN,
-		Images:         p.Images,
-		RawSpecs:       p.RawSpecs,
-		WarrantyMonths: p.WarrantyMonths,
-		WarrantyText:   p.WarrantyText,
-		Price:          eur(p.RetailCents),
-		InStock:        p.StockQty > 0,
+		Slug:       p.Slug,
+		Name:       p.Name,
+		Brand:      p.Brand,
+		Category:   p.Category,
+		Images:     p.Images,
+		Attributes: p.Attributes,
+		Specs:      p.Specs,
+		Price:      eur(p.RetailCents),
+		InStock:    p.StockQty > 0,
 	})
 }
 

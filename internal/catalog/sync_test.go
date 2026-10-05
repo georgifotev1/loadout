@@ -8,40 +8,47 @@ import (
 	"maps"
 	"slices"
 	"testing"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/gfotev/loadout/fixtures"
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/db/dbtest"
+	"github.com/gfotev/loadout/internal/specs"
+	"github.com/gfotev/loadout/internal/supplier"
 	"github.com/gfotev/loadout/internal/vali"
 )
 
-func loadFixtures(t *testing.T) []vali.RawProduct {
+// loadFixtures returns the fixtures as the vali adapter maps them: realistic supplier data.
+func loadFixtures(t *testing.T) []supplier.Product {
 	t.Helper()
-	products, err := vali.LoadFixtures(fixtures.Vali)
+	products, err := vali.FixtureProducts(fixtures.Vali)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return products
 }
 
-// syncEnv is a catalog service over a fresh database, with a fake Vali whose products a test
-// can change between runs.
+// syncEnv is a catalog service over a fresh database, with a fake supplier whose products a
+// test can change between runs.
 type syncEnv struct {
 	pool *pgxpool.Pool
 	svc  *Service
-	vali *vali.FakeClient
+	src  *supplier.Fake
 }
 
 func newSyncEnv(t *testing.T) *syncEnv {
 	t.Helper()
 	pool := dbtest.New(t)
-	fake := &vali.FakeClient{Products: loadFixtures(t)}
-	svc := NewService(pool, fake, slog.New(slog.DiscardHandler))
-	env := &syncEnv{pool: pool, svc: svc, vali: fake}
+	return newSyncEnvWith(t, pool, specs.NewService(pool))
+}
+
+func newSyncEnvWith(t *testing.T, pool *pgxpool.Pool, sp Specs) *syncEnv {
+	t.Helper()
+	src := &supplier.Fake{Items: loadFixtures(t)}
+	env := &syncEnv{pool: pool, svc: NewService(pool, src, sp, slog.New(slog.DiscardHandler)), src: src}
 	// A plain rule instead of the seeded one, so expected prices are easy to compute.
 	env.setDefaultRule(t, 2000)
 	return env
@@ -64,14 +71,30 @@ func (e *syncEnv) mustSync(t *testing.T) SyncRun {
 	return run
 }
 
-// versions returns every catalog row's xmin (the transaction that last wrote it), so a test can
-// tell whether a run rewrote anything at all.
+// edit replaces the fake's product sku with change applied to a copy, so earlier runs' data
+// isn't touched.
+func (e *syncEnv) edit(t *testing.T, sku string, change func(*supplier.Product)) {
+	t.Helper()
+	e.src.Items = slices.Clone(e.src.Items)
+	i := slices.IndexFunc(e.src.Items, func(p supplier.Product) bool { return p.SKU == sku })
+	if i < 0 {
+		t.Fatalf("no product %s", sku)
+	}
+	p := e.src.Items[i]
+	p.Attributes, p.Specs = maps.Clone(p.Attributes), maps.Clone(p.Specs)
+	change(&p)
+	e.src.Items[i] = p
+}
+
+// versions returns every catalog and specs row's xmin (the transaction that last wrote it), so a
+// test can tell whether a run rewrote anything at all.
 func (e *syncEnv) versions(t *testing.T) map[string]string {
 	t.Helper()
 	query := `
 		SELECT 'product:' || id, xmin::text FROM catalog.products
 		UNION ALL SELECT 'price:' || product_id, xmin::text FROM catalog.prices
-		UNION ALL SELECT 'stock:' || product_id || ':' || warehouse, xmin::text FROM catalog.stock`
+		UNION ALL SELECT 'stock:' || product_id, xmin::text FROM catalog.stock
+		UNION ALL SELECT 'specs:' || product_id, xmin::text FROM specs.product_specs`
 	rows, err := e.pool.Query(context.Background(), query)
 	if err != nil {
 		t.Fatal(err)
@@ -105,6 +128,15 @@ func (e *syncEnv) price(t *testing.T, sku string) Price {
 	return pr
 }
 
+func (e *syncEnv) count(t *testing.T, query string) int {
+	t.Helper()
+	var n int
+	if err := e.pool.QueryRow(context.Background(), query).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
 func changedKeys(before, after map[string]string) []string {
 	var keys []string
 	for k, v := range after {
@@ -123,19 +155,14 @@ func changedKeys(before, after map[string]string) []string {
 
 const ryzen = "AMD-AM4-R3-RYZ-4100-BOX"
 
-// ryzenIn returns the index of the Ryzen fixture in products.
-func ryzenIn(products []vali.RawProduct) int {
-	return slices.IndexFunc(products, func(p vali.RawProduct) bool { return p.SKU == ryzen })
-}
-
-// withoutRyzen returns a copy of products without the Ryzen fixture.
-func withoutRyzen(products []vali.RawProduct) []vali.RawProduct {
-	return slices.Delete(slices.Clone(products), ryzenIn(products), ryzenIn(products)+1)
+// without returns a copy of products without sku.
+func without(products []supplier.Product, sku string) []supplier.Product {
+	return slices.DeleteFunc(slices.Clone(products), func(p supplier.Product) bool { return p.SKU == sku })
 }
 
 func TestSyncFixtures(t *testing.T) {
 	env := newSyncEnv(t)
-	n := len(env.vali.Products)
+	n := len(env.src.Items)
 
 	first := env.mustSync(t)
 	if first.Status != SyncSucceeded || first.Fetched != n || first.Changed != n || first.Errors != 0 {
@@ -143,8 +170,7 @@ func TestSyncFixtures(t *testing.T) {
 	}
 
 	p := env.product(t, ryzen)
-	if p.Category != "cpu" || p.Slug != "amd-am4-r3-ryz-4100-box" || p.MPN != "100-100000510BOX" ||
-		p.WarrantyMonths == nil || *p.WarrantyMonths != 36 || p.RawSpecs["Сокет"] != "AM4" {
+	if p.Provider != "fake" || p.Category != "cpu" || p.Slug != "amd-am4-r3-ryz-4100-box" || p.Attributes["Сокет"] != "AM4" {
 		t.Errorf("stored product = %+v", p)
 	}
 	price := env.price(t, ryzen)
@@ -152,9 +178,8 @@ func TestSyncFixtures(t *testing.T) {
 	if price.DealerCents != 5235 || price.RetailCents != 6282 || price.VATbp != 2000 || price.RuleID == nil {
 		t.Errorf("price = %+v", price)
 	}
-	stock, _ := store{}.stockByProduct(context.Background(), env.pool, p.ID)
-	if !maps.Equal(stock, map[string]int{"Plovdiv": 3, "Sofia-Central": 16}) {
-		t.Errorf("stock = %v", stock)
+	if qty, _ := (store{}).stockByProduct(context.Background(), env.pool, p.ID); qty != 19 {
+		t.Errorf("stock = %d, want 19", qty)
 	}
 
 	t.Run("a second run with no changes writes nothing", func(t *testing.T) {
@@ -168,14 +193,11 @@ func TestSyncFixtures(t *testing.T) {
 		}
 	})
 
-	t.Run("a price change on Vali updates exactly one product", func(t *testing.T) {
-		env.vali.Products = slices.Clone(env.vali.Products)
-		i := ryzenIn(env.vali.Products)
-		env.vali.Products[i].DealerPriceCents = 5000
+	t.Run("a price change updates exactly one product, specs untouched", func(t *testing.T) {
+		env.edit(t, ryzen, func(p *supplier.Product) { p.CostCents = 5000 })
 
 		before := env.versions(t)
-		run := env.mustSync(t)
-		if run.Changed != 1 {
+		if run := env.mustSync(t); run.Changed != 1 {
 			t.Errorf("changed = %d, want 1", run.Changed)
 		}
 		id := env.product(t, ryzen).ID.String()
@@ -189,15 +211,28 @@ func TestSyncFixtures(t *testing.T) {
 	})
 
 	t.Run("a stock change only touches that product's stock", func(t *testing.T) {
-		i := ryzenIn(env.vali.Products)
-		env.vali.Products[i].Stock = map[string]int{"Plovdiv": 0, "Sofia-Central": 16}
+		env.edit(t, ryzen, func(p *supplier.Product) { p.StockQty = 16 })
 
 		before := env.versions(t)
 		if run := env.mustSync(t); run.Changed != 1 {
 			t.Errorf("changed = %d, want 1", run.Changed)
 		}
 		id := env.product(t, ryzen).ID.String()
-		want := []string{"product:" + id, "stock:" + id + ":Plovdiv"}
+		want := []string{"product:" + id, "stock:" + id}
+		if diff := changedKeys(before, env.versions(t)); !slices.Equal(diff, want) {
+			t.Errorf("rows rewritten: %v, want %v", diff, want)
+		}
+	})
+
+	t.Run("a content change rewrites the product and its specs", func(t *testing.T) {
+		env.edit(t, ryzen, func(p *supplier.Product) { p.Name += " (new)" })
+
+		before := env.versions(t)
+		if run := env.mustSync(t); run.Changed != 1 {
+			t.Errorf("changed = %d, want 1", run.Changed)
+		}
+		id := env.product(t, ryzen).ID.String()
+		want := []string{"product:" + id, "specs:" + id}
 		if diff := changedKeys(before, env.versions(t)); !slices.Equal(diff, want) {
 			t.Errorf("rows rewritten: %v, want %v", diff, want)
 		}
@@ -215,41 +250,78 @@ func TestSyncFixtures(t *testing.T) {
 	})
 }
 
+func TestSyncStoresSpecs(t *testing.T) {
+	env := newSyncEnv(t)
+	env.mustSync(t)
+
+	builder := 0
+	for _, p := range env.src.Items {
+		if slices.Contains(specs.Categories(), p.Category) {
+			builder++
+		}
+	}
+	if got := env.count(t, `SELECT count(*) FROM specs.product_specs`); got != builder {
+		t.Errorf("%d products have specs, want the %d builder fixtures", got, builder)
+	}
+	// The vali adapter extracts no specs yet, so every builder part waits in the review queue.
+	if got := env.count(t, `SELECT count(*) FROM specs.product_specs WHERE spec_status = 'incomplete'`); got != builder {
+		t.Errorf("%d incomplete, want all %d", got, builder)
+	}
+
+	t.Run("values from the supplier reach specs", func(t *testing.T) {
+		env.edit(t, ryzen, func(p *supplier.Product) {
+			p.Specs = map[string]any{"socket": "AM4", "tdp_w": 65, "igpu": false, "cooler_included": true}
+		})
+		env.mustSync(t)
+		ps, err := env.svc.specs.Specs(context.Background(), env.product(t, ryzen).ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ps.Status != specs.StatusApproved || ps.Specs["socket"] != "AM4" {
+			t.Errorf("specs = %+v", ps)
+		}
+		detail, err := env.svc.Product(context.Background(), slugFor(ryzen))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if detail.Specs["tdp_w"] != 65.0 {
+			t.Errorf("product detail specs = %v", detail.Specs)
+		}
+	})
+
+	t.Run("an invalid value from the adapter skips the product", func(t *testing.T) {
+		env.edit(t, ryzen, func(p *supplier.Product) { p.Specs["tdp_w"] = "65 W" })
+		if run := env.mustSync(t); run.Errors != 1 || run.Changed != 0 {
+			t.Errorf("run = %+v, want 1 error", run)
+		}
+	})
+}
+
 func TestSyncSkipsBadProducts(t *testing.T) {
 	env := newSyncEnv(t)
-	good := env.vali.Products[0]
+	good := env.src.Items[0]
 
-	bgn := good
-	bgn.SKU, bgn.Currency = "PRICED-IN-BGN", "BGN"
-	unknown := good
-	unknown.SKU, unknown.CategoryPath = "UNKNOWN-CATEGORY", []string{"Компютърни компоненти", "Твърди дискове (HDD)"}
+	noName := good
+	noName.SKU, noName.Name = "NO-NAME", " "
+	badCategory := good
+	badCategory.SKU, badCategory.Category = "BAD-CATEGORY", "toaster"
 	free := good
-	free.SKU, free.DealerPriceCents = "NO-PRICE", 0
+	free.SKU, free.CostCents = "NO-PRICE", 0
 	negative := good
-	negative.SKU, negative.Stock = "NEGATIVE-STOCK", map[string]int{"Plovdiv": -1}
-	env.vali.Products = []vali.RawProduct{bgn, good, unknown, free, negative}
+	negative.SKU, negative.StockQty = "NEGATIVE-STOCK", -1
+	env.src.Items = []supplier.Product{noName, good, badCategory, free, negative}
+	env.src.ItemErrors = []*supplier.ItemError{{SKU: "UNMAPPABLE", Err: errors.New("unknown category")}}
 
 	run := env.mustSync(t)
-	if run.Status != SyncSucceeded || run.Fetched != 5 || run.Changed != 1 || run.Errors != 4 {
-		t.Fatalf("run = %+v, want 1 stored and 4 errors", run)
+	if run.Status != SyncSucceeded || run.Fetched != 6 || run.Changed != 1 || run.Errors != 5 {
+		t.Fatalf("run = %+v, want 1 stored and 5 errors", run)
 	}
-	var n int
-	_ = env.pool.QueryRow(context.Background(), `SELECT count(*) FROM catalog.products`).Scan(&n)
-	if n != 1 {
+	if n := env.count(t, `SELECT count(*) FROM catalog.products`); n != 1 {
 		t.Errorf("%d products stored, want only the good one", n)
 	}
-
-	for _, tt := range []struct {
-		raw  vali.RawProduct
-		want error
-	}{
-		{bgn, ErrUnsupportedCurrency},
-		{unknown, ErrUnknownCategory},
-		{free, ErrInvalidProduct},
-		{negative, ErrInvalidProduct},
-	} {
-		if _, _, _, err := fromRaw(tt.raw); !errors.Is(err, tt.want) {
-			t.Errorf("%s: err = %v, want %v", tt.raw.SKU, err, tt.want)
+	for _, p := range []supplier.Product{noName, badCategory, free, negative} {
+		if err := checkProduct(p); !errors.Is(err, ErrInvalidProduct) {
+			t.Errorf("%s: err = %v, want ErrInvalidProduct", p.SKU, err)
 		}
 	}
 }
@@ -259,7 +331,7 @@ func TestSyncWithoutMarkupRule(t *testing.T) {
 	if _, err := env.pool.Exec(context.Background(), `DELETE FROM catalog.markup_rules`); err != nil {
 		t.Fatal(err)
 	}
-	env.vali.Products = env.vali.Products[:3]
+	env.src.Items = env.src.Items[:3]
 
 	run := env.mustSync(t)
 	if run.Errors != 3 || run.Changed != 0 {
@@ -269,11 +341,11 @@ func TestSyncWithoutMarkupRule(t *testing.T) {
 
 func TestSyncDeactivatesMissingProducts(t *testing.T) {
 	env := newSyncEnv(t)
-	all := env.vali.Products
+	all := env.src.Items
 	env.mustSync(t)
 
-	// Ryzen disappears from Vali.
-	env.vali.Products = withoutRyzen(all)
+	// Ryzen disappears from the supplier.
+	env.src.Items = without(all, ryzen)
 	for i := 1; i <= missingRunsThreshold; i++ {
 		env.mustSync(t)
 		p := env.product(t, ryzen)
@@ -287,16 +359,26 @@ func TestSyncDeactivatesMissingProducts(t *testing.T) {
 	}
 
 	// It comes back.
-	env.vali.Products = all
+	env.src.Items = all
 	env.mustSync(t)
 	if p := env.product(t, ryzen); p.MissingRuns != 0 || !p.Active {
 		t.Errorf("after it came back: missing_runs=%d active=%v", p.MissingRuns, p.Active)
 	}
 
-	t.Run("a run where it's present resets the count", func(t *testing.T) {
-		env.vali.Products = withoutRyzen(all)
+	t.Run("an item the adapter can't read isn't missing", func(t *testing.T) {
+		env.src.Items = without(all, ryzen)
+		env.src.ItemErrors = []*supplier.ItemError{{SKU: ryzen, Err: errors.New("unreadable")}}
 		env.mustSync(t)
-		env.vali.Products = all
+		if p := env.product(t, ryzen); p.MissingRuns != 0 || !p.Active {
+			t.Errorf("missing_runs=%d active=%v", p.MissingRuns, p.Active)
+		}
+		env.src.ItemErrors = nil
+	})
+
+	t.Run("a run where it's present resets the count", func(t *testing.T) {
+		env.src.Items = without(all, ryzen)
+		env.mustSync(t)
+		env.src.Items = all
 		env.mustSync(t)
 		if p := env.product(t, ryzen); p.MissingRuns != 0 || !p.Active {
 			t.Errorf("missing_runs=%d active=%v", p.MissingRuns, p.Active)
@@ -306,12 +388,12 @@ func TestSyncDeactivatesMissingProducts(t *testing.T) {
 
 func TestSyncFetchFailure(t *testing.T) {
 	env := newSyncEnv(t)
-	all := env.vali.Products
+	all := env.src.Items
 	env.mustSync(t)
 
-	// Vali fails after the first 5 products: the run fails, those 5 are still synced, and no
-	// product is counted as missing because the list was incomplete.
-	env.vali.Products, env.vali.Err = all[:5], errors.New("vali: 503")
+	// The supplier fails after the first 5 products: the run fails, those 5 are still synced,
+	// and no product is counted as missing because the list was incomplete.
+	env.src.Items, env.src.Err = all[:5], errors.New("supplier: 503")
 	run, err := env.svc.Sync(context.Background())
 	if err == nil {
 		t.Fatal("want an error")
@@ -323,9 +405,7 @@ func TestSyncFetchFailure(t *testing.T) {
 	if stored.Status != SyncFailed || stored.FinishedAt == nil {
 		t.Errorf("stored run = %+v", stored)
 	}
-	var missing int
-	_ = env.pool.QueryRow(context.Background(), `SELECT count(*) FROM catalog.products WHERE missing_runs > 0`).Scan(&missing)
-	if missing != 0 {
+	if missing := env.count(t, `SELECT count(*) FROM catalog.products WHERE missing_runs > 0`); missing != 0 {
 		t.Errorf("%d products marked missing after a failed fetch", missing)
 	}
 }
@@ -333,15 +413,15 @@ func TestSyncFetchFailure(t *testing.T) {
 // cancelAfter passes through n products from the fake and then cancels the run's context,
 // like a SIGTERM arriving mid-sync.
 type cancelAfter struct {
-	*vali.FakeClient
+	*supplier.Fake
 	n      int
 	cancel context.CancelFunc
 }
 
-func (c *cancelAfter) ListProducts(ctx context.Context, since time.Time) iter.Seq2[vali.RawProduct, error] {
-	return func(yield func(vali.RawProduct, error) bool) {
+func (c *cancelAfter) Products(ctx context.Context) iter.Seq2[supplier.Product, error] {
+	return func(yield func(supplier.Product, error) bool) {
 		i := 0
-		for p, err := range c.FakeClient.ListProducts(ctx, since) {
+		for p, err := range c.Fake.Products(ctx) {
 			if i == c.n {
 				c.cancel()
 				err = ctx.Err()
@@ -358,7 +438,7 @@ func TestSyncCancelledMidRun(t *testing.T) {
 	env := newSyncEnv(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	env.svc.supplier = &cancelAfter{FakeClient: env.vali, n: 3, cancel: cancel}
+	env.svc.supplier = &cancelAfter{Fake: env.src, n: 3, cancel: cancel}
 
 	run, err := env.svc.Sync(ctx)
 	if !errors.Is(err, context.Canceled) {
@@ -370,15 +450,13 @@ func TestSyncCancelledMidRun(t *testing.T) {
 		t.Errorf("stored run = %+v, want failed after 3", stored)
 	}
 	// What was written before the cancel stays; the next run finishes the job.
-	var n int
-	_ = env.pool.QueryRow(context.Background(), `SELECT count(*) FROM catalog.products`).Scan(&n)
-	if n != 3 {
+	if n := env.count(t, `SELECT count(*) FROM catalog.products`); n != 3 {
 		t.Errorf("%d products stored, want the 3 synced before the cancel", n)
 	}
 	// The lock was released, so a new run can start.
-	env.svc.supplier = env.vali
-	if run := env.mustSync(t); run.Changed != len(env.vali.Products)-3 {
-		t.Errorf("next run changed %d, want the remaining %d", run.Changed, len(env.vali.Products)-3)
+	env.svc.supplier = env.src
+	if run := env.mustSync(t); run.Changed != len(env.src.Items)-3 {
+		t.Errorf("next run changed %d, want the remaining %d", run.Changed, len(env.src.Items)-3)
 	}
 }
 
@@ -393,14 +471,38 @@ func TestSyncRefusesToOverlap(t *testing.T) {
 	if _, err := env.svc.Sync(context.Background()); !errors.Is(err, ErrSyncInProgress) {
 		t.Fatalf("err = %v, want ErrSyncInProgress", err)
 	}
-	var runs int
-	_ = env.pool.QueryRow(context.Background(), `SELECT count(*) FROM catalog.sync_runs`).Scan(&runs)
-	if runs != 0 {
+	if runs := env.count(t, `SELECT count(*) FROM catalog.sync_runs`); runs != 0 {
 		t.Errorf("%d sync runs recorded, want none", runs)
 	}
 
 	release()
 	env.mustSync(t)
+}
+
+// failingSpecs fails every save.
+type failingSpecs struct{}
+
+func (failingSpecs) SaveTx(context.Context, pgx.Tx, specs.Input) (specs.Status, error) {
+	return "", errors.New("specs failed")
+}
+
+func (failingSpecs) Specs(context.Context, uuid.UUID) (specs.ProductSpecs, error) {
+	return specs.ProductSpecs{}, specs.ErrNotFound
+}
+
+// Saving specs is the last step of a product's sync transaction: when it fails, the product,
+// its price and its stock must not be stored either.
+func TestSyncRollsBackWhenSpecsFail(t *testing.T) {
+	pool := dbtest.New(t)
+	env := newSyncEnvWith(t, pool, failingSpecs{})
+
+	run := env.mustSync(t)
+	if run.Errors != len(env.src.Items) || run.Changed != 0 {
+		t.Errorf("run = %+v, want every product to fail", run)
+	}
+	if v := env.versions(t); len(v) != 0 {
+		t.Errorf("rows left behind: %v", v)
+	}
 }
 
 func TestSlugFor(t *testing.T) {
@@ -417,45 +519,43 @@ func TestSlugFor(t *testing.T) {
 }
 
 func TestHashes(t *testing.T) {
-	raw := loadFixtures(t)[0]
-	base, _, _, err := fromRaw(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hashes := func(change func(*vali.RawProduct)) (content, commercial string) {
-		r := raw
-		r.Specs, r.Stock = maps.Clone(raw.Specs), maps.Clone(raw.Stock)
-		change(&r)
-		p, _, _, err := fromRaw(r)
+	base := loadFixtures(t)[0]
+	hashes := func(change func(*supplier.Product)) (content, commercial string) {
+		p := base
+		p.Attributes, p.Specs = maps.Clone(base.Attributes), maps.Clone(base.Specs)
+		change(&p)
+		content, err := contentHash(p)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return p.RawHash, p.CommercialHash
+		commercial, err = commercialHash(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return content, commercial
 	}
+	baseContent, baseCommercial := hashes(func(*supplier.Product) {})
 
 	tests := []struct {
 		name                          string
-		change                        func(*vali.RawProduct)
+		change                        func(*supplier.Product)
 		contentChanges, commercialChg bool
 	}{
-		{"updated_at is ignored", func(r *vali.RawProduct) { r.UpdatedAt = r.UpdatedAt.Add(time.Hour) }, false, false},
-		{"name is content", func(r *vali.RawProduct) { r.Name += " (new)" }, true, false},
-		{"a spec is content", func(r *vali.RawProduct) { r.Specs["Тегло"] = "1.000 kg" }, true, false},
-		{"category path is content", func(r *vali.RawProduct) { r.CategoryPath = []string{"x", "Видео карти"} }, true, false},
-		{"dealer price is commercial", func(r *vali.RawProduct) { r.DealerPriceCents++ }, false, true},
-		{"rrp is commercial", func(r *vali.RawProduct) { r.RRPCents++ }, false, true},
-		{"stock is commercial", func(r *vali.RawProduct) { r.Stock["Varna"] = 1 }, false, true},
+		{"name is content", func(p *supplier.Product) { p.Name += " (new)" }, true, false},
+		{"an attribute is content", func(p *supplier.Product) { p.Attributes["Тегло"] = "1.000 kg" }, true, false},
+		{"a spec is content", func(p *supplier.Product) { p.Specs = map[string]any{"socket": "AM5"} }, true, false},
+		{"category is content", func(p *supplier.Product) { p.Category = "gpu" }, true, false},
+		{"cost is commercial", func(p *supplier.Product) { p.CostCents++ }, false, true},
+		{"stock is commercial", func(p *supplier.Product) { p.StockQty++ }, false, true},
 	}
 	for _, tt := range tests {
 		content, commercial := hashes(tt.change)
-		if (content != base.RawHash) != tt.contentChanges || (commercial != base.CommercialHash) != tt.commercialChg {
-			t.Errorf("%s: content changed=%v commercial changed=%v", tt.name, content != base.RawHash, commercial != base.CommercialHash)
+		if (content != baseContent) != tt.contentChanges || (commercial != baseCommercial) != tt.commercialChg {
+			t.Errorf("%s: content changed=%v commercial changed=%v", tt.name, content != baseContent, commercial != baseCommercial)
 		}
 	}
 
-	_, nilStock := hashes(func(r *vali.RawProduct) { r.Stock = nil })
-	_, emptyStock := hashes(func(r *vali.RawProduct) { r.Stock = map[string]int{} })
-	if nilStock != emptyStock {
-		t.Error("nil and empty stock hash differently")
+	if _, err := contentHash(supplier.Product{Specs: map[string]any{"x": func() {}}}); err == nil {
+		t.Error("a spec JSON can't hold should fail the hash")
 	}
 }

@@ -30,6 +30,11 @@ func (app *application) routes() http.Handler {
 		// TODO(phase-4): move onto the api/openapi.yaml contract (oapi-codegen).
 		r.Get("/products", app.listProducts)
 		r.Get("/products/{slug}", app.showProduct)
+
+		// TODO(phase-6): requireAdmin. Nothing here is secret (no prices), but it's for admins.
+		r.Route("/admin", func(r chi.Router) {
+			r.Get("/specs/review-queue", app.specsReviewQueue)
+		})
 	})
 
 	return r
