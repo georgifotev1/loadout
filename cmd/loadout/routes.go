@@ -31,9 +31,12 @@ func (app *application) routes() http.Handler {
 		r.Get("/products", app.listProducts)
 		r.Get("/products/{slug}", app.showProduct)
 
-		// TODO(phase-6): requireAdmin. Nothing here is secret (no prices), but it's for admins.
+		// TODO(phase-6): requireAdmin. Nothing here is secret (no prices), but it's for admins, and
+		// POST /sync must be locked down before anything is deployed.
 		r.Route("/admin", func(r chi.Router) {
 			r.Get("/specs/review-queue", app.specsReviewQueue)
+			r.Post("/sync", app.triggerSync)
+			r.Get("/jobs/discarded", app.discardedJobs)
 		})
 	})
 
