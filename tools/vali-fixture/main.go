@@ -1,5 +1,5 @@
 // Command vali-fixture turns the public vali.bg product pages listed in
-// fixtures/vali/sources.txt into mock-vali fixtures (AGENT_PLAN.md §4.1).
+// fixtures/vali/sources.txt into mock-vali fixtures.
 //
 // It is a one-off helper the developer runs by hand, not a scraping job: it fetches one page at
 // a time with a delay and skips URLs that already have a fixture unless -force is set.

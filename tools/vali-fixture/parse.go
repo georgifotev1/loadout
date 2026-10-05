@@ -107,7 +107,7 @@ func (p *page) readLD(src string) (bool, error) {
 }
 
 // readTable reads <tr><td>key</td><td>value</td></tr> rows. A value made of several <div>s
-// (e.g. "USB портове") is joined with ", ", matching the raw format in AGENT_PLAN.md §4.1.
+// (e.g. "USB портове") is joined with ", ", matching the raw fixture format.
 func (p *page) readTable(t *html.Node) {
 	for tr := range t.Descendants() {
 		if tr.Type != html.ElementNode || tr.Data != "tr" {

@@ -69,7 +69,8 @@ func Open(ctx context.Context, o Options) (*pgxpool.Pool, error) {
 // InTx runs fn in a transaction. It commits if fn returns nil and rolls back on an error,
 // a panic (then re-panics) or context cancellation.
 //
-// fn must not call external systems (Vali, Speedy, Stripe, email): see AGENT_PLAN.md §1.2.
+// fn must not call external systems (Vali, Speedy, Stripe, email): they would hold the
+// transaction's locks and connection while waiting, and a rollback can't undo them.
 func InTx(ctx context.Context, pool *pgxpool.Pool, fn func(tx pgx.Tx) error) (err error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {

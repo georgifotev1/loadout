@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://loadout.bg/schemas/mock-vali/product.json",
   "title": "mock-vali raw product",
-  "description": "One product as mock-vali serves it (AGENT_PLAN.md §4.1). Public fields are copied from vali.bg as-is; dealer fields are invented. ASSUMPTION: the real Vali dealer API shape is unknown.",
+  "description": "One product as mock-vali serves it. Public fields are copied from vali.bg as-is; dealer fields are invented. ASSUMPTION: the real Vali dealer API shape is unknown.",
   "type": "object",
   "additionalProperties": false,
   "required": [

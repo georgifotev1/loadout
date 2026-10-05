@@ -1,5 +1,5 @@
 -- +goose Up
--- The catalog module owns this schema. No other module reads or writes it (AGENT_PLAN.md §1).
+-- The catalog module owns this schema. No other module reads or writes it.
 CREATE SCHEMA catalog;
 
 CREATE TABLE catalog.products (

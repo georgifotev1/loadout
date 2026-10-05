@@ -15,7 +15,7 @@ import (
 
 var builderCategories = []string{"cpu", "motherboard", "ram", "gpu", "psu", "case", "cooler", "storage"}
 
-// minPerCategory is the coverage AGENT_PLAN.md §4.1 asks for, so the builder rules have
+// minPerCategory is the coverage the fixtures must have, so the builder rules have
 // something to bite on.
 var minPerCategory = map[string]int{
 	"cpu": 4, "motherboard": 4, "ram": 2, "gpu": 5, "psu": 4, "case": 4, "cooler": 2, "storage": 2,
