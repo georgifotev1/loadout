@@ -27,7 +27,7 @@ export function PageError() {
 	);
 }
 
-function StatusPage({
+export function StatusPage({
 	title,
 	detail,
 	children,

@@ -219,11 +219,13 @@ function BentoTile({
 	);
 }
 
-// TODO(phase-5): link to the PC builder.
 function BuilderTile() {
 	const parts = [Cpu, Gpu, CircuitBoard, MemoryStick, PlugZap, Box, Fan];
 	return (
-		<div className="relative col-span-2 flex flex-col justify-between gap-6 overflow-hidden rounded-xl bg-primary p-6 text-primary-foreground sm:p-7">
+		<Link
+			to="/builder"
+			className="group relative col-span-2 flex flex-col justify-between gap-6 overflow-hidden rounded-xl bg-primary p-6 text-primary-foreground sm:p-7"
+		>
 			<div className="flex gap-2">
 				{parts.map((Icon, i) => (
 					<span
@@ -244,11 +246,11 @@ function BuilderTile() {
 						{m.home.builderDetail}
 					</p>
 				</div>
-				<span className="inline-flex h-7 shrink-0 items-center rounded-full border border-white/15 px-3 font-medium text-white/70 text-xs">
-					{m.home.builderSoon}
+				<span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 font-medium text-primary text-sm transition-transform group-hover:translate-x-0.5">
+					{m.home.builderStart} <ArrowRight className="size-4" />
 				</span>
 			</div>
-		</div>
+		</Link>
 	);
 }
 

@@ -21,6 +21,7 @@ export const bg = {
 		searchPlaceholder: "Търсете продукт, марка или код",
 		menu: "Меню",
 		close: "Затвори",
+		builder: "Конфигуратор",
 	},
 	search: {
 		label: "Търсене",
@@ -57,7 +58,255 @@ export const bg = {
 		builderTitle: "Сглобете компютър",
 		builderDetail:
 			"Изберете компоненти, а ние проверяваме съвместимостта и захранването.",
-		builderSoon: "Скоро",
+		builderStart: "Започнете",
+	},
+	builder: {
+		title: "Сглобете компютър",
+		lead: "Изберете компоненти в произволен ред. Показваме само части, които пасват на вече избраните, и следим захранването.",
+		metaDescription:
+			"Конфигуратор на компютър: изберете процесор, дънна платка, памет и видео карта, а ние проверяваме съвместимостта и нужното захранване.",
+		clear: "Изчисти",
+		clearedNote: "Конфигурацията е изчистена.",
+		undo: "Върни",
+		next: "Напред",
+		share: "Сподели",
+		sharing: "Запазване…",
+		shareLink: "Връзка към конфигурацията",
+		copy: "Копирай",
+		copied: "Копирано",
+		shareFailed:
+			"Не успяхме да запазим конфигурацията. Опитайте отново след малко.",
+		progress: (done: number, total: number) =>
+			`${done} от ${total} задължителни компонента`,
+		required: "Задължително",
+		optional: "По избор",
+		choose: "Избери",
+		change: "Смени",
+		remove: "Премахни",
+		addDrive: "Добави още един диск",
+		chosen: "Избрано",
+		seeSlot: (slot: string) => `Вижте „${slot}“`,
+		unavailable: "Вече не се предлага",
+		unavailableDetail: "Тази част вече не се продава. Изберете друга.",
+		chooseReplacement: "Избери друга",
+		slot: {
+			cpu: "Процесор",
+			motherboard: "Дънна платка",
+			ram: "RAM памет",
+			cooler: "Охлаждане",
+			gpu: "Видео карта",
+			storage: "Диск",
+			psu: "Захранване",
+			case: "Кутия",
+		},
+		pickerTitle: {
+			cpu: "Изберете процесор",
+			motherboard: "Изберете дънна платка",
+			ram: "Изберете RAM памет",
+			cooler: "Изберете охлаждане",
+			gpu: "Изберете видео карта",
+			storage: "Изберете диск",
+			psu: "Изберете захранване",
+			case: "Изберете кутия",
+		},
+		hint: {
+			cpu: "Започнете оттук: процесорът определя сокета и типа памет.",
+			motherboard: "С правилния сокет и място за паметта и дисковете.",
+			ram: "DDR4 или DDR5, според дънната платка. Два модула са по-бързи от един.",
+			cooler: "Въздушно или водно охлаждане за процесора.",
+			coolerRequired: "Процесорът се продава без охладител, затова е нужен.",
+			coolerBoxed:
+				"Процесорът идва с охладител. Изберете друг, ако искате по-тих или по-мощен.",
+			gpu: "За игри, монтаж на видео и 3D.",
+			gpuRequired:
+				"Процесорът няма вградена графика, затова е нужна видео карта.",
+			gpuOptional:
+				"Процесорът има вградена графика. Видео карта е нужна за игри и 3D.",
+			storage:
+				"NVMe SSD за системата и програмите, по избор втори диск за данни.",
+			psu: "Нужната мощност зависи от процесора и видео картата.",
+			psuRecommended: (w: number) =>
+				`За тази конфигурация препоръчваме поне ${w} W.`,
+			case: "Показваме кутии, в които влизат избраните части.",
+		},
+		picker: {
+			count: (n: number) =>
+				`${n} ${plural(n, { one: "съвместим вариант", other: "съвместими варианта" })}`,
+			countFiltered: (shown: number, all: number) =>
+				`${shown} от ${all} ${plural(all, { one: "съвместим вариант", other: "съвместими варианта" })}`,
+			recommended: "Препоръчано",
+			current: "Текущ избор",
+			empty:
+				"Нито една част не пасва на останалите компоненти. Сменете някой от тях и опитайте отново.",
+			emptyFiltered: "Няма части, които отговарят на филтрите.",
+			error: "Не успяхме да заредим вариантите.",
+			retry: "Опитай отново",
+		},
+		filters: {
+			title: "Филтри",
+			clear: "Изчисти филтрите",
+			sort: "Подреди",
+			brand: "Марка",
+			socket: "Сокет",
+			formFactor: "Формат",
+			memoryType: "Памет",
+			chipset: "Чипсет",
+			capacity: "Капацитет",
+			modules: "Модули",
+			moduleCount: (n: number) =>
+				`${n} ${plural(n, { one: "модул", other: "модула" })}`,
+			speed: "Честота",
+			coolerType: "Тип",
+			air: "Въздушно",
+			aio: "Водно",
+			radiator: "Радиатор",
+			interface: "Интерфейс",
+			wattage: "Мощност",
+			boardSize: "Дънна платка",
+			psuSize: "Захранване",
+			igpu: "С вградена графика",
+			boxCooler: "С охладител в кутията",
+			enoughPower: (w: number) => `Поне ${w} W (препоръчано)`,
+			inStock: "В наличност",
+			noNotes: "Без предупреждения",
+			sortPriceAsc: "Цена: ниска към висока",
+			sortPriceDesc: "Цена: висока към ниска",
+			sortTdp: "Най-ниска консумация",
+			sortM2: "Най-много M.2 слота",
+			sortCapacity: "Най-голям капацитет",
+			sortSpeed: "Най-висока честота",
+			sortHeight: "Най-ниски",
+			sortLength: "Най-къси",
+			sortPerGb: "Най-ниска цена за GB",
+			sortWattage: "Най-висока мощност",
+			sortGpuRoom: "Най-много място за видео карта",
+		},
+		summary: {
+			title: "Обобщение",
+			total: "Общо",
+			vatIncluded: "С включено ДДС",
+			parts: (n: number) =>
+				`${n} ${plural(n, { one: "компонент", other: "компонента" })}`,
+			power: "Консумация",
+			estimate: (w: number) => `до ~${w} W при пълно натоварване`,
+			ofPsu: (w: number) => `от ${w} W`,
+			recommendedPsu: (w: number) => `Препоръчано захранване: от ${w} W`,
+			empty: "Изберете процесор, за да започнем.",
+			missing: (n: number) =>
+				`${plural(n, { one: "Остава", other: "Остават" })} ${n} ${plural(n, { one: "компонент", other: "компонента" })}`,
+			compatible: "Всички части са съвместими",
+			compatibleSoFar: "Избраното до момента е съвместимо",
+			errors: (n: number) =>
+				`${n} ${plural(n, { one: "проблем", other: "проблема" })} със съвместимостта`,
+			warnings: (n: number) =>
+				`${n} ${plural(n, { one: "предупреждение", other: "предупреждения" })}`,
+			addToCart: "Добави в количката",
+			cartSoon: "Поръчката на конфигурации идва скоро.",
+			fixFirst: "Отстранете проблемите, за да поръчате.",
+			view: "Обобщение",
+		},
+		saved: {
+			title: "Запазена конфигурация",
+			savedOn: (date: string) => `Запазена на ${date}`,
+			edit: "Редактирай в конфигуратора",
+			pricesChanged: (n: number) =>
+				`${plural(n, { one: "Цената на", other: "Цените на" })} ${n} ${plural(n, { one: "компонент се промени", other: "компонента се промениха" })} след запазването`,
+			wasNow: (was: string, now: string) => `беше ${was}, сега ${now}`,
+			savedTotal: (total: string) => `При запазването: ${total}`,
+			unavailable: (n: number) =>
+				`${n} ${plural(n, { one: "компонент вече не се предлага", other: "компонента вече не се предлагат" })}. Отворете конфигурацията, за да ги замените.`,
+			notFoundTitle: "Конфигурацията не е намерена",
+			notFoundDetail:
+				"Връзката може да е грешна или непълна. Проверете я или сглобете нова конфигурация.",
+			startNew: "Към конфигуратора",
+		},
+		spec: {
+			igpu: "вградена графика",
+			boxCooler: "с охладител",
+			air: "въздушно",
+			aio: "водно",
+			height: (mm: number) => `${mm} mm височина`,
+			gpuUpTo: (mm: number) => `видео карта до ${mm} mm`,
+		},
+		// The spec fields MISSING_SPEC can name, as a shopper would call them.
+		specField: {
+			socket: "сокета",
+			tdp_w: "консумацията",
+			igpu: "вградената графика",
+			cooler_included: "дали има охладител",
+			memory_types: "типа памет",
+			generation: "поколението",
+			form_factor: "формата",
+			memory_type: "типа памет",
+			memory_slots: "слотовете за памет",
+			max_memory_gb: "максималната памет",
+			max_memory_mhz: "максималната честота на паметта",
+			m2_slots: "M.2 слотовете",
+			supported_cpu_generations: "поддържаните процесори",
+			type: "типа",
+			capacity_gb_total: "капацитета",
+			modules: "броя модули",
+			speed_mhz: "честотата",
+			length_mm: "дължината",
+			power_connectors: "захранващите конектори",
+			wattage_w: "мощността",
+			pcie_12v2x6_count: "конекторите 12V-2x6",
+			form_factors_supported: "поддържаните дънни платки",
+			max_gpu_length_mm: "максималната дължина на видео картата",
+			max_cooler_height_mm: "максималната височина на охладителя",
+			psu_form_factor: "формата на захранването",
+			radiator_support: "местата за радиатор",
+			sockets: "поддържаните сокети",
+			height_mm: "височината",
+			radiator_mm: "размера на радиатора",
+			tdp_rating_w: "мощността на охлаждане",
+			interface: "интерфейса",
+			capacity_gb: "капацитета",
+		} as Record<string, string | undefined>,
+		findings: {
+			cpuSocket: (cpu: string, mb: string) =>
+				`Процесорът е за сокет ${cpu}, а дънната платка е за ${mb}.`,
+			cpuGeneration:
+				"Дънната платка може да има нужда от обновен BIOS, за да работи с този процесор.",
+			ramType: (ram: string, mb: string) =>
+				`Паметта е ${ram}, а дънната платка работи с ${mb}.`,
+			ramSlots: (modules: number, slots: number) =>
+				`${modules} ${plural(modules, { one: "модул", other: "модула" })} памет, а дънната платка има ${slots} ${plural(slots, { one: "слот", other: "слота" })}.`,
+			ramCapacity: (gb: number, max: number) =>
+				`${gb} GB памет, а дънната платка поддържа до ${max} GB.`,
+			ramSpeed: (ram: number, max: number) =>
+				`Паметта ще работи на ${max} MHz вместо на ${ram} MHz: толкова поддържа дънната платка.`,
+			ramDualChannel:
+				"Един модул памет работи в едноканален режим. Два модула са осезаемо по-бързи.",
+			caseBoard: (form: string, supported: string) =>
+				`Кутията не побира дънна платка ${form}. Поддържа ${supported}.`,
+			caseGpu: (gpu: number, max: number) =>
+				`Видео картата е дълга ${gpu} mm, а в кутията влизат до ${max} mm.`,
+			caseGpuTight: (spare: number) =>
+				`Видео картата влиза в кутията с едва ${spare} mm резерв. Проверете за кабели и вентилатори отпред.`,
+			caseCooler: (cooler: number, max: number) =>
+				`Охладителят е висок ${cooler} mm, а кутията побира до ${max} mm.`,
+			caseRadiator: (mm: number) => `Кутията няма място за радиатор ${mm} mm.`,
+			casePsu: (psu: string, kase: string) =>
+				`Захранването е ${psu}, а кутията приема до ${kase}.`,
+			coolerSocket: (socket: string) =>
+				`Охладителят не се монтира на сокет ${socket}.`,
+			coolerTdp: (cooler: number, cpu: number) =>
+				`Охладителят е за до ${cooler} W, а процесорът отделя до ${cpu} W.`,
+			psuTooWeak: (psu: number, est: number, rec: number) =>
+				`Захранването е ${psu} W, а компютърът може да консумира до ${est} W. Изберете поне ${rec} W.`,
+			psuHigh: (psu: number, est: number, rec: number) =>
+				`При пълно натоварване захранването ще работи над 80% (${est} от ${psu} W). Препоръчваме поне ${rec} W.`,
+			psuConnector: (connector: string) =>
+				`Видео картата е с ${connector} конектор, а захранването няма такъв. Ще е нужен адаптер.`,
+			m2Slots: (drives: number, slots: number) =>
+				`${drives} M.2 ${plural(drives, { one: "диск", other: "диска" })}, а дънната платка има ${slots} M.2 ${plural(slots, { one: "слот", other: "слота" })}.`,
+			missingSpec: (part: string, field: string) =>
+				`${part}: не можем да проверим ${field}. Свържете се с нас, преди да поръчате.`,
+			partRequired: (part: string) => `${part}: задължителен компонент`,
+			coolerRequired: "Процесорът се продава без охладител.",
+			gpuRequired: "Процесорът няма вградена графика.",
+		},
 	},
 	perks: {
 		delivery: "Доставка до 2 работни дни",

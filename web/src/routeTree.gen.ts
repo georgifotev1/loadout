@@ -13,11 +13,13 @@ import { Route as ShopRouteImport } from './routes/_shop'
 import { Route as PreviewRouteRouteImport } from './routes/preview/route'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShopIndexRouteImport } from './routes/_shop/index'
+import { Route as ShopBuilderRouteImport } from './routes/_shop/builder'
 import { Route as ShopSearchRouteImport } from './routes/_shop/search'
 import { Route as PreviewIndexRouteImport } from './routes/preview/index'
 import { Route as PreviewCartRouteImport } from './routes/preview/cart'
 import { Route as PreviewCheckoutRouteImport } from './routes/preview/checkout'
 import { Route as PreviewConfirmationRouteImport } from './routes/preview/confirmation'
+import { Route as ShopBuildSlugRouteImport } from './routes/_shop/build.$slug'
 import { Route as ShopCCategoryRouteImport } from './routes/_shop/c.$category'
 import { Route as ShopPSlugRouteImport } from './routes/_shop/p.$slug'
 
@@ -38,6 +40,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const ShopIndexRoute = ShopIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopBuilderRoute = ShopBuilderRouteImport.update({
+  id: '/builder',
+  path: '/builder',
   getParentRoute: () => ShopRoute,
 } as any)
 const ShopSearchRoute = ShopSearchRouteImport.update({
@@ -65,6 +72,11 @@ const PreviewConfirmationRoute = PreviewConfirmationRouteImport.update({
   path: '/confirmation',
   getParentRoute: () => PreviewRouteRoute,
 } as any)
+const ShopBuildSlugRoute = ShopBuildSlugRouteImport.update({
+  id: '/build/$slug',
+  path: '/build/$slug',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopCCategoryRoute = ShopCCategoryRouteImport.update({
   id: '/c/$category',
   path: '/c/$category',
@@ -80,22 +92,26 @@ export interface FileRoutesByFullPath {
   '/preview': typeof PreviewRouteRouteWithChildren
   '/': typeof ShopIndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/builder': typeof ShopBuilderRoute
   '/search': typeof ShopSearchRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
   '/preview/': typeof PreviewIndexRoute
+  '/build/$slug': typeof ShopBuildSlugRoute
   '/c/$category': typeof ShopCCategoryRoute
   '/p/$slug': typeof ShopPSlugRoute
 }
 export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/builder': typeof ShopBuilderRoute
   '/search': typeof ShopSearchRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
   '/': typeof ShopIndexRoute
   '/preview': typeof PreviewIndexRoute
+  '/build/$slug': typeof ShopBuildSlugRoute
   '/c/$category': typeof ShopCCategoryRoute
   '/p/$slug': typeof ShopPSlugRoute
 }
@@ -104,12 +120,14 @@ export interface FileRoutesById {
   '/preview': typeof PreviewRouteRouteWithChildren
   '/_shop': typeof ShopRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/_shop/builder': typeof ShopBuilderRoute
   '/_shop/search': typeof ShopSearchRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
   '/_shop/': typeof ShopIndexRoute
   '/preview/': typeof PreviewIndexRoute
+  '/_shop/build/$slug': typeof ShopBuildSlugRoute
   '/_shop/c/$category': typeof ShopCCategoryRoute
   '/_shop/p/$slug': typeof ShopPSlugRoute
 }
@@ -119,22 +137,26 @@ export interface FileRouteTypes {
     | '/preview'
     | '/'
     | '/sitemap.xml'
+    | '/builder'
     | '/search'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
     | '/preview/'
+    | '/build/$slug'
     | '/c/$category'
     | '/p/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sitemap.xml'
+    | '/builder'
     | '/search'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
     | '/'
     | '/preview'
+    | '/build/$slug'
     | '/c/$category'
     | '/p/$slug'
   id:
@@ -142,12 +164,14 @@ export interface FileRouteTypes {
     | '/preview'
     | '/_shop'
     | '/sitemap.xml'
+    | '/_shop/builder'
     | '/_shop/search'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
     | '/_shop/'
     | '/preview/'
+    | '/_shop/build/$slug'
     | '/_shop/c/$category'
     | '/_shop/p/$slug'
   fileRoutesById: FileRoutesById
@@ -188,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopIndexRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/builder': {
+      id: '/_shop/builder'
+      path: '/builder'
+      fullPath: '/builder'
+      preLoaderRoute: typeof ShopBuilderRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/search': {
       id: '/_shop/search'
       path: '/search'
@@ -222,6 +253,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/preview/confirmation'
       preLoaderRoute: typeof PreviewConfirmationRouteImport
       parentRoute: typeof PreviewRouteRoute
+    }
+    '/_shop/build/$slug': {
+      id: '/_shop/build/$slug'
+      path: '/build/$slug'
+      fullPath: '/build/$slug'
+      preLoaderRoute: typeof ShopBuildSlugRouteImport
+      parentRoute: typeof ShopRoute
     }
     '/_shop/c/$category': {
       id: '/_shop/c/$category'
@@ -259,15 +297,19 @@ const PreviewRouteRouteWithChildren = PreviewRouteRoute._addFileChildren(
 )
 
 interface ShopRouteChildren {
+  ShopBuilderRoute: typeof ShopBuilderRoute
   ShopSearchRoute: typeof ShopSearchRoute
   ShopIndexRoute: typeof ShopIndexRoute
+  ShopBuildSlugRoute: typeof ShopBuildSlugRoute
   ShopCCategoryRoute: typeof ShopCCategoryRoute
   ShopPSlugRoute: typeof ShopPSlugRoute
 }
 
 const ShopRouteChildren: ShopRouteChildren = {
+  ShopBuilderRoute: ShopBuilderRoute,
   ShopSearchRoute: ShopSearchRoute,
   ShopIndexRoute: ShopIndexRoute,
+  ShopBuildSlugRoute: ShopBuildSlugRoute,
   ShopCCategoryRoute: ShopCCategoryRoute,
   ShopPSlugRoute: ShopPSlugRoute,
 }

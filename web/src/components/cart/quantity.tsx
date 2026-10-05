@@ -5,11 +5,13 @@ import { cn } from "#/lib/utils";
 export function Quantity({
 	value,
 	onChange,
+	max,
 	size = "sm",
 	className,
 }: {
 	value: number;
 	onChange: (value: number) => void;
+	max?: number;
 	size?: "sm" | "lg";
 	className?: string;
 }) {
@@ -43,6 +45,7 @@ export function Quantity({
 			<button
 				type="button"
 				aria-label={m.cart.increase}
+				disabled={max !== undefined && value >= max}
 				onClick={() => onChange(value + 1)}
 				className={button}
 			>

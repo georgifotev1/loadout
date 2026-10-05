@@ -1,5 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Menu, ShoppingCart, User, X } from "lucide-react";
+import {
+	ChevronRight,
+	Menu,
+	ShoppingCart,
+	User,
+	Wrench,
+	X,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "#/components/ui/button";
 import {
@@ -80,6 +87,15 @@ export function SiteHeader({
 			<nav aria-label={m.nav.allCategories} className="hidden md:block">
 				<Container>
 					<ul className="-mb-px flex h-10 items-center gap-5 overflow-x-auto text-meta text-muted-foreground scrollbar-none">
+						<li className="shrink-0">
+							<Link
+								to="/builder"
+								className="flex h-10 items-center gap-1.5 border-transparent border-b-2 font-medium text-foreground transition-colors hover:text-brand-ink data-[status=active]:border-brand"
+							>
+								<Wrench className="size-3.5" /> {m.nav.builder}
+							</Link>
+						</li>
+						<li aria-hidden className="h-4 w-px shrink-0 bg-border" />
 						{componentCategories.map((c) => (
 							<NavLink key={c} category={c} />
 						))}
@@ -142,6 +158,16 @@ function MobileMenu({
 						</DrawerClose>
 					</div>
 					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+						<Link
+							to="/builder"
+							onClick={() => onOpenChange(false)}
+							className="mb-3 flex items-center justify-between rounded-lg bg-muted px-3 py-2.5 font-medium text-sm"
+						>
+							<span className="flex items-center gap-2">
+								<Wrench className="size-4" /> {m.nav.builder}
+							</span>
+							<ChevronRight className="size-4 text-subtle-foreground" />
+						</Link>
 						{groups.map((g, i) => (
 							<div key={g.title} className={cn(i > 0 && "mt-4")}>
 								<p className="px-3 pb-1.5 font-medium text-[11px] text-subtle-foreground uppercase tracking-wider">
