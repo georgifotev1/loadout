@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -54,6 +57,39 @@ func (s *Service) List(ctx context.Context, f ListFilter) (ProductPage, error) {
 		return ProductPage{}, err
 	}
 	return ProductPage{Products: products, Total: total}, nil
+}
+
+// Search returns one page of the visible products matching q, best first, and the facets over
+// all matches. The text matches words in the name, brand and SKU, and tolerates typos in the
+// name.
+func (s *Service) Search(ctx context.Context, q SearchQuery) (SearchResult, error) {
+	q.Text = strings.TrimSpace(q.Text)
+	if q.Sort == "" {
+		q.Sort = SortRelevance
+	}
+
+	var v validate.Validator
+	v.Check(utf8.RuneCountInString(q.Text) <= MaxSearchTextLen, "q", "too_long")
+	v.Check(q.Category == "" || IsCategory(q.Category), "category", "unknown")
+	v.Check(len(q.Brands) <= MaxSearchBrands, "brand", "too_many")
+	v.Check(q.MinCents >= 0, "price_min", "out_of_range")
+	v.Check(q.MaxCents == 0 || q.MaxCents > q.MinCents, "price_max", "out_of_range")
+	v.Check(slices.Contains([]Sort{SortRelevance, SortPriceAsc, SortPriceDesc}, q.Sort), "sort", "unknown")
+	v.Check(q.Page >= 1, "page", "out_of_range")
+	v.Check(q.PageSize >= 1 && q.PageSize <= MaxPageSize, "page_size", "out_of_range")
+	if err := v.Err(); err != nil {
+		return SearchResult{}, err
+	}
+
+	products, total, err := s.store.searchProducts(ctx, s.pool, q)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	facets, err := s.store.searchFacets(ctx, s.pool, q)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	return SearchResult{Products: products, Total: total, Facets: facets}, nil
 }
 
 // Product returns the product page data for slug, with its canonical specs. Inactive or

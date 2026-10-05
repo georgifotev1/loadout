@@ -24,3 +24,14 @@ export const productQuery = (slug: string) =>
 				}),
 			),
 	});
+
+export type SearchParams = NonNullable<
+	operations["searchProducts"]["parameters"]["query"]
+>;
+
+export const searchQuery = (params: SearchParams) =>
+	queryOptions({
+		queryKey: ["search", params],
+		queryFn: async ({ signal }) =>
+			unwrap(await api.GET("/search", { params: { query: params }, signal })),
+	});

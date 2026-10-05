@@ -125,6 +125,58 @@ func TestProductsAPI(t *testing.T) {
 	})
 }
 
+func TestSearchAPI(t *testing.T) {
+	app := newCatalogApp(t)
+
+	t.Run("filters and facets", func(t *testing.T) {
+		rec := get(t, app, "/api/search?q=core&category=cpu&brand=AMD&brand=INTEL&sort=price_asc&page_size=2")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body)
+		}
+		var body SearchResult
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Total == 0 || len(body.Products) > 2 || body.PageSize != 2 {
+			t.Fatalf("total=%d len=%d size=%d", body.Total, len(body.Products), body.PageSize)
+		}
+		if len(body.Facets.Brands) == 0 || len(body.Facets.Categories) == 0 || len(body.Facets.Prices) == 0 {
+			t.Errorf("facets %+v", body.Facets)
+		}
+	})
+
+	t.Run("no matches still has facet arrays", func(t *testing.T) {
+		rec := get(t, app, "/api/search?q=spaceship")
+		if !strings.Contains(rec.Body.String(), `"facets":{"brands":[],"categories":[],"prices":[]}`) {
+			t.Errorf("body %s", rec.Body)
+		}
+	})
+
+	t.Run("bad query parameters are 422", func(t *testing.T) {
+		for _, target := range []string{
+			"/api/search?category=spaceship",
+			"/api/search?sort=random",
+			"/api/search?price_min=-1",
+			"/api/search?price_min=5000&price_max=100",
+			"/api/search?price_max=abc",
+			"/api/search?q=" + strings.Repeat("a", 201),
+		} {
+			if rec := get(t, app, target); rec.Code != http.StatusUnprocessableEntity {
+				t.Errorf("%s: status %d, want 422", target, rec.Code)
+			}
+		}
+	})
+
+	t.Run("dealer data never leaves the server", func(t *testing.T) {
+		body := get(t, app, "/api/search?category=cpu").Body.String()
+		for _, leak := range []string{"dealer", "5235", "rule", "hash"} {
+			if strings.Contains(body, leak) {
+				t.Errorf("response contains %q", leak)
+			}
+		}
+	})
+}
+
 // Every catalog category must be in the Category enum in api/openapi.yaml, or the web app's
 // generated types won't know it.
 func TestCategoryEnumCoversCatalog(t *testing.T) {

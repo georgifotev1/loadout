@@ -49,6 +49,54 @@ paths:
         "422": { $ref: "#/components/responses/ValidationFailed" }
         default: { $ref: "#/components/responses/Error" }
 
+  /search:
+    get:
+      operationId: searchProducts
+      summary: Search and filter the products shoppers can see, with facet counts
+      description: |
+        Every filter is optional: without `q` this is a faceted category or catalog listing.
+        Each facet ignores its own filter, so after picking one brand the brand facet still
+        counts the others the shopper could add.
+      tags: [catalog]
+      parameters:
+        - name: q
+          in: query
+          description: What the shopper typed. Matches words in the name, brand and SKU, and tolerates typos in the name.
+          schema: { type: string, maxLength: 200 }
+        - name: category
+          in: query
+          schema: { $ref: "#/components/schemas/Category" }
+        - name: brand
+          in: query
+          description: Any of these brands, as the `brands` facet spells them. Repeat for several.
+          schema:
+            type: array
+            maxItems: 20
+            items: { type: string }
+          style: form
+          explode: true
+        - name: price_min
+          in: query
+          description: Lowest price in euro cents, inclusive.
+          schema: { type: integer, format: int64, minimum: 0 }
+        - name: price_max
+          in: query
+          description: Price limit in euro cents, exclusive, so it pairs with a bucket's `max_cents`.
+          schema: { type: integer, format: int64, minimum: 1 }
+        - name: sort
+          in: query
+          schema: { $ref: "#/components/schemas/SearchSort" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: One page of matching products and the facets over all matches
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchResult" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
   /products/{slug}:
     get:
       operationId: getProduct
@@ -165,6 +213,70 @@ components:
         total:
           type: integer
           description: Matching products over all pages.
+
+    SearchSort:
+      type: string
+      description: "`relevance` (the default) is the best text match first, or by name without `q`."
+      enum: [relevance, price_asc, price_desc]
+
+    SearchResult:
+      type: object
+      required: [products, page, page_size, total, facets]
+      properties:
+        products:
+          type: array
+          items: { $ref: "#/components/schemas/ProductSummary" }
+        page: { type: integer }
+        page_size: { type: integer }
+        total:
+          type: integer
+          description: Matching products over all pages.
+        facets: { $ref: "#/components/schemas/Facets" }
+
+    Facets:
+      type: object
+      description: Match counts per filter value, most matches first. Values with no matches are left out.
+      required: [categories, brands, prices]
+      properties:
+        categories:
+          type: array
+          items: { $ref: "#/components/schemas/CategoryCount" }
+        brands:
+          type: array
+          items: { $ref: "#/components/schemas/ValueCount" }
+        prices:
+          type: array
+          description: Fixed price ranges, cheapest first.
+          items: { $ref: "#/components/schemas/PriceBucket" }
+
+    CategoryCount:
+      type: object
+      required: [value, count]
+      properties:
+        value: { $ref: "#/components/schemas/Category" }
+        count: { type: integer }
+
+    ValueCount:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        count: { type: integer }
+
+    PriceBucket:
+      type: object
+      description: A price range; filter on it with `price_min` = `min_cents` and `price_max` = `max_cents`.
+      required: [min_cents, count]
+      properties:
+        min_cents:
+          type: integer
+          format: int64
+          description: Euro cents, inclusive.
+        max_cents:
+          type: integer
+          format: int64
+          description: Euro cents, exclusive. Absent for the top range, which has no upper limit.
+        count: { type: integer }
 
     ProductDetail:
       type: object

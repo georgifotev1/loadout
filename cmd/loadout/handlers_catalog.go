@@ -44,17 +44,71 @@ func (app *application) ListProducts(w http.ResponseWriter, r *http.Request, par
 		Total:    res.Total,
 	}
 	for _, p := range res.Products {
-		resp.Products = append(resp.Products, ProductSummary{
-			Slug:     p.Slug,
-			Name:     p.Name,
-			Brand:    p.Brand,
-			Category: Category(p.Category),
-			Image:    p.Image,
-			Price:    eur(p.RetailCents),
-			InStock:  p.StockQty > 0,
+		resp.Products = append(resp.Products, summary(p))
+	}
+	app.writeJSON(w, r, http.StatusOK, resp)
+}
+
+// SearchProducts handles GET /api/search.
+func (app *application) SearchProducts(w http.ResponseWriter, r *http.Request, params SearchProductsParams) {
+	page := valueOr(params.Page, 1)
+	pageSize := valueOr(params.PageSize, defaultPageSize)
+
+	res, err := app.catalog.Search(r.Context(), catalog.SearchQuery{
+		Text:     params.Q,
+		Category: string(params.Category),
+		Brands:   params.Brand,
+		MinCents: money.Cents(params.PriceMin),
+		MaxCents: money.Cents(params.PriceMax),
+		Sort:     catalog.Sort(params.Sort),
+		Page:     page,
+		PageSize: pageSize,
+	})
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+
+	resp := SearchResult{
+		Products: make([]ProductSummary, 0, len(res.Products)),
+		Page:     page,
+		PageSize: pageSize,
+		Total:    res.Total,
+		Facets: Facets{
+			Categories: make([]CategoryCount, 0, len(res.Facets.Categories)),
+			Brands:     make([]ValueCount, 0, len(res.Facets.Brands)),
+			Prices:     make([]PriceBucket, 0, len(res.Facets.Prices)),
+		},
+	}
+	for _, p := range res.Products {
+		resp.Products = append(resp.Products, summary(p))
+	}
+	for _, c := range res.Facets.Categories {
+		resp.Facets.Categories = append(resp.Facets.Categories, CategoryCount{Value: Category(c.Value), Count: c.Count})
+	}
+	for _, b := range res.Facets.Brands {
+		resp.Facets.Brands = append(resp.Facets.Brands, ValueCount{Value: b.Value, Count: b.Count})
+	}
+	for _, b := range res.Facets.Prices {
+		resp.Facets.Prices = append(resp.Facets.Prices, PriceBucket{
+			MinCents: int64(b.MinCents),
+			MaxCents: int64(b.MaxCents),
+			Count:    b.Count,
 		})
 	}
 	app.writeJSON(w, r, http.StatusOK, resp)
+}
+
+func summary(p catalog.ProductSummary) ProductSummary {
+	return ProductSummary{
+		Slug:     p.Slug,
+		Name:     p.Name,
+		Brand:    p.Brand,
+		Category: Category(p.Category),
+		Image:    p.Image,
+		Price:    eur(p.RetailCents),
+		InStock:  p.StockQty > 0,
+	}
 }
 
 // GetProduct handles GET /api/products/{slug}.

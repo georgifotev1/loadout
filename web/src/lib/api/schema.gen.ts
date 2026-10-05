@@ -38,6 +38,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search and filter the products shoppers can see, with facet counts
+         * @description Every filter is optional: without `q` this is a faceted category or catalog listing.
+         *     Each facet ignores its own filter, so after picking one brand the brand facet still
+         *     counts the others the shopper could add.
+         */
+        get: operations["searchProducts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/products/{slug}": {
         parameters: {
             query?: never;
@@ -100,6 +122,48 @@ export interface components {
             page_size: number;
             /** @description Matching products over all pages. */
             total: number;
+        };
+        /**
+         * @description `relevance` (the default) is the best text match first, or by name without `q`.
+         * @enum {string}
+         */
+        SearchSort: "relevance" | "price_asc" | "price_desc";
+        SearchResult: {
+            products: components["schemas"]["ProductSummary"][];
+            page: number;
+            page_size: number;
+            /** @description Matching products over all pages. */
+            total: number;
+            facets: components["schemas"]["Facets"];
+        };
+        /** @description Match counts per filter value, most matches first. Values with no matches are left out. */
+        Facets: {
+            categories: components["schemas"]["CategoryCount"][];
+            brands: components["schemas"]["ValueCount"][];
+            /** @description Fixed price ranges, cheapest first. */
+            prices: components["schemas"]["PriceBucket"][];
+        };
+        CategoryCount: {
+            value: components["schemas"]["Category"];
+            count: number;
+        };
+        ValueCount: {
+            value: string;
+            count: number;
+        };
+        /** @description A price range; filter on it with `price_min` = `min_cents` and `price_max` = `max_cents`. */
+        PriceBucket: {
+            /**
+             * Format: int64
+             * @description Euro cents, inclusive.
+             */
+            min_cents: number;
+            /**
+             * Format: int64
+             * @description Euro cents, exclusive. Absent for the top range, which has no upper limit.
+             */
+            max_cents?: number;
+            count: number;
         };
         ProductDetail: {
             slug: string;
@@ -229,6 +293,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductList"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    searchProducts: {
+        parameters: {
+            query?: {
+                /** @description What the shopper typed. Matches words in the name, brand and SKU, and tolerates typos in the name. */
+                q?: string;
+                category?: components["schemas"]["Category"];
+                /** @description Any of these brands, as the `brands` facet spells them. Repeat for several. */
+                brand?: string[];
+                /** @description Lowest price in euro cents, inclusive. */
+                price_min?: number;
+                /** @description Price limit in euro cents, exclusive, so it pairs with a bucket's `max_cents`. */
+                price_max?: number;
+                sort?: components["schemas"]["SearchSort"];
+                /** @description 1-based page number. */
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of matching products and the facets over all matches */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResult"];
                 };
             };
             422: components["responses"]["ValidationFailed"];

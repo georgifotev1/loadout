@@ -519,3 +519,143 @@ func (store) visibleProductBySlug(ctx context.Context, q db.DBTX, slug string) (
 	d.Product = p
 	return d, nil
 }
+
+// searchBase starts both search queries: the visible products that match the text, with one
+// flag per filter. The page wants every flag; each facet ignores its own, so it can count the
+// values the shopper could switch to. searchArgs supplies $1–$5.
+//
+// The text matches the search vector (whole words in name, brand and SKU) or, for typos and
+// half-typed words, a trigram word similarity against the name ("rizen" finds "Ryzen"). Both
+// are served by the indexes on catalog.products.
+const searchBase = `
+	WITH base AS (
+		SELECT p.id, p.slug, p.name, p.brand, p.category, coalesce(p.images ->> 0, '') AS image,
+		       pr.retail_cents, ` + stockQty + ` AS stock_qty,
+		       CASE WHEN $1 = '' THEN 0
+		            ELSE ts_rank(p.search, websearch_to_tsquery('simple', $1)) + word_similarity($1, p.name)
+		       END AS rank,
+		       ($2 = '' OR p.category = $2)                                          AS in_category,
+		       (cardinality($3::text[]) = 0 OR p.brand = ANY ($3))                   AS in_brand,
+		       (pr.retail_cents >= $4::bigint AND ($5::bigint = 0 OR pr.retail_cents < $5)) AS in_price
+		` + visibleProducts + `
+		  AND ($1 = '' OR p.search @@ websearch_to_tsquery('simple', $1) OR $1 <% p.name)
+	)`
+
+func searchArgs(q SearchQuery) []any {
+	brands := q.Brands
+	if brands == nil {
+		brands = []string{} // nil would be NULL, and cardinality(NULL) isn't 0
+	}
+	return []any{
+		q.Text,
+		q.Category,
+		brands,
+		q.MinCents,
+		q.MaxCents,
+	}
+}
+
+// searchOrder maps each Sort to its ORDER BY. Name and id break ties so pages are stable.
+var searchOrder = map[Sort]string{
+	SortRelevance: `rank DESC, name, id`,
+	SortPriceAsc:  `retail_cents, name, id`,
+	SortPriceDesc: `retail_cents DESC, name, id`,
+}
+
+// searchProducts returns one page of matches and the number of matches over all pages. Like
+// listProducts, a page past the end has no rows, so its total is 0.
+func (store) searchProducts(ctx context.Context, q db.DBTX, sq SearchQuery) ([]ProductSummary, int, error) {
+	order, ok := searchOrder[sq.Sort]
+	if !ok {
+		return nil, 0, fmt.Errorf("catalog: search: unknown sort %q", sq.Sort)
+	}
+	query := searchBase + `
+		SELECT slug, name, brand, category, image, retail_cents, stock_qty, count(*) OVER ()
+		FROM base
+		WHERE in_category AND in_brand AND in_price
+		ORDER BY ` + order + `
+		LIMIT $6 OFFSET $7`
+
+	args := append(searchArgs(sq),
+		sq.PageSize,
+		(sq.Page-1)*sq.PageSize,
+	)
+
+	rows, err := q.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("catalog: search: %w", err)
+	}
+	var total int
+	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ProductSummary, error) {
+		var p ProductSummary
+		err := row.Scan(
+			&p.Slug,
+			&p.Name,
+			&p.Brand,
+			&p.Category,
+			&p.Image,
+			&p.RetailCents,
+			&p.StockQty,
+			&total,
+		)
+		return p, err
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("catalog: search: %w", err)
+	}
+	return products, total, nil
+}
+
+// searchFacets counts the matches per category, brand and price bucket in one query. Each
+// facet's WHERE leaves out its own flag.
+func (store) searchFacets(ctx context.Context, q db.DBTX, sq SearchQuery) (Facets, error) {
+	query := searchBase + `
+		SELECT 'category', category, 0, count(*) FROM base WHERE in_brand AND in_price GROUP BY category
+		UNION ALL
+		SELECT 'brand', brand, 0, count(*) FROM base WHERE in_category AND in_price GROUP BY brand
+		UNION ALL
+		SELECT 'price', '', width_bucket(retail_cents, $6::bigint[]), count(*) FROM base
+		WHERE in_category AND in_brand GROUP BY 3
+		ORDER BY 1, 3, 4 DESC, 2`
+
+	edges := make([]int64, len(priceEdges))
+	for i, e := range priceEdges {
+		edges[i] = int64(e)
+	}
+	args := append(searchArgs(sq), edges)
+
+	rows, err := q.Query(ctx, query, args...)
+	if err != nil {
+		return Facets{}, fmt.Errorf("catalog: search facets: %w", err)
+	}
+	f := Facets{
+		Categories: []FacetCount{},
+		Brands:     []FacetCount{},
+		Prices:     []PriceBucket{},
+	}
+	var (
+		kind, value   string
+		bucket, count int
+	)
+	scan := []any{
+		&kind,
+		&value,
+		&bucket,
+		&count,
+	}
+	_, err = pgx.ForEachRow(rows, scan, func() error {
+		switch kind {
+		case "category":
+			f.Categories = append(f.Categories, FacetCount{Value: value, Count: count})
+		case "brand":
+			f.Brands = append(f.Brands, FacetCount{Value: value, Count: count})
+		case "price":
+			f.Prices = append(f.Prices, priceBucket(bucket, count))
+		}
+		return nil
+	})
+	if err != nil {
+		return Facets{}, fmt.Errorf("catalog: search facets: %w", err)
+	}
+	return f, nil
+}

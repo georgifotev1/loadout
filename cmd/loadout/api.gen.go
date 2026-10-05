@@ -142,8 +142,37 @@ func (e PriceCurrency) Valid() bool {
 	}
 }
 
+// Defines values for SearchSort.
+const (
+	SearchSortPriceAsc  SearchSort = "price_asc"
+	SearchSortPriceDesc SearchSort = "price_desc"
+	SearchSortRelevance SearchSort = "relevance"
+)
+
+// Valid indicates whether the value is a known member of the SearchSort enum.
+func (e SearchSort) Valid() bool {
+	switch e {
+	case SearchSortPriceAsc:
+		return true
+	case SearchSortPriceDesc:
+		return true
+	case SearchSortRelevance:
+		return true
+	default:
+		return false
+	}
+}
+
 // Category A canonical product category.
 type Category string
+
+// CategoryCount defines model for CategoryCount.
+type CategoryCount struct {
+	Count int `json:"count"`
+
+	// Value A canonical product category.
+	Value Category `json:"value"`
+}
 
 // Error defines model for Error.
 type Error struct {
@@ -163,6 +192,15 @@ type ErrorDetail struct {
 
 	// Message For developers and logs. Never shown to users.
 	Message string `json:"message,omitempty"`
+}
+
+// Facets Match counts per filter value, most matches first. Values with no matches are left out.
+type Facets struct {
+	Brands     []ValueCount    `json:"brands"`
+	Categories []CategoryCount `json:"categories"`
+
+	// Prices Fixed price ranges, cheapest first.
+	Prices []PriceBucket `json:"prices"`
 }
 
 // FieldError defines model for FieldError.
@@ -196,6 +234,17 @@ type Price struct {
 
 // PriceCurrency defines model for Price.Currency.
 type PriceCurrency string
+
+// PriceBucket A price range; filter on it with `price_min` = `min_cents` and `price_max` = `max_cents`.
+type PriceBucket struct {
+	Count int `json:"count"`
+
+	// MaxCents Euro cents, exclusive. Absent for the top range, which has no upper limit.
+	MaxCents int64 `json:"max_cents,omitempty"`
+
+	// MinCents Euro cents, inclusive.
+	MinCents int64 `json:"min_cents"`
+}
 
 // ProductDetail defines model for ProductDetail.
 type ProductDetail struct {
@@ -244,6 +293,27 @@ type ProductSummary struct {
 	Slug  string `json:"slug"`
 }
 
+// SearchResult defines model for SearchResult.
+type SearchResult struct {
+	// Facets Match counts per filter value, most matches first. Values with no matches are left out.
+	Facets   Facets           `json:"facets"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"page_size"`
+	Products []ProductSummary `json:"products"`
+
+	// Total Matching products over all pages.
+	Total int `json:"total"`
+}
+
+// SearchSort `relevance` (the default) is the best text match first, or by name without `q`.
+type SearchSort string
+
+// ValueCount defines model for ValueCount.
+type ValueCount struct {
+	Count int    `json:"count"`
+	Value string `json:"value"`
+}
+
 // Page defines model for Page.
 type Page = int
 
@@ -265,6 +335,27 @@ type ListProductsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
+// SearchProductsParams defines parameters for SearchProducts.
+type SearchProductsParams struct {
+	// Q What the shopper typed. Matches words in the name, brand and SKU, and tolerates typos in the name.
+	Q        string   `form:"q,omitempty" json:"q,omitempty"`
+	Category Category `form:"category,omitempty" json:"category,omitempty"`
+
+	// Brand Any of these brands, as the `brands` facet spells them. Repeat for several.
+	Brand []string `form:"brand,omitempty" json:"brand,omitempty"`
+
+	// PriceMin Lowest price in euro cents, inclusive.
+	PriceMin int64 `form:"price_min,omitempty" json:"price_min,omitempty"`
+
+	// PriceMax Price limit in euro cents, exclusive, so it pairs with a bucket's `max_cents`.
+	PriceMax int64      `form:"price_max,omitempty" json:"price_max,omitempty"`
+	Sort     SearchSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Page 1-based page number.
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// GetHealth Health summary
@@ -276,6 +367,9 @@ type ServerInterface interface {
 	// GetProduct Product page data
 	// (GET /products/{slug})
 	GetProduct(w http.ResponseWriter, r *http.Request, slug string)
+	// SearchProducts Search and filter the products shoppers can see, with facet counts
+	// (GET /search)
+	SearchProducts(w http.ResponseWriter, r *http.Request, params SearchProductsParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -297,6 +391,12 @@ func (_ Unimplemented) ListProducts(w http.ResponseWriter, r *http.Request, para
 // GetProduct Product page data
 // (GET /products/{slug})
 func (_ Unimplemented) GetProduct(w http.ResponseWriter, r *http.Request, slug string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SearchProducts Search and filter the products shoppers can see, with facet counts
+// (GET /search)
+func (_ Unimplemented) SearchProducts(w http.ResponseWriter, r *http.Request, params SearchProductsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -399,6 +499,130 @@ func (siw *ServerInterfaceWrapper) GetProduct(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetProduct(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SearchProducts operation middleware
+func (siw *ServerInterfaceWrapper) SearchProducts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchProductsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "category" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "category", r.URL.Query(), &params.Category, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "category"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "category", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "brand" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "brand", r.URL.Query(), &params.Brand, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "brand"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "brand", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "price_min" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "price_min", r.URL.Query(), &params.PriceMin, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "price_min"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "price_min", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "price_max" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "price_max", r.URL.Query(), &params.PriceMax, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "price_max"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "price_max", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchProducts(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -526,6 +750,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/products", wrapper.ListProducts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/search", wrapper.SearchProducts)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/products/{slug}", wrapper.GetProduct)
