@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -25,14 +26,17 @@ func TestHandleError(t *testing.T) {
 		name       string
 		err        error
 		wantStatus int
-		wantCode   string
-		wantFields []validate.FieldError
+		wantCode   ErrorCode
+		wantFields []FieldError
 	}{
 		{"body error", bodyErr, http.StatusBadRequest, "invalid_body", nil},
 		{"validation", validationErr, http.StatusUnprocessableEntity, "validation_failed",
-			[]validate.FieldError{{Field: "email", Code: "invalid_email"}}},
+			[]FieldError{{Field: "email", Code: "invalid_email"}}},
 		{"wrapped validation", fmt.Errorf("signup: %w", validationErr), http.StatusUnprocessableEntity, "validation_failed",
-			[]validate.FieldError{{Field: "email", Code: "invalid_email"}}},
+			[]FieldError{{Field: "email", Code: "invalid_email"}}},
+		{"unbindable parameter", &InvalidParamFormatError{ParamName: "page", Err: errors.New("bad")},
+			http.StatusUnprocessableEntity, "validation_failed",
+			[]FieldError{{Field: "page", Code: "invalid_format"}}},
 		{"unknown", errors.New("pq: connection refused"), http.StatusInternalServerError, "internal", nil},
 	}
 	for _, tt := range tests {
@@ -43,14 +47,14 @@ func TestHandleError(t *testing.T) {
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
 			}
-			var body errorBody
+			var body Error
 			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 				t.Fatalf("decode body %q: %v", rec.Body.String(), err)
 			}
 			if body.Error.Code != tt.wantCode {
 				t.Errorf("code = %q, want %q", body.Error.Code, tt.wantCode)
 			}
-			if fmt.Sprint(body.Error.Fields) != fmt.Sprint(tt.wantFields) {
+			if !slices.Equal(body.Error.Fields, tt.wantFields) {
 				t.Errorf("fields = %v, want %v", body.Error.Fields, tt.wantFields)
 			}
 		})

@@ -7,6 +7,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// application implements the handlers generated from api/openapi.yaml.
+var _ ServerInterface = (*application)(nil)
+
 // routes builds the router. Middleware reads outside-in: requestID, then per group logRequest,
 // then recoverPanic. logRequest sits outside recoverPanic so a request that panics still gets its
 // access log line, with status 500.
@@ -25,13 +28,15 @@ func (app *application) routes() http.Handler {
 	r.Route("/api", func(r chi.Router) {
 		r.Use(app.logRequest(slog.LevelInfo), app.recoverPanic)
 		r.NotFound(app.notFound)
-		r.Get("/healthz", app.healthz)
 
-		// TODO(phase-4): move onto the api/openapi.yaml contract (oapi-codegen).
-		r.Get("/products", app.listProducts)
-		r.Get("/products/{slug}", app.showProduct)
+		// The routes in api/openapi.yaml. The generated wrapper binds parameters and calls the
+		// ServerInterface methods on app.
+		HandlerWithOptions(app, ChiServerOptions{
+			BaseRouter:       r,
+			ErrorHandlerFunc: app.handleError,
+		})
 
-		// TODO(phase-6): requireAdmin. Nothing here is secret (no prices), but it's for admins, and
+		// TODO(phase-6): move onto api/openapi.yaml with the admin UI that uses them, and add requireAdmin. Nothing here is secret (no prices), but it's for admins, and
 		// POST /sync must be locked down before anything is deployed.
 		r.Route("/admin", func(r chi.Router) {
 			r.Get("/specs/review-queue", app.specsReviewQueue)

@@ -71,11 +71,20 @@ migration:
 	@test -n "$(name)" || (echo "usage: make migration name=<snake_case_name>" && exit 1)
 	go run github.com/pressly/goose/v3/cmd/goose@v3.28.0 -dir migrations -s create $(name) sql
 
-## gen: run code generators (nothing yet)
+## gen: generate the Go server and the web app's API types from api/openapi.yaml
 .PHONY: gen
 gen:
-	@# TODO(phase-4): oapi-codegen for Go and openapi-typescript for web/src/lib/api.
-	@echo "gen: nothing to generate yet"
+	go tool oapi-codegen -config api/oapi-codegen.yaml -o cmd/loadout/api.gen.go api/openapi.yaml
+	pnpm -C web gen:api
+
+## gen-check: fail if the generated code is out of date with api/openapi.yaml
+.PHONY: gen-check
+gen-check:
+	@tmp=$$(mktemp) && trap 'rm -f $$tmp' EXIT \
+		&& go tool oapi-codegen -config api/oapi-codegen.yaml -o $$tmp api/openapi.yaml \
+		&& cmp -s $$tmp cmd/loadout/api.gen.go \
+		|| (echo "cmd/loadout/api.gen.go is stale: run make gen" && exit 1)
+	@pnpm -C web --silent gen:api --check
 
 ## test: run all Go tests (integration tests need Docker)
 .PHONY: test
@@ -90,6 +99,8 @@ test-short:
 ## audit: format check, vet, staticcheck, tests, and web lint/typecheck/test
 .PHONY: audit
 audit:
+	@echo "==> gen-check"
+	@$(MAKE) --no-print-directory gen-check
 	@echo "==> gofmt"
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && echo "run: gofmt -w ." && exit 1)
 	@echo "==> go mod tidy"

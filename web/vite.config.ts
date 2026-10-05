@@ -3,7 +3,7 @@ import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import { apiInternalUrl } from "./src/lib/api/client";
+import { apiInternalUrl } from "./src/lib/api/internal-url";
 
 // The browser only ever talks to one origin: in dev, /api/* is proxied to the Go API
 // (in production the load balancer does the same).

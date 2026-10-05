@@ -19,3 +19,9 @@ make web         # web on :3000, proxies /api to :8080
 
 If another project already uses the Compose ports, set `POSTGRES_HOST_PORT`,
 `MAILPIT_UI_HOST_PORT` or `MAILPIT_SMTP_HOST_PORT` in `.env` (and update `DATABASE_URL`).
+
+## API contract
+
+`api/openapi.yaml` is the source of truth for the public API. After changing it, run `make gen`
+to regenerate the Go server (`cmd/loadout/api.gen.go`) and the web app's types
+(`web/src/lib/api/schema.gen.ts`). `make audit` fails if they are out of date.

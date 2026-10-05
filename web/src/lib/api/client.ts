@@ -1,31 +1,26 @@
-// Minimal API client for Phase 0. Replaced by a generated openapi-fetch client in Phase 4.
-// TODO(phase-4): openapi-typescript types + openapi-fetch; forward the incoming cookie during SSR.
+import createClient from "openapi-fetch";
+import { apiInternalUrl } from "./internal-url";
+import type { components, paths } from "./schema.gen";
 
-/** Where server-side code (SSR, the Vite dev proxy) reaches the Go API. */
-export function apiInternalUrl(): string {
-	return process.env.API_INTERNAL_URL || "http://localhost:8080";
-}
+// Types come from api/openapi.yaml (`make gen`), never written by hand.
+export type Schemas = components["schemas"];
+export type ErrorCode = Schemas["ErrorCode"];
+export type FieldError = Schemas["FieldError"];
 
 /**
- * Resolves an API path. In the browser we call the same origin (`/api/...`), which the Vite
- * dev proxy (and the load balancer in production) routes to the Go API. On the server during
- * SSR there is no origin, so we call the API directly at API_INTERNAL_URL.
+ * The API's base URL. In the browser we call the same origin (`/api`), which the Vite dev proxy
+ * (and the load balancer in production) routes to the Go API. On the server during SSR there is
+ * no origin, so we call the API directly at API_INTERNAL_URL.
  */
-export function apiUrl(
-	path: string,
-	isServer = typeof window === "undefined",
-): string {
-	if (!path.startsWith("/")) {
-		throw new Error(`api path must start with "/": ${path}`);
-	}
-	if (!isServer) {
-		return path;
-	}
-	return new URL(path, apiInternalUrl()).toString();
+export function apiBaseUrl(isServer = typeof window === "undefined"): string {
+	return isServer ? new URL("/api", apiInternalUrl()).toString() : "/api";
 }
 
-/** One invalid input, from a 422 "validation_failed" response. `code` is an i18n key. */
-export type FieldError = { field: string; code: string };
+// TODO(phase-6): forward the incoming request's cookie during SSR once there are sessions.
+export const api = createClient<paths>({
+	baseUrl: apiBaseUrl(),
+	headers: { Accept: "application/json" },
+});
 
 /**
  * A non-2xx API response. `status` is the broad category (401 → login, 5xx → generic message),
@@ -34,7 +29,7 @@ export type FieldError = { field: string; code: string };
 export class ApiError extends Error {
 	constructor(
 		readonly status: number,
-		readonly code: string,
+		readonly code: ErrorCode | "http_error",
 		message: string,
 		readonly fields: FieldError[] = [],
 		readonly requestId?: string,
@@ -44,27 +39,9 @@ export class ApiError extends Error {
 	}
 }
 
-/** GETs a JSON endpoint. Non-2xx responses become an ApiError with the API's stable error code. */
-export async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(apiUrl(path), {
-		...init,
-		headers: { Accept: "application/json", ...init?.headers },
-	});
-	const body = await res.json().catch(() => undefined);
-	if (!res.ok) {
-		throw toApiError(res, body);
-	}
-	return body as T;
-}
-
-// Mirrors httpx.ErrorBody in internal/platform/httpx/json.go.
-// TODO(phase-4): generated from api/openapi.yaml, with `code` as a union of known codes.
-type ErrorBody = {
-	error?: { code?: string; message?: string; fields?: FieldError[] };
-};
-
+/** Turns an error response into an ApiError. Bodies that aren't API errors become "http_error". */
 export function toApiError(res: Response, body: unknown): ApiError {
-	const detail = (body as ErrorBody | undefined)?.error;
+	const detail = (body as Partial<Schemas["Error"]> | undefined)?.error;
 	return new ApiError(
 		res.status,
 		detail?.code ?? "http_error",
@@ -72,4 +49,16 @@ export function toApiError(res: Response, body: unknown): ApiError {
 		detail?.fields,
 		res.headers.get("X-Request-Id") ?? undefined,
 	);
+}
+
+/** Returns the data of an openapi-fetch result, or throws its error as an ApiError. */
+export function unwrap<T>(result: {
+	data?: T;
+	error?: unknown;
+	response: Response;
+}): T {
+	if (!result.response.ok || result.data === undefined) {
+		throw toApiError(result.response, result.error);
+	}
+	return result.data;
 }

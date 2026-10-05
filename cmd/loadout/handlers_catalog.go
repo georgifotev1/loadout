@@ -5,8 +5,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/platform/validate"
@@ -14,62 +12,23 @@ import (
 
 const defaultPageSize = 24
 
-// priceJSON is how every price leaves the API: euro cents (VAT included) and the currency, so
-// clients never guess. The web app formats it; it never does price math.
-type priceJSON struct {
-	AmountCents money.Cents `json:"amount_cents"`
-	Currency    string      `json:"currency"`
+// eur is how every price leaves the API: euro cents (VAT included) and the currency, so clients
+// never guess. The web app formats it; it never does price math.
+func eur(c money.Cents) Price {
+	return Price{AmountCents: int64(c), Currency: PriceCurrencyEUR}
 }
 
-func eur(c money.Cents) priceJSON {
-	return priceJSON{AmountCents: c, Currency: money.Currency}
-}
+// The response types (ProductSummary, ProductDetail, ...) come from api/openapi.yaml and are
+// separate from the catalog types on purpose: the dealer price, markup rule and hashes never
+// leave the server.
 
-// The JSON types below are what shoppers see. They are separate from the catalog types on
-// purpose: the dealer price, markup rule and hashes never leave the server.
-
-type productSummaryJSON struct {
-	Slug     string    `json:"slug"`
-	Name     string    `json:"name"`
-	Brand    string    `json:"brand"`
-	Category string    `json:"category"`
-	Image    string    `json:"image,omitempty"`
-	Price    priceJSON `json:"price"`
-	InStock  bool      `json:"in_stock"`
-}
-
-type productListJSON struct {
-	Products []productSummaryJSON `json:"products"`
-	Page     int                  `json:"page"`
-	PageSize int                  `json:"page_size"`
-	Total    int                  `json:"total"`
-}
-
-type productDetailJSON struct {
-	Slug       string            `json:"slug"`
-	Name       string            `json:"name"`
-	Brand      string            `json:"brand"`
-	Category   string            `json:"category"`
-	Images     []string          `json:"images"`
-	Attributes map[string]string `json:"attributes"` // the supplier's spec rows, for display
-	Specs      map[string]any    `json:"specs"`      // canonical: socket, tdp_w, ...
-	Price      priceJSON         `json:"price"`
-	InStock    bool              `json:"in_stock"`
-}
-
-// GET /api/products?category=&page=&page_size=
-func (app *application) listProducts(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	var v validate.Validator
-	page := queryInt(&v, q, "page", 1)
-	pageSize := queryInt(&v, q, "page_size", defaultPageSize)
-	if err := v.Err(); err != nil {
-		app.handleError(w, r, err)
-		return
-	}
+// ListProducts handles GET /api/products.
+func (app *application) ListProducts(w http.ResponseWriter, r *http.Request, params ListProductsParams) {
+	page := valueOr(params.Page, 1)
+	pageSize := valueOr(params.PageSize, defaultPageSize)
 
 	res, err := app.catalog.List(r.Context(), catalog.ListFilter{
-		Category: q.Get("category"),
+		Category: string(params.Category),
 		Page:     page,
 		PageSize: pageSize,
 	})
@@ -78,18 +37,18 @@ func (app *application) listProducts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := productListJSON{
-		Products: make([]productSummaryJSON, 0, len(res.Products)),
+	resp := ProductList{
+		Products: make([]ProductSummary, 0, len(res.Products)),
 		Page:     page,
 		PageSize: pageSize,
 		Total:    res.Total,
 	}
 	for _, p := range res.Products {
-		resp.Products = append(resp.Products, productSummaryJSON{
+		resp.Products = append(resp.Products, ProductSummary{
 			Slug:     p.Slug,
 			Name:     p.Name,
 			Brand:    p.Brand,
-			Category: p.Category,
+			Category: Category(p.Category),
 			Image:    p.Image,
 			Price:    eur(p.RetailCents),
 			InStock:  p.StockQty > 0,
@@ -98,18 +57,18 @@ func (app *application) listProducts(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, r, http.StatusOK, resp)
 }
 
-// GET /api/products/{slug}
-func (app *application) showProduct(w http.ResponseWriter, r *http.Request) {
-	p, err := app.catalog.Product(r.Context(), chi.URLParam(r, "slug"))
+// GetProduct handles GET /api/products/{slug}.
+func (app *application) GetProduct(w http.ResponseWriter, r *http.Request, slug string) {
+	p, err := app.catalog.Product(r.Context(), slug)
 	if err != nil {
 		app.handleError(w, r, err)
 		return
 	}
-	app.writeJSON(w, r, http.StatusOK, productDetailJSON{
+	app.writeJSON(w, r, http.StatusOK, ProductDetail{
 		Slug:       p.Slug,
 		Name:       p.Name,
 		Brand:      p.Brand,
-		Category:   p.Category,
+		Category:   Category(p.Category),
 		Images:     p.Images,
 		Attributes: p.Attributes,
 		Specs:      p.Specs,
@@ -118,8 +77,17 @@ func (app *application) showProduct(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// valueOr returns *p, or def when the optional parameter p is absent.
+func valueOr[T any](p *T, def T) T {
+	if p == nil {
+		return def
+	}
+	return *p
+}
+
 // queryInt reads an optional integer query parameter. A value that isn't an integer is recorded
 // as an "invalid_integer" error on v; range checks are the service's job.
+// TODO(phase-6): drop once the admin endpoints move onto api/openapi.yaml.
 func queryInt(v *validate.Validator, q url.Values, key string, def int) int {
 	s := q.Get(key)
 	if s == "" {

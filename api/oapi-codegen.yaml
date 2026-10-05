@@ -1,0 +1,12 @@
+# Go server for api/openapi.yaml: types plus a chi ServerInterface that *application implements.
+# Run with `make gen`, which writes cmd/loadout/api.gen.go.
+package: main
+generate:
+  models: true
+  chi-server: true
+output-options:
+  # Optional fields become `omitempty` values instead of pointers.
+  prefer-skip-optional-pointer: true
+compatibility:
+  # CategoryCpu, not Cpu: package main is shared with hand-written code.
+  always-prefix-enum-values: true

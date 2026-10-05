@@ -29,27 +29,20 @@ func (app *application) readyz(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("ok\n"))
 }
 
-type healthResponse struct {
-	Status   string `json:"status"`
-	Version  string `json:"version"`
-	Env      string `json:"env"`
-	Database string `json:"database"`
-	Time     string `json:"time"`
-}
-
-// healthz is the JSON health summary the web app shows. Unlike the probes it's under /api.
-func (app *application) healthz(w http.ResponseWriter, r *http.Request) {
-	resp := healthResponse{
-		Status:   "ok",
+// GetHealth handles GET /api/healthz, the JSON health summary the web app shows. Unlike the
+// probes it's under /api.
+func (app *application) GetHealth(w http.ResponseWriter, r *http.Request) {
+	resp := Health{
+		Status:   HealthStatusOk,
 		Version:  version,
 		Env:      string(app.cfg.Env),
-		Database: "ok",
-		Time:     time.Now().UTC().Format(time.RFC3339),
+		Database: HealthDatabaseOk,
+		Time:     time.Now().UTC().Truncate(time.Second),
 	}
 	status := http.StatusOK
 	if err := app.pingDB(r.Context()); err != nil {
 		app.logger.Warn("healthz: db ping failed", "err", err)
-		resp.Status, resp.Database = "degraded", "unavailable"
+		resp.Status, resp.Database = HealthStatusDegraded, HealthDatabaseUnavailable
 		status = http.StatusServiceUnavailable
 	}
 	app.writeJSON(w, r, status, resp)

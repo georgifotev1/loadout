@@ -49,7 +49,7 @@ func TestProductsAPI(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body)
 		}
-		var body productListJSON
+		var body ProductList
 		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 			t.Fatal(err)
 		}
@@ -70,7 +70,7 @@ func TestProductsAPI(t *testing.T) {
 	})
 
 	t.Run("list everything by default", func(t *testing.T) {
-		var body productListJSON
+		var body ProductList
 		_ = json.Unmarshal(get(t, app, "/api/products").Body.Bytes(), &body)
 		if body.Total != 67 || len(body.Products) != defaultPageSize {
 			t.Errorf("total=%d len=%d", body.Total, len(body.Products))
@@ -95,13 +95,13 @@ func TestProductsAPI(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body)
 		}
-		var p productDetailJSON
+		var p ProductDetail
 		if err := json.Unmarshal(rec.Body.Bytes(), &p); err != nil {
 			t.Fatal(err)
 		}
 		// Seeded default rule: 52.35 € + 15% = 60.20 €, rounded up to 60.90 €.
 		if p.Brand != "AMD" || p.Category != "cpu" || p.Attributes["Сокет"] != "AM4" || !p.InStock ||
-			p.Price != (priceJSON{AmountCents: 6090, Currency: "EUR"}) || p.Specs == nil {
+			p.Price != (Price{AmountCents: 6090, Currency: PriceCurrencyEUR}) || p.Specs == nil {
 			t.Errorf("got %+v", p)
 		}
 	})
@@ -123,4 +123,14 @@ func TestProductsAPI(t *testing.T) {
 			t.Errorf("status %d body %s", rec.Code, rec.Body)
 		}
 	})
+}
+
+// Every catalog category must be in the Category enum in api/openapi.yaml, or the web app's
+// generated types won't know it.
+func TestCategoryEnumCoversCatalog(t *testing.T) {
+	for _, c := range catalog.Categories {
+		if !Category(c).Valid() {
+			t.Errorf("catalog category %q is missing from the Category enum in api/openapi.yaml", c)
+		}
+	}
 }

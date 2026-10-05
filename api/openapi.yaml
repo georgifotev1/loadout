@@ -1,0 +1,226 @@
+openapi: 3.0.3
+info:
+  title: Loadout API
+  version: 0.1.0
+  description: |
+    The public REST API of the Loadout store. The web app is its only client.
+
+    Money is always euro cents with VAT included. Errors share one envelope (`Error`): the HTTP
+    status is the broad category, `code` is a stable string the web app translates, and `message`
+    is for developers only.
+servers:
+  - url: /api
+
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Health summary
+      tags: [health]
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: The database is unreachable. The body still describes the instance.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /products:
+    get:
+      operationId: listProducts
+      summary: List the products shoppers can see
+      tags: [catalog]
+      parameters:
+        - name: category
+          in: query
+          schema: { $ref: "#/components/schemas/Category" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: One page of products
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductList" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /products/{slug}:
+    get:
+      operationId: getProduct
+      summary: Product page data
+      tags: [catalog]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The product
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Error" }
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: 1-based page number.
+      # A pointer in Go, so page=0 is rejected rather than read as "absent".
+      schema: { type: integer, minimum: 1, default: 1, x-go-type-skip-optional-pointer: false }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 24, x-go-type-skip-optional-pointer: false }
+
+  responses:
+    ValidationFailed:
+      description: "`validation_failed`: one or more inputs are invalid; see `fields`."
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: "`not_found`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Error:
+      description: Any other error.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Health:
+      type: object
+      required: [status, version, env, database, time]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        version: { type: string }
+        env: { type: string }
+        database: { type: string, enum: [ok, unavailable] }
+        time: { type: string, format: date-time }
+
+    Category:
+      type: string
+      description: A canonical product category.
+      enum:
+        - cpu
+        - motherboard
+        - ram
+        - gpu
+        - psu
+        - case
+        - cooler
+        - storage
+        - peripheral.chair
+        - peripheral.headset
+        - peripheral.keyboard
+        - peripheral.monitor
+        - peripheral.mouse
+        - peripheral.mousepad
+
+    Price:
+      type: object
+      description: A retail price. The web app formats it; it never does price math.
+      required: [amount_cents, currency]
+      properties:
+        amount_cents:
+          type: integer
+          format: int64
+          description: Euro cents, VAT included.
+        currency: { type: string, enum: [EUR] }
+
+    ProductSummary:
+      type: object
+      required: [slug, name, brand, category, price, in_stock]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        brand: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        image:
+          type: string
+          description: The first image URL. Absent when the product has none.
+        price: { $ref: "#/components/schemas/Price" }
+        in_stock: { type: boolean }
+
+    ProductList:
+      type: object
+      required: [products, page, page_size, total]
+      properties:
+        products:
+          type: array
+          items: { $ref: "#/components/schemas/ProductSummary" }
+        page: { type: integer }
+        page_size: { type: integer }
+        total:
+          type: integer
+          description: Matching products over all pages.
+
+    ProductDetail:
+      type: object
+      required: [slug, name, brand, category, images, attributes, specs, price, in_stock]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        brand: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        images:
+          type: array
+          items: { type: string }
+        attributes:
+          type: object
+          description: The supplier's spec rows, for display only.
+          additionalProperties: { type: string }
+        specs:
+          type: object
+          description: Canonical spec values (socket, tdp_w, ...). Empty for peripherals.
+          additionalProperties: true
+        price: { $ref: "#/components/schemas/Price" }
+        in_stock: { type: boolean }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: "#/components/schemas/ErrorDetail" }
+
+    ErrorDetail:
+      type: object
+      required: [code]
+      properties:
+        code: { $ref: "#/components/schemas/ErrorCode" }
+        message:
+          type: string
+          description: For developers and logs. Never shown to users.
+        fields:
+          type: array
+          description: Only set for `validation_failed`.
+          items: { $ref: "#/components/schemas/FieldError" }
+
+    ErrorCode:
+      type: string
+      description: Stable reason the web app translates. Renaming one breaks translations.
+      enum:
+        - invalid_body
+        - validation_failed
+        - not_found
+        - internal
+
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field: { type: string }
+        code:
+          type: string
+          description: Why the field is invalid, e.g. `required`, `out_of_range`, `unknown`, `invalid_format`.
