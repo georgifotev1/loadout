@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -35,7 +37,7 @@ func newPool(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pool, err := db.Open(ctx, url, 4)
+	pool, err := db.Open(ctx, db.Options{URL: url, MaxConns: 4, StatementTimeout: time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,4 +145,20 @@ func TestInTx(t *testing.T) {
 			t.Fatalf("rows = %d, want 0", got)
 		}
 	})
+}
+
+func TestStatementTimeout(t *testing.T) {
+	pool := newPool(t) // opened with a 1s statement_timeout
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx, `SELECT pg_sleep(3)`)
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "57014" { // query_canceled
+		t.Fatalf("err = %v, want SQLSTATE 57014 from statement_timeout", err)
+	}
+
+	// The connection survives the cancelled statement and goes back to the pool usable.
+	if _, err := pool.Exec(ctx, `SELECT 1`); err != nil {
+		t.Fatalf("pool unusable after a timeout: %v", err)
+	}
 }

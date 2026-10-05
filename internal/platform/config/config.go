@@ -36,6 +36,9 @@ type Config struct {
 	DB struct {
 		URL      string
 		MaxConns int32
+		// StatementTimeout is the most Postgres lets one statement run on an API or worker
+		// connection. `loadout migrate` ignores it, since a migration may legitimately take longer.
+		StatementTimeout time.Duration
 	}
 
 	Log struct {
@@ -72,6 +75,7 @@ func load(getenv func(string) string) (Config, error) {
 		errs = append(errs, errors.New("DATABASE_URL: required"))
 	}
 	cfg.DB.MaxConns = int32(integer(getenv, "DATABASE_MAX_CONNS", 10, &errs))
+	cfg.DB.StatementTimeout = duration(getenv, "DATABASE_STATEMENT_TIMEOUT", 5*time.Second, &errs)
 
 	cfg.Log.Level = strings.ToLower(str(getenv, "LOG_LEVEL", "info"))
 	switch cfg.Log.Level {

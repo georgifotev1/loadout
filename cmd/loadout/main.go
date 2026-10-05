@@ -66,7 +66,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	logger := obs.NewLogger(stderr, cfg.Log.Level, cfg.Log.Format).With("version", version)
 
-	pool, err := db.Open(ctx, cfg.DB.URL, cfg.DB.MaxConns)
+	opts := db.Options{URL: cfg.DB.URL, MaxConns: cfg.DB.MaxConns, StatementTimeout: cfg.DB.StatementTimeout}
+	if cmd == "migrate" {
+		opts.StatementTimeout = 0 // building an index on a big table can take minutes
+	}
+	pool, err := db.Open(ctx, opts)
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -26,16 +27,30 @@ var (
 	_ DBTX = (pgx.Tx)(nil)
 )
 
+// Options configures Open. Zero values keep pgx's defaults (and no statement timeout).
+type Options struct {
+	URL      string
+	MaxConns int32
+	// StatementTimeout makes Postgres cancel any statement that runs longer (SQLSTATE 57014).
+	// It's a server-side backstop for slow queries that works alongside ctx: ctx cancels when
+	// the caller gives up, the timeout caps queries whose caller would wait forever.
+	StatementTimeout time.Duration
+}
+
 // Open creates a pool and checks that the database is reachable.
-func Open(ctx context.Context, url string, maxConns int32) (*pgxpool.Pool, error) {
-	cfg, err := pgxpool.ParseConfig(url)
+func Open(ctx context.Context, o Options) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(o.URL)
 	if err != nil {
 		return nil, fmt.Errorf("db: parse url: %w", err)
 	}
-	if maxConns > 0 {
-		cfg.MaxConns = maxConns
+	if o.MaxConns > 0 {
+		cfg.MaxConns = o.MaxConns
 	}
 	cfg.MaxConnIdleTime = 5 * time.Minute
+	if o.StatementTimeout > 0 {
+		// Sent as a startup parameter, so it applies to every connection from the first query.
+		cfg.ConnConfig.RuntimeParams["statement_timeout"] = strconv.FormatInt(o.StatementTimeout.Milliseconds(), 10)
+	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {

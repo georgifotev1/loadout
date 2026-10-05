@@ -27,6 +27,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Log.Format != "text" {
 		t.Errorf("Log.Format = %q, want text", cfg.Log.Format)
 	}
+	if cfg.DB.StatementTimeout != 5*time.Second {
+		t.Errorf("DB.StatementTimeout = %s, want 5s", cfg.DB.StatementTimeout)
+	}
 }
 
 func TestLoadProductionDefaultsToJSONLogs(t *testing.T) {
