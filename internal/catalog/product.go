@@ -4,9 +4,12 @@ package catalog
 
 import (
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/gfotev/loadout/internal/money"
 )
 
 var (
@@ -45,18 +48,41 @@ type Product struct {
 	UpdatedAt      time.Time
 }
 
+// Categories are the canonical product categories. Suppliers' own category trees are mapped
+// onto these by their adapters.
+var Categories = []string{
+	"cpu",
+	"motherboard",
+	"ram",
+	"gpu",
+	"psu",
+	"case",
+	"cooler",
+	"storage",
+	"peripheral.chair",
+	"peripheral.headset",
+	"peripheral.keyboard",
+	"peripheral.monitor",
+	"peripheral.mouse",
+	"peripheral.mousepad",
+}
+
+// IsCategory reports whether c is a canonical category.
+func IsCategory(c string) bool {
+	return slices.Contains(Categories, c)
+}
+
 // Provider is the supplier a product comes from.
 type Provider string
 
 const ProviderVali Provider = "vali"
 
-// Price is a product's current price. All amounts are integer cents and include VAT.
-// TODO(phase-1): switch the amounts to money.Cents once internal/money exists (pricing task).
+// Price is a product's current price. All amounts are euro cents and include VAT.
 type Price struct {
 	ProductID   uuid.UUID
-	DealerCents int64
-	RRPCents    int64
-	RetailCents int64
+	DealerCents money.Cents
+	RRPCents    money.Cents
+	RetailCents money.Cents
 	VATbp       int    // 2000 = 20%
 	RuleID      *int64 // the markup rule that produced RetailCents; nil if it was deleted
 	ComputedAt  time.Time
@@ -90,7 +116,7 @@ type MarkupRule struct {
 	Brand          string // set for ScopeBrandCategory
 	SKU            string // set for ScopeSKU
 	MarkupBP       int    // 2500 = +25%
-	MinMarginCents int64
+	MinMarginCents money.Cents
 	Rounding       Rounding
 	Priority       int
 	CreatedAt      time.Time
@@ -117,3 +143,38 @@ type SyncRun struct {
 	Status       SyncStatus
 	ErrorMessage string
 }
+
+// ProductSummary is a product as the storefront lists it.
+type ProductSummary struct {
+	Slug        string
+	Name        string
+	Brand       string
+	Category    string
+	Image       string // the first image, "" if there is none
+	RetailCents money.Cents
+	StockQty    int // total over all warehouses
+}
+
+// ProductDetail is everything the product page shows. It has the retail price only: the dealer
+// price and markup are for admins, so shopper-facing code can't leak them by accident.
+type ProductDetail struct {
+	Product
+	RetailCents money.Cents
+	StockQty    int // total over all warehouses
+}
+
+// ProductPage is one page of a product listing.
+type ProductPage struct {
+	Products []ProductSummary
+	Total    int // matching products over all pages
+}
+
+// ListFilter is the storefront's product query.
+type ListFilter struct {
+	Category string // "" = all categories
+	Page     int    // 1-based
+	PageSize int
+}
+
+// MaxPageSize caps ListFilter.PageSize.
+const MaxPageSize = 100

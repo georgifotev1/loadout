@@ -26,6 +26,10 @@ func (app *application) routes() http.Handler {
 		r.Use(app.logRequest(slog.LevelInfo), app.recoverPanic)
 		r.NotFound(app.notFound)
 		r.Get("/healthz", app.healthz)
+
+		// TODO(phase-4): move onto the api/openapi.yaml contract (oapi-codegen).
+		r.Get("/products", app.listProducts)
+		r.Get("/products/{slug}", app.showProduct)
 	})
 
 	return r

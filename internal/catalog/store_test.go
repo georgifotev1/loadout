@@ -272,6 +272,10 @@ func TestMarkupRules(t *testing.T) {
 	pool := dbtest.New(t)
 	ctx := context.Background()
 	var s store
+	// Start without the default rule that migration 00007 seeds.
+	if _, err := pool.Exec(ctx, `DELETE FROM catalog.markup_rules`); err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("one rule per target, upsert updates it", func(t *testing.T) {
 		r := MarkupRule{Scope: ScopeBrandCategory, Category: "gpu", Brand: "Gigabyte", MarkupBP: 1500, Rounding: Round99}

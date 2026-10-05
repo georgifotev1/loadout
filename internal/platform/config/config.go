@@ -7,6 +7,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -39,6 +40,12 @@ type Config struct {
 		// StatementTimeout is the most Postgres lets one statement run on an API or worker
 		// connection. `loadout migrate` ignores it, since a migration may legitimately take longer.
 		StatementTimeout time.Duration
+	}
+
+	Vali struct {
+		// URL is the supplier API that `loadout sync` pulls products from. Until the dealership
+		// is signed it's cmd/mock-vali (http://localhost:8081 by default in development).
+		URL string
 	}
 
 	Log struct {
@@ -76,6 +83,18 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	cfg.DB.MaxConns = int32(integer(getenv, "DATABASE_MAX_CONNS", 10, &errs))
 	cfg.DB.StatementTimeout = duration(getenv, "DATABASE_STATEMENT_TIMEOUT", 5*time.Second, &errs)
+
+	// No default in production: syncing from localhost there would be a silent mistake.
+	defaultValiURL := ""
+	if cfg.Env == EnvDevelopment {
+		defaultValiURL = "http://localhost:8081"
+	}
+	cfg.Vali.URL = str(getenv, "VALI_URL", defaultValiURL)
+	if cfg.Vali.URL == "" {
+		errs = append(errs, errors.New("VALI_URL: required in production"))
+	} else if u, err := url.Parse(cfg.Vali.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		errs = append(errs, fmt.Errorf("VALI_URL: must be an http(s) URL, got %q", cfg.Vali.URL))
+	}
 
 	cfg.Log.Level = strings.ToLower(str(getenv, "LOG_LEVEL", "info"))
 	switch cfg.Log.Level {

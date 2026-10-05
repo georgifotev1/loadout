@@ -30,10 +30,38 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DB.StatementTimeout != 5*time.Second {
 		t.Errorf("DB.StatementTimeout = %s, want 5s", cfg.DB.StatementTimeout)
 	}
+	if cfg.Vali.URL != "http://localhost:8081" {
+		t.Errorf("Vali.URL = %q, want the local mock-vali", cfg.Vali.URL)
+	}
+}
+
+func TestLoadValiURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     map[string]string
+		wantErr string
+	}{
+		{"required in production", map[string]string{"ENV": "production"}, "VALI_URL: required"},
+		{"not a URL", map[string]string{"VALI_URL": "localhost:8081"}, "VALI_URL: must be an http(s) URL"},
+		{"no host", map[string]string{"VALI_URL": "http://"}, "VALI_URL: must be an http(s) URL"},
+		{"set in production", map[string]string{"ENV": "production", "VALI_URL": "https://vali.example"}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.env["DATABASE_URL"] = "postgres://x"
+			_, err := load(env(tt.env))
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Fatalf("err = %v", err)
+			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+				t.Fatalf("err = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestLoadProductionDefaultsToJSONLogs(t *testing.T) {
-	cfg, err := load(env(map[string]string{"DATABASE_URL": "postgres://x", "ENV": "production"}))
+	cfg, err := load(env(map[string]string{"DATABASE_URL": "postgres://x", "ENV": "production", "VALI_URL": "https://vali.example"}))
 	if err != nil {
 		t.Fatal(err)
 	}

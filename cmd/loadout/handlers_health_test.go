@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -9,7 +8,7 @@ import (
 )
 
 func newTestApp() *application {
-	return &application{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	return &application{logger: slog.New(slog.DiscardHandler)}
 }
 
 func TestLivez(t *testing.T) {

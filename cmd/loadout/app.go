@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/config"
 )
 
@@ -14,6 +15,7 @@ type application struct {
 	cfg          config.Config
 	logger       *slog.Logger
 	db           *pgxpool.Pool
+	catalog      *catalog.Service
 	shuttingDown atomic.Bool
 }
 

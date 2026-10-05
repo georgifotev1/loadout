@@ -60,6 +60,11 @@ mock-vali:
 migrate:
 	go run ./cmd/loadout migrate $(or $(cmd),up)
 
+## sync: pull products from Vali (mock-vali locally: run `make mock-vali` first) into the catalog
+.PHONY: sync
+sync:
+	go run -ldflags "$(LDFLAGS)" ./cmd/loadout sync
+
 ## migration: create a new SQL migration (make migration name=create_catalog_products)
 .PHONY: migration
 migration:

@@ -11,9 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/obs"
+	"github.com/gfotev/loadout/internal/vali"
 	"github.com/gfotev/loadout/migrations"
 )
 
@@ -25,6 +27,7 @@ const usage = `usage: loadout <command> [args]
 commands:
   serve                     run the HTTP API
   migrate up|down|status    manage the database schema
+  sync                      pull products from Vali (VALI_URL) into the catalog
   version                   print the version
 `
 
@@ -51,7 +54,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	case "version":
 		fmt.Fprintln(stdout, version)
 		return nil
-	case "serve", "migrate":
+	case "serve", "migrate", "sync":
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, usage)
 		return nil
@@ -76,14 +79,36 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	defer pool.Close()
 
+	// ASSUMPTION: mock-vali until the dealership is signed; the real client replaces it here.
+	catalogSvc := catalog.NewService(pool, vali.NewMockClient(cfg.Vali.URL, nil), logger)
+
 	switch cmd {
 	case "serve":
-		app := &application{cfg: cfg, logger: logger, db: pool}
+		app := &application{
+			cfg:     cfg,
+			logger:  logger,
+			db:      pool,
+			catalog: catalogSvc,
+		}
 		return app.serve(ctx)
 	case "migrate":
 		return migrate(ctx, pool, args, stdout)
+	case "sync":
+		if len(args) != 0 {
+			return fmt.Errorf("%w: sync takes no arguments", errUsage)
+		}
+		return syncCatalog(ctx, catalogSvc, stdout)
 	}
 	return nil
+}
+
+func syncCatalog(ctx context.Context, svc *catalog.Service, stdout io.Writer) error {
+	run, err := svc.Sync(ctx)
+	if run.ID != 0 {
+		fmt.Fprintf(stdout, "sync run %d %s: fetched %d, changed %d, errors %d\n",
+			run.ID, run.Status, run.Fetched, run.Changed, run.Errors)
+	}
+	return err
 }
 
 func migrate(ctx context.Context, pool *pgxpool.Pool, args []string, stdout io.Writer) error {

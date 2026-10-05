@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/platform/db"
 )
 
@@ -80,15 +81,18 @@ func (store) upsertProduct(ctx context.Context, q db.DBTX, p Product) (uuid.UUID
 }
 
 // productColumns and scanProduct go together: every query that returns a full Product selects
-// productColumns and scans the row with scanProduct, so the two can't drift apart.
+// productColumns (catalog.products aliased as p) and scans the row with scanProduct, so the two
+// can't drift apart.
 const productColumns = `
-	id, provider, provider_sku, coalesce(ean, ''), coalesce(mpn, ''), brand, name, slug, category,
-	coalesce(url, ''), raw_specs, images, warranty_months, coalesce(warranty_text, ''),
-	raw_hash, commercial_hash, missing_runs, active, featured, created_at, updated_at`
+	p.id, p.provider, p.provider_sku, coalesce(p.ean, ''), coalesce(p.mpn, ''), p.brand, p.name, p.slug, p.category,
+	coalesce(p.url, ''), p.raw_specs, p.images, p.warranty_months, coalesce(p.warranty_text, ''),
+	p.raw_hash, p.commercial_hash, p.missing_runs, p.active, p.featured, p.created_at, p.updated_at`
 
-func scanProduct(row pgx.Row) (Product, error) {
+// scanProduct scans a row that starts with productColumns; extra receives any columns the
+// query selects after them.
+func scanProduct(row pgx.Row, extra ...any) (Product, error) {
 	var p Product
-	err := row.Scan(
+	dest := []any{
 		&p.ID,
 		&p.Provider,
 		&p.ProviderSKU,
@@ -110,14 +114,15 @@ func scanProduct(row pgx.Row) (Product, error) {
 		&p.Featured,
 		&p.CreatedAt,
 		&p.UpdatedAt,
-	)
+	}
+	err := row.Scan(append(dest, extra...)...)
 	return p, err
 }
 
 // productBySlug returns the product with that slug, active or not; the service decides what
 // shoppers may see.
 func (store) productBySlug(ctx context.Context, q db.DBTX, slug string) (Product, error) {
-	query := `SELECT ` + productColumns + ` FROM catalog.products WHERE slug = $1`
+	query := `SELECT ` + productColumns + ` FROM catalog.products p WHERE p.slug = $1`
 
 	p, err := scanProduct(q.QueryRow(ctx, query, slug))
 	switch {
@@ -403,4 +408,171 @@ func (store) syncRun(ctx context.Context, q db.DBTX, id int64) (SyncRun, error) 
 		return SyncRun{}, fmt.Errorf("catalog: sync run %d: %w", id, err)
 	}
 	return r, nil
+}
+
+// productState is what the sync needs to know about a stored product to tell whether a fetched
+// one changed, and whether its price needs recomputing.
+type productState struct {
+	ID             uuid.UUID
+	RawHash        string
+	CommercialHash string
+	RetailCents    money.Cents // 0 and RuleID nil if the product has no price yet
+	RuleID         *int64
+}
+
+// productStates returns provider SKU → state for every product of the provider. One query per
+// sync run instead of one per product.
+func (store) productStates(ctx context.Context, q db.DBTX, provider Provider) (map[string]productState, error) {
+	query := `
+		SELECT p.provider_sku, p.id, p.raw_hash, p.commercial_hash, coalesce(pr.retail_cents, 0), pr.rule_id
+		FROM catalog.products p
+		LEFT JOIN catalog.prices pr ON pr.product_id = p.id
+		WHERE p.provider = $1`
+
+	rows, err := q.Query(ctx, query, provider)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: product states: %w", err)
+	}
+	states := map[string]productState{}
+	var (
+		sku string
+		st  productState
+	)
+	scan := []any{
+		&sku,
+		&st.ID,
+		&st.RawHash,
+		&st.CommercialHash,
+		&st.RetailCents,
+		&st.RuleID,
+	}
+	_, err = pgx.ForEachRow(rows, scan, func() error {
+		states[sku] = st
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("catalog: product states: %w", err)
+	}
+	return states, nil
+}
+
+// markSeen resets missing_runs and reactivates the provider's products in skus that a previous
+// run counted as missing. Products that were never missing aren't rewritten.
+func (store) markSeen(ctx context.Context, q db.DBTX, provider Provider, skus []string) (int64, error) {
+	query := `
+		UPDATE catalog.products
+		SET missing_runs = 0, active = true, updated_at = now()
+		WHERE provider = $1 AND provider_sku = ANY ($2::text[])
+		  AND (missing_runs <> 0 OR NOT active)`
+
+	args := []any{
+		provider,
+		skus,
+	}
+
+	tag, err := q.Exec(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("catalog: mark seen: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// markMissing bumps missing_runs for the provider's products NOT in seen, and deactivates those
+// that have now been missing for threshold runs in a row. It returns how many it deactivated.
+// Products are never deleted: order lines and saved builds still point at them.
+func (store) markMissing(ctx context.Context, q db.DBTX, provider Provider, seen []string, threshold int) (int64, error) {
+	// SET expressions see the row as it was, so missing_runs + 1 is the new count.
+	query := `
+		WITH bumped AS (
+			UPDATE catalog.products
+			SET missing_runs = missing_runs + 1,
+			    active       = active AND missing_runs + 1 < $3,
+			    updated_at   = now()
+			WHERE provider = $1 AND provider_sku <> ALL ($2::text[])
+			RETURNING missing_runs
+		)
+		SELECT count(*) FROM bumped WHERE missing_runs = $3`
+
+	args := []any{
+		provider,
+		seen,
+		threshold,
+	}
+
+	var n int64
+	if err := q.QueryRow(ctx, query, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("catalog: mark missing: %w", err)
+	}
+	return n, nil
+}
+
+// visibleProducts is the FROM and WHERE of every shopper-facing query: a product is visible
+// when it's active and has a price (an unpriced product can't be sold). Add new visibility
+// conditions (e.g. hidden by an admin) here only.
+const visibleProducts = `
+	FROM catalog.products p
+	JOIN catalog.prices pr ON pr.product_id = p.id
+	WHERE p.active`
+
+// stockTotal is a product's quantity over all warehouses, for a query over visibleProducts.
+const stockTotal = `coalesce((SELECT sum(s.qty) FROM catalog.stock s WHERE s.product_id = p.id), 0)`
+
+// listProducts returns one page of visible products, featured first, then by name, and the
+// number of matching products over all pages. A page past the end has no rows, so its total
+// is 0.
+func (store) listProducts(ctx context.Context, q db.DBTX, category string, limit, offset int) ([]ProductSummary, int, error) {
+	query := `
+		SELECT p.slug, p.name, p.brand, p.category, coalesce(p.images ->> 0, ''), pr.retail_cents,
+		       ` + stockTotal + `, count(*) OVER ()
+		` + visibleProducts + ` AND ($1 = '' OR p.category = $1)
+		ORDER BY p.featured DESC, p.name, p.id
+		LIMIT $2 OFFSET $3`
+
+	args := []any{
+		category,
+		limit,
+		offset,
+	}
+
+	rows, err := q.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("catalog: list products: %w", err)
+	}
+	var total int
+	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ProductSummary, error) {
+		var p ProductSummary
+		err := row.Scan(
+			&p.Slug,
+			&p.Name,
+			&p.Brand,
+			&p.Category,
+			&p.Image,
+			&p.RetailCents,
+			&p.StockQty,
+			&total,
+		)
+		return p, err
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("catalog: list products: %w", err)
+	}
+	return products, total, nil
+}
+
+// visibleProductBySlug returns a visible product with its retail price and stock total in one
+// query. Hidden products are ErrNotFound, the same as a slug that doesn't exist.
+func (store) visibleProductBySlug(ctx context.Context, q db.DBTX, slug string) (ProductDetail, error) {
+	query := `SELECT ` + productColumns + `, pr.retail_cents, ` + stockTotal + `
+		` + visibleProducts + ` AND p.slug = $1`
+
+	var d ProductDetail
+	p, err := scanProduct(q.QueryRow(ctx, query, slug), &d.RetailCents, &d.StockQty)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return ProductDetail{}, ErrNotFound
+	case err != nil:
+		return ProductDetail{}, fmt.Errorf("catalog: visible product %q: %w", slug, err)
+	}
+	d.Product = p
+	return d, nil
 }

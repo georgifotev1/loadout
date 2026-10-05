@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -9,29 +8,13 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/gfotev/loadout/internal/vali"
 )
 
-// product is one item in Vali's raw format (fixtures/vali/product.schema.json), minus the
-// fixture-only `_mock` note.
-// ASSUMPTION: the real dealer API returns roughly these fields; its real shape is unknown
-// until the dealership is signed.
-type product struct {
-	SKU              string            `json:"sku"`
-	ManufacturerCode string            `json:"manufacturer_code,omitempty"`
-	EAN              string            `json:"ean,omitempty"`
-	Brand            string            `json:"brand"`
-	Name             string            `json:"name"`
-	CategoryPath     []string          `json:"category_path"`
-	URL              string            `json:"url"`
-	Warranty         string            `json:"warranty,omitempty"`
-	Images           []string          `json:"images"`
-	Specs            map[string]string `json:"specs"`
-	DealerPriceCents int64             `json:"dealer_price_cents"`
-	RRPCents         int64             `json:"rrp_cents"`
-	Currency         string            `json:"currency"`
-	Stock            map[string]int    `json:"stock"`
-	UpdatedAt        time.Time         `json:"updated_at"`
-}
+// product is one item in Vali's raw format. It's the same type the Loadout client decodes, so
+// the mock and the client can't disagree about the wire format.
+type product = vali.RawProduct
 
 var errNotFound = errors.New("product not found")
 
@@ -57,27 +40,20 @@ func newStore(src fs.FS, now func() time.Time) (*store, error) {
 
 // reset reloads every fixture and drops all mutations.
 func (s *store) reset() error {
-	files, err := fs.Glob(s.src, "vali/*/*.json")
+	products, err := vali.LoadFixtures(s.src)
 	if err != nil {
 		return err
 	}
-	if len(files) == 0 {
+	if len(products) == 0 {
 		return errors.New("no fixtures found")
 	}
-	bySKU := make(map[string]*product, len(files))
-	for _, f := range files {
-		b, err := fs.ReadFile(s.src, f)
-		if err != nil {
-			return err
-		}
-		var p product
-		if err := json.Unmarshal(b, &p); err != nil {
-			return fmt.Errorf("%s: %w", f, err)
-		}
+	bySKU := make(map[string]*product, len(products))
+	for i := range products {
+		p := &products[i]
 		if _, dup := bySKU[p.SKU]; dup {
-			return fmt.Errorf("%s: duplicate sku %q", f, p.SKU)
+			return fmt.Errorf("duplicate sku %q", p.SKU)
 		}
-		bySKU[p.SKU] = &p
+		bySKU[p.SKU] = p
 	}
 
 	s.mu.Lock()
