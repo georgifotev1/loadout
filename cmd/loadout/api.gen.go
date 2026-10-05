@@ -259,8 +259,11 @@ type ProductDetail struct {
 	Name     string   `json:"name"`
 
 	// Price A retail price. The web app formats it; it never does price math.
-	Price Price  `json:"price"`
-	Slug  string `json:"slug"`
+	Price Price `json:"price"`
+
+	// Sku The supplier's product code, shown so shoppers can match it elsewhere.
+	Sku  string `json:"sku"`
+	Slug string `json:"slug"`
 
 	// Specs Canonical spec values (socket, tdp_w, ...). Empty for peripherals.
 	Specs map[string]interface{} `json:"specs"`

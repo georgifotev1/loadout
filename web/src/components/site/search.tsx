@@ -19,14 +19,14 @@ export type SearchItem =
 type Group = { label?: string; items: SearchItem[] };
 
 // SiteSearch is the header search with instant results. Empty, it suggests popular searches
-// and categories; while typing it shows matching products and categories. Enter without a
+// (if given) and categories; while typing it shows matching products and categories. Enter without a
 // highlighted item submits the query for the full results page. "/" or ⌘K focuses it.
 export function SiteSearch({
 	query,
 	onQueryChange,
 	products,
 	categories,
-	popular,
+	popular = [],
 	onSelect,
 	className,
 }: {
@@ -34,7 +34,7 @@ export function SiteSearch({
 	onQueryChange: (q: string) => void;
 	products: ProductSummary[];
 	categories: { category: Category; count?: number }[];
-	popular: string[];
+	popular?: string[];
 	onSelect: (item: SearchItem) => void;
 	className?: string;
 }) {
@@ -87,7 +87,7 @@ export function SiteSearch({
 					items: popular.map((label): SearchItem => ({ kind: "query", label })),
 				},
 				{ label: m.search.categories, items: categoryItems },
-			];
+			].filter((g: Group) => g.items.length > 0);
 
 	return (
 		<Autocomplete.Root

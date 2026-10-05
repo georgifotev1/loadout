@@ -100,7 +100,7 @@ func TestProductsAPI(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Seeded default rule: 52.35 € + 15% = 60.20 €, rounded up to 60.90 €.
-		if p.Brand != "AMD" || p.Category != "cpu" || p.Attributes["Сокет"] != "AM4" || !p.InStock ||
+		if p.Sku != "AMD-AM4-R3-RYZ-4100-BOX" || p.Brand != "AMD" || p.Category != "cpu" || p.Attributes["Сокет"] != "AM4" || !p.InStock ||
 			p.Price != (Price{AmountCents: 6090, Currency: PriceCurrencyEUR}) || p.Specs == nil {
 			t.Errorf("got %+v", p)
 		}

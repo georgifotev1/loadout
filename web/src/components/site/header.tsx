@@ -10,34 +10,17 @@ import {
 	DrawerTitle,
 } from "#/components/ui/drawer";
 import { m } from "#/i18n";
-import type { components } from "#/lib/api/schema.gen";
+import {
+	type Category,
+	componentCategories,
+	peripheralCategories,
+} from "#/lib/categories";
 import { cn } from "#/lib/utils";
 import { Container } from "./container";
 import { Logo } from "./logo";
 
-type Category = components["schemas"]["Category"];
-
-const componentCategories: Category[] = [
-	"cpu",
-	"gpu",
-	"motherboard",
-	"ram",
-	"storage",
-	"psu",
-	"case",
-	"cooler",
-];
-
-const peripheralCategories: Category[] = [
-	"peripheral.monitor",
-	"peripheral.keyboard",
-	"peripheral.mouse",
-	"peripheral.headset",
-	"peripheral.mousepad",
-	"peripheral.chair",
-];
-
-// TODO(phase-4): point links at the real routes in step 4.
+// SiteHeader is the storefront header. The account and cart buttons only show with
+// onCartClick: the real cart arrives with checkout.
 export function SiteHeader({
 	search,
 	cartCount = 0,
@@ -45,7 +28,7 @@ export function SiteHeader({
 }: {
 	search: React.ReactNode;
 	cartCount?: number;
-	onCartClick: () => void;
+	onCartClick?: () => void;
 }) {
 	const [menuOpen, setMenuOpen] = useState(false);
 
@@ -61,33 +44,35 @@ export function SiteHeader({
 				>
 					<Menu />
 				</Button>
-				<Link to="/preview/home" className="shrink-0">
+				<Link to="/" className="shrink-0">
 					<Logo />
 				</Link>
 
 				<div className="hidden max-w-2xl flex-1 md:block">{search}</div>
 
-				<div className="ml-auto flex items-center gap-0.5">
-					<Button variant="ghost" size="icon" aria-label={m.nav.account}>
-						<User />
-					</Button>
-					<Button
-						variant="ghost"
-						className="-mr-2 gap-3 px-2.5 md:mr-0"
-						onClick={onCartClick}
-						aria-label={`${m.nav.cart}, ${m.cart.items(cartCount)}`}
-					>
-						<span className="relative">
-							<ShoppingCart />
-							{cartCount > 0 ? (
-								<span className="-top-2 -right-2.5 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 font-semibold text-[10px] text-brand-foreground tabular-nums ring-2 ring-card">
-									{cartCount}
-								</span>
-							) : null}
-						</span>
-						<span className="hidden lg:inline">{m.nav.cart}</span>
-					</Button>
-				</div>
+				{onCartClick ? (
+					<div className="ml-auto flex items-center gap-0.5">
+						<Button variant="ghost" size="icon" aria-label={m.nav.account}>
+							<User />
+						</Button>
+						<Button
+							variant="ghost"
+							className="-mr-2 gap-3 px-2.5 md:mr-0"
+							onClick={onCartClick}
+							aria-label={`${m.nav.cart}, ${m.cart.items(cartCount)}`}
+						>
+							<span className="relative">
+								<ShoppingCart />
+								{cartCount > 0 ? (
+									<span className="-top-2 -right-2.5 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 font-semibold text-[10px] text-brand-foreground tabular-nums ring-2 ring-card">
+										{cartCount}
+									</span>
+								) : null}
+							</span>
+							<span className="hidden lg:inline">{m.nav.cart}</span>
+						</Button>
+					</div>
+				) : null}
 			</Container>
 
 			<Container className="pb-3 md:hidden">{search}</Container>
@@ -115,9 +100,8 @@ function NavLink({ category }: { category: Category }) {
 	return (
 		<li className="shrink-0">
 			<Link
-				to="/preview/category"
-				search={{ category }}
-				activeOptions={{ includeSearch: true }}
+				to="/c/$category"
+				params={{ category }}
 				className="flex h-10 items-center border-transparent border-b-2 transition-colors hover:text-foreground data-[status=active]:border-brand data-[status=active]:text-foreground"
 			>
 				{m.categories[category]}
@@ -167,8 +151,8 @@ function MobileMenu({
 									{g.items.map((c) => (
 										<li key={c}>
 											<Link
-												to="/preview/category"
-												search={{ category: c }}
+												to="/c/$category"
+												params={{ category: c }}
 												onClick={() => onOpenChange(false)}
 												className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
 											>

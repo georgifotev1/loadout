@@ -2,9 +2,6 @@ import { Link } from "@tanstack/react-router";
 
 const pages = [
 	{ to: "/preview", label: "Tokens" },
-	{ to: "/preview/home", label: "Home" },
-	{ to: "/preview/category", label: "Category" },
-	{ to: "/preview/product", label: "Product" },
 	{ to: "/preview/cart", label: "Cart" },
 	{ to: "/preview/checkout", label: "Checkout" },
 	{ to: "/preview/confirmation", label: "Done" },

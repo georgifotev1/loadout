@@ -8,6 +8,9 @@ export const bg = {
 		name: "loadout",
 		tagline: "Компоненти и периферия за компютри",
 		skipToContent: "Към съдържанието",
+		title: (page: string) => `${page} | Loadout`,
+		description:
+			"Процесори, видео карти, дънни платки и периферия с реална наличност и доставка до 2 работни дни.",
 	},
 	nav: {
 		components: "Компоненти",
@@ -50,15 +53,11 @@ export const bg = {
 		title: "Всичко за следващия ви компютър",
 		lead: "Процесори, видео карти и периферия с реална наличност и доставка до 2 работни дни.",
 		browseComponents: "Разгледайте компонентите",
-		shopByCategory: "Категории",
-		newArrivals: "Нови продукти",
-		popularGpus: "Популярни видео карти",
 		viewAll: "Виж всички",
-		bentoFrom: (price: string) => `от ${price}`,
 		builderTitle: "Сглобете компютър",
 		builderDetail:
 			"Изберете компоненти, а ние проверяваме съвместимостта и захранването.",
-		builderCta: "Към конфигуратора",
+		builderSoon: "Скоро",
 	},
 	perks: {
 		delivery: "Доставка до 2 работни дни",
@@ -77,8 +76,7 @@ export const bg = {
 		clearFilters: "Изчисти",
 		brand: "Марка",
 		price: "Цена",
-		availability: "Наличност",
-		inStockOnly: "Само налични",
+		category: "Категория",
 		sort: "Подреди",
 		sortRelevance: "Препоръчани",
 		sortPriceAsc: "Цена: ниска към висока",
@@ -86,6 +84,14 @@ export const bg = {
 		priceFrom: (from: string) => `над ${from}`,
 		previous: "Предишна",
 		next: "Следваща",
+		pages: "Страници",
+		page: (n: number) => `Страница ${n}`,
+		allProducts: "Всички продукти",
+		searchTitle: (q: string) => `Резултати за „${q}“`,
+		empty: "Няма продукти, които отговарят на избраното.",
+		emptySearch: (q: string) =>
+			`Няма продукти за „${q}“. Проверете изписването или опитайте с по-общо търсене.`,
+		removeFilter: (label: string) => `Премахни филтъра ${label}`,
 	},
 	product: {
 		inStock: "В наличност",
@@ -98,10 +104,22 @@ export const bg = {
 		description: "Описание",
 		related: "Подобни продукти",
 		deliveryEstimate: "Доставка до 2 работни дни",
-		deliveryBy: (date: string) => `Поръчайте днес, получете до ${date}`,
 		added: "Добавено в количката",
 		freeReturns: "Връщане до 14 дни",
 		home: "Начало",
+		metaDescription: (name: string, price: string, inStock: boolean) =>
+			`${name} за ${price}. ${inStock ? "В наличност, доставка до 2 работни дни." : "Изчерпан."}`,
+	},
+	notFound: {
+		title: "Страницата не е намерена",
+		detail:
+			"Връзката може да е грешна или продуктът вече да не се предлага. Потърсете го или разгледайте категориите.",
+		backHome: "Към началната страница",
+	},
+	error: {
+		title: "Нещо се обърка",
+		detail: "Не успяхме да заредим страницата. Опитайте отново след малко.",
+		retry: "Опитай отново",
 	},
 	cart: {
 		title: "Количка",

@@ -49,10 +49,6 @@ export function highlights(p: PreviewProduct): string[] {
 		.filter((v) => v.length <= 24);
 }
 
-export function inCategory(category: string) {
-	return products.filter((p) => p.category === category);
-}
-
 export function bySlug(slug: string | undefined) {
 	return products.find((p) => p.slug === slug);
 }
@@ -63,15 +59,3 @@ export const cartLines = [
 	{ product: bySlug("pc-vc-rx9070gre-12g-e"), qty: 1 },
 	{ product: bySlug("logite-mouse-g502-hero-bk"), qty: 2 },
 ].filter((l): l is { product: PreviewProduct; qty: number } => !!l.product);
-
-// deliveryDate is two working days from today. The real estimate comes from the server
-// (courier cut-off times, holidays).
-export function deliveryDate(from = new Date()): Date {
-	const d = new Date(from);
-	let left = 2;
-	while (left > 0) {
-		d.setDate(d.getDate() + 1);
-		if (d.getDay() !== 0 && d.getDay() !== 6) left--;
-	}
-	return d;
-}

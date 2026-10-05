@@ -2,12 +2,13 @@ import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { CheckoutHeader } from "#/components/site/checkout-header";
 import { SiteFooter } from "#/components/site/footer";
 import { SiteHeader } from "#/components/site/header";
+import { ShopSearch } from "#/components/site/shop-search";
 import { PreviewCartProvider, usePreviewCart } from "./-cart";
-import { PreviewSearch } from "./-search";
 import { PreviewToolbar } from "./-toolbar";
 
-// /preview: design previews of the storefront on sample data, for choosing tokens and layout.
-// Not linked from anywhere; delete once the real pages exist.
+// /preview: design previews on sample data for the pages that don't exist yet (cart, checkout,
+// confirmation) and the design tokens. Not linked from anywhere.
+// TODO(phase-7): delete once the real cart and checkout exist.
 export const Route = createFileRoute("/preview")({
 	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
 	component: PreviewLayout,
@@ -33,7 +34,7 @@ function Shell() {
 				<CheckoutHeader />
 			) : (
 				<SiteHeader
-					search={<PreviewSearch />}
+					search={<ShopSearch />}
 					cartCount={cart.count}
 					onCartClick={cart.openDrawer}
 				/>

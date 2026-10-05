@@ -6,7 +6,9 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { locale } from "#/i18n";
+import { ShopLayout } from "#/components/site/shop-layout";
+import { NotFound } from "#/components/site/status-page";
+import { locale, m } from "#/i18n";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import appCss from "../styles.css?url";
 
@@ -25,7 +27,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				content: "width=device-width, initial-scale=1",
 			},
 			{
-				title: "Loadout",
+				title: m.site.title(m.site.tagline),
 			},
 		],
 		links: [
@@ -36,6 +38,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		],
 	}),
 	shellComponent: RootDocument,
+	// A URL no route matches. Unknown products and categories are handled inside /_shop.
+	notFoundComponent: () => (
+		<ShopLayout>
+			<NotFound />
+		</ShopLayout>
+	),
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {

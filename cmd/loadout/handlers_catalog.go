@@ -120,6 +120,7 @@ func (app *application) GetProduct(w http.ResponseWriter, r *http.Request, slug 
 	}
 	app.writeJSON(w, r, http.StatusOK, ProductDetail{
 		Slug:       p.Slug,
+		Sku:        p.ProviderSKU,
 		Name:       p.Name,
 		Brand:      p.Brand,
 		Category:   Category(p.Category),

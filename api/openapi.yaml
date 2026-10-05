@@ -280,9 +280,12 @@ components:
 
     ProductDetail:
       type: object
-      required: [slug, name, brand, category, images, attributes, specs, price, in_stock]
+      required: [slug, sku, name, brand, category, images, attributes, specs, price, in_stock]
       properties:
         slug: { type: string }
+        sku:
+          type: string
+          description: The supplier's product code, shown so shoppers can match it elsewhere.
         name: { type: string }
         brand: { type: string }
         category: { $ref: "#/components/schemas/Category" }

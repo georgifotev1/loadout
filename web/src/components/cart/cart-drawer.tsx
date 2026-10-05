@@ -103,8 +103,8 @@ export function CartDrawer({
 									<div className="flex min-w-0 flex-1 flex-col">
 										<div className="flex gap-2">
 											<Link
-												to="/preview/product"
-												search={{ slug: p.slug }}
+												to="/p/$slug"
+												params={{ slug: p.slug }}
 												onClick={() => onOpenChange(false)}
 												className="line-clamp-2 flex-1 text-meta hover:underline"
 											>

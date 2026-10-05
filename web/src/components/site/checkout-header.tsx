@@ -18,7 +18,7 @@ export function CheckoutHeader() {
 					<ChevronLeft className="size-4" />
 					<span className="hidden sm:inline">{m.checkout.backToCart}</span>
 				</Link>
-				<Link to="/preview/home" className="-translate-x-1/2 absolute left-1/2">
+				<Link to="/" className="-translate-x-1/2 absolute left-1/2">
 					<Logo />
 				</Link>
 				<span className="flex items-center gap-1.5 text-muted-foreground text-xs">

@@ -27,7 +27,7 @@ function CartPage() {
 				<h1 className="mt-4 font-semibold text-2xl tracking-[-0.02em]">
 					{m.cart.empty}
 				</h1>
-				<Button className="mt-6" render={<Link to="/preview/home" />}>
+				<Button className="mt-6" render={<Link to="/" />}>
 					{m.cart.continueShopping}
 				</Button>
 			</Container>
@@ -48,8 +48,8 @@ function CartPage() {
 					{cart.lines.map(({ product: p, qty }) => (
 						<li key={p.slug} className="flex gap-4 p-4 sm:gap-5 sm:p-5">
 							<Link
-								to="/preview/product"
-								search={{ slug: p.slug }}
+								to="/p/$slug"
+								params={{ slug: p.slug }}
 								className="shrink-0"
 							>
 								<ProductImage
@@ -65,8 +65,8 @@ function CartPage() {
 											{p.brand}
 										</p>
 										<Link
-											to="/preview/product"
-											search={{ slug: p.slug }}
+											to="/p/$slug"
+											params={{ slug: p.slug }}
 											className="mt-0.5 line-clamp-2 font-medium text-sm hover:underline"
 										>
 											{p.name}
@@ -116,7 +116,7 @@ function CartPage() {
 					<Button
 						variant="link"
 						className="mt-2 w-full text-muted-foreground"
-						render={<Link to="/preview/home" />}
+						render={<Link to="/" />}
 					>
 						{m.cart.continueShopping}
 					</Button>

@@ -10,7 +10,6 @@ import { Stock } from "./stock";
 
 type ProductSummary = components["schemas"]["ProductSummary"];
 
-// TODO(phase-4): link to the real product route once it exists (step 4).
 export function ProductCard({
 	product,
 	highlights,
@@ -19,7 +18,9 @@ export function ProductCard({
 }: {
 	product: ProductSummary;
 	// Key specs shown under the name, e.g. ["12 GB", "GDDR6"].
+	// TODO(phase-6): from the canonical specs, once products have them.
 	highlights?: string[];
+	// Without it there's no add to cart button.
 	onAddToCart?: () => void;
 	className?: string;
 }) {
@@ -41,8 +42,8 @@ export function ProductCard({
 				</p>
 				<h3 className="line-clamp-2 min-h-10 font-medium text-sm leading-5">
 					<Link
-						to="/preview/product"
-						search={{ slug: product.slug }}
+						to="/p/$slug"
+						params={{ slug: product.slug }}
 						className="outline-none after:absolute after:inset-0 focus-visible:underline"
 					>
 						{product.name}
@@ -58,16 +59,18 @@ export function ProductCard({
 						<Price cents={product.price.amount_cents} className="text-base" />
 						<Stock inStock={product.in_stock} />
 					</div>
-					<Button
-						variant="outline"
-						size="icon-sm"
-						className="relative z-10"
-						disabled={!product.in_stock}
-						onClick={onAddToCart}
-						aria-label={m.product.addToCart}
-					>
-						<ShoppingCart />
-					</Button>
+					{onAddToCart ? (
+						<Button
+							variant="outline"
+							size="icon-sm"
+							className="relative z-10"
+							disabled={!product.in_stock}
+							onClick={onAddToCart}
+							aria-label={m.product.addToCart}
+						>
+							<ShoppingCart />
+						</Button>
+					) : null}
 				</div>
 			</div>
 		</article>

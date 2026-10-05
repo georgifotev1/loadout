@@ -167,6 +167,8 @@ export interface components {
         };
         ProductDetail: {
             slug: string;
+            /** @description The supplier's product code, shown so shoppers can match it elsewhere. */
+            sku: string;
             name: string;
             brand: string;
             category: components["schemas"]["Category"];

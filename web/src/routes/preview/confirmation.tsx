@@ -75,11 +75,7 @@ function ConfirmationPage() {
 				<Totals delivery={deliveryCents} className="mt-6 border-t pt-5" />
 			</section>
 
-			<Button
-				variant="outline"
-				className="mt-8"
-				render={<Link to="/preview/home" />}
-			>
+			<Button variant="outline" className="mt-8" render={<Link to="/" />}>
 				{m.confirmation.backToShop}
 			</Button>
 		</Container>

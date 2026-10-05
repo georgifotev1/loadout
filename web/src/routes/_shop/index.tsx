@@ -1,3 +1,4 @@
+import { useSuspenseQueries } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	ArrowRight,
@@ -15,20 +16,42 @@ import {
 	Truck,
 } from "lucide-react";
 import { Price } from "#/components/product/price";
+import { ProductCard } from "#/components/product/product-card";
 import { ProductImage } from "#/components/product/product-image";
 import { Container } from "#/components/site/container";
 import { Button } from "#/components/ui/button";
 import { m } from "#/i18n";
-import type { components } from "#/lib/api/schema.gen";
+import type { Schemas } from "#/lib/api/client";
+import { searchQuery } from "#/lib/api/products";
+import type { Category } from "#/lib/categories";
 import { cn } from "#/lib/utils";
-import { PreviewProductCard } from "./-cart";
-import { bySlug, inCategory, type PreviewProduct, products } from "./-data";
 
-export const Route = createFileRoute("/preview/home")({
+type ProductSummary = Schemas["ProductSummary"];
+
+// The bento shows the priciest product of each of these categories, and the rows below list
+// a few of these. TODO(phase-6): admin-curated picks instead.
+const featuredCategories: Category[] = ["gpu", "cpu", "peripheral.monitor"];
+const rowCategories: Category[] = ["gpu", "peripheral.monitor"];
+
+const queries = [
+	...featuredCategories.map((category) =>
+		searchQuery({ category, sort: "price_desc", page_size: 1 }),
+	),
+	...rowCategories.map((category) => searchQuery({ category, page_size: 4 })),
+];
+
+export const Route = createFileRoute("/_shop/")({
+	loader: ({ context }) =>
+		Promise.all(queries.map((q) => context.queryClient.query(q))),
+	head: () => ({
+		meta: [
+			{ title: m.site.title(m.site.tagline) },
+			{ name: "description", content: m.site.description },
+		],
+		links: [{ rel: "canonical", href: "/" }],
+	}),
 	component: Home,
 });
-
-type Category = components["schemas"]["Category"];
 
 const perks = [
 	{ icon: Truck, title: m.perks.delivery, detail: m.perks.deliveryDetail },
@@ -41,20 +64,15 @@ const perks = [
 	{ icon: CreditCard, title: m.perks.payment, detail: m.perks.paymentDetail },
 ];
 
-// Merchandising picks for the bento. Later these come from an admin-curated list.
-const featured = [
-	{ slug: "pc-vc-rx9070gre-12g-e", title: "Radeon RX 9070 GRE Red Devil" },
-	{ slug: "amd-am5-r7-7800x3d-box", title: "Ryzen 7 7800X3D" },
-	{ slug: "asus-mon-vg27aql5a", title: "ASUS TUF VG27AQL5A" },
-];
-
 function Home() {
-	const [big, second, third] = featured.map((f) => ({
-		...f,
-		product: bySlug(f.slug),
+	const results = useSuspenseQueries({ queries });
+	const [big, second, third] = results
+		.slice(0, featuredCategories.length)
+		.map((r) => r.data.products[0]);
+	const rows = results.slice(featuredCategories.length).map((r, i) => ({
+		category: rowCategories[i],
+		products: r.data.products,
 	}));
-	const newArrivals = products.filter((p) => p.in_stock).slice(-8, -4);
-	const gpus = inCategory("gpu").slice(0, 4);
 
 	return (
 		<>
@@ -68,12 +86,10 @@ function Home() {
 							{m.home.lead}
 						</p>
 					</div>
-					<div className="flex shrink-0 gap-3">
+					<div className="flex shrink-0 flex-wrap gap-3">
 						<Button
 							size="lg"
-							render={
-								<Link to="/preview/category" search={{ category: "gpu" }} />
-							}
+							render={<Link to="/c/$category" params={{ category: "gpu" }} />}
 						>
 							{m.home.browseComponents} <ArrowRight />
 						</Button>
@@ -83,8 +99,8 @@ function Home() {
 							className="bg-card"
 							render={
 								<Link
-									to="/preview/category"
-									search={{ category: "peripheral.monitor" }}
+									to="/c/$category"
+									params={{ category: "peripheral.monitor" }}
 								/>
 							}
 						>
@@ -96,27 +112,18 @@ function Home() {
 
 			<Container>
 				<div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:grid-rows-[repeat(2,16rem)]">
-					{big.product ? (
+					{big ? (
 						<BentoTile
-							product={big.product}
-							title={big.title}
+							product={big}
 							size="lg"
 							className="col-span-2 h-80 sm:h-96 lg:row-span-2 lg:h-auto"
 						/>
 					) : null}
-					{second.product ? (
-						<BentoTile
-							product={second.product}
-							title={second.title}
-							className="h-64 lg:h-auto"
-						/>
+					{second ? (
+						<BentoTile product={second} className="h-64 lg:h-auto" />
 					) : null}
-					{third.product ? (
-						<BentoTile
-							product={third.product}
-							title={third.title}
-							className="h-64 lg:h-auto"
-						/>
+					{third ? (
+						<BentoTile product={third} className="h-64 lg:h-auto" />
 					) : null}
 					<BuilderTile />
 				</div>
@@ -141,38 +148,39 @@ function Home() {
 				</ul>
 			</Container>
 
-			<ProductRow title={m.home.popularGpus} category="gpu" items={gpus} />
-			<ProductRow
-				title={m.home.newArrivals}
-				category="peripheral.keyboard"
-				items={newArrivals}
-			/>
+			{rows.map((r) =>
+				r.products.length > 0 ? (
+					<ProductRow
+						key={r.category}
+						category={r.category}
+						products={r.products}
+					/>
+				) : null,
+			)}
 		</>
 	);
 }
 
 function BentoTile({
 	product: p,
-	title,
 	size = "md",
 	className,
 }: {
-	product: PreviewProduct;
-	title: string;
+	product: ProductSummary;
 	size?: "md" | "lg";
 	className?: string;
 }) {
 	return (
 		<Link
-			to="/preview/product"
-			search={{ slug: p.slug }}
+			to="/p/$slug"
+			params={{ slug: p.slug }}
 			className={cn(
 				"group relative flex flex-col overflow-hidden rounded-xl border bg-card transition-colors hover:border-border-strong",
 				className,
 			)}
 		>
 			<ProductImage
-				src={p.images[0]}
+				src={p.image}
 				alt={p.name}
 				loading="eager"
 				className={cn(
@@ -187,13 +195,13 @@ function BentoTile({
 					</p>
 					<p
 						className={cn(
-							"mt-1 truncate font-semibold tracking-[-0.01em]",
+							"mt-1 font-semibold tracking-[-0.01em]",
 							size === "lg"
-								? "text-xl sm:text-2xl sm:tracking-[-0.02em]"
-								: "text-base",
+								? "line-clamp-2 text-xl sm:text-2xl sm:tracking-[-0.02em]"
+								: "truncate text-base",
 						)}
 					>
-						{title}
+						{p.name}
 					</p>
 					<Price
 						cents={p.price.amount_cents}
@@ -211,19 +219,17 @@ function BentoTile({
 	);
 }
 
+// TODO(phase-5): link to the PC builder.
 function BuilderTile() {
 	const parts = [Cpu, Gpu, CircuitBoard, MemoryStick, PlugZap, Box, Fan];
 	return (
-		<a
-			href="#top"
-			className="group relative col-span-2 flex flex-col justify-between gap-6 overflow-hidden rounded-xl bg-primary p-6 text-primary-foreground sm:p-7"
-		>
+		<div className="relative col-span-2 flex flex-col justify-between gap-6 overflow-hidden rounded-xl bg-primary p-6 text-primary-foreground sm:p-7">
 			<div className="flex gap-2">
 				{parts.map((Icon, i) => (
 					<span
 						// biome-ignore lint/suspicious/noArrayIndexKey: static decorative list
 						key={i}
-						className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 transition-colors group-hover:text-white/80"
+						className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60"
 					>
 						<Icon className="size-4.5" strokeWidth={1.5} />
 					</span>
@@ -238,39 +244,38 @@ function BuilderTile() {
 						{m.home.builderDetail}
 					</p>
 				</div>
-				<span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-white px-3.5 font-medium text-primary text-sm transition-transform group-hover:translate-x-0.5">
-					<span className="hidden sm:inline">{m.home.builderCta}</span>
-					<ArrowRight className="size-4" />
+				<span className="inline-flex h-7 shrink-0 items-center rounded-full border border-white/15 px-3 font-medium text-white/70 text-xs">
+					{m.home.builderSoon}
 				</span>
 			</div>
-		</a>
+		</div>
 	);
 }
 
 function ProductRow({
-	title,
 	category,
-	items,
+	products,
 }: {
-	title: string;
 	category: Category;
-	items: PreviewProduct[];
+	products: ProductSummary[];
 }) {
 	return (
 		<Container className="pt-16 lg:pt-20">
 			<div className="mb-5 flex items-end justify-between gap-4">
-				<h2 className="font-semibold text-2xl tracking-[-0.02em]">{title}</h2>
+				<h2 className="font-semibold text-2xl tracking-[-0.02em]">
+					{m.categories[category]}
+				</h2>
 				<Link
-					to="/preview/category"
-					search={{ category }}
+					to="/c/$category"
+					params={{ category }}
 					className="inline-flex items-center gap-1 font-medium text-muted-foreground text-sm transition-colors hover:text-foreground"
 				>
 					{m.home.viewAll} <ArrowRight className="size-4" />
 				</Link>
 			</div>
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-				{items.map((p) => (
-					<PreviewProductCard key={p.slug} product={p} />
+				{products.map((p) => (
+					<ProductCard key={p.slug} product={p} />
 				))}
 			</div>
 		</Container>

@@ -1,19 +1,19 @@
+import { Link } from "@tanstack/react-router";
 import { m } from "#/i18n";
+import type { Category } from "#/lib/categories";
 import { Container } from "./container";
 import { Logo } from "./logo";
 
-// TODO(phase-4): link the info pages once they exist.
+const shopLinks: Category[] = [
+	"cpu",
+	"gpu",
+	"motherboard",
+	"peripheral.monitor",
+];
+
 export function SiteFooter() {
+	// TODO(phase-7): link the info pages once they exist.
 	const columns = [
-		{
-			title: m.footer.shop,
-			links: [
-				m.categories.cpu,
-				m.categories.gpu,
-				m.categories.motherboard,
-				m.categories["peripheral.monitor"],
-			],
-		},
 		{
 			title: m.footer.help,
 			links: [
@@ -37,6 +37,22 @@ export function SiteFooter() {
 					<p className="mt-3 max-w-xs text-muted-foreground text-sm">
 						{m.site.tagline}
 					</p>
+				</div>
+				<div>
+					<h2 className="font-medium text-sm">{m.footer.shop}</h2>
+					<ul className="mt-3 space-y-2 text-muted-foreground text-sm">
+						{shopLinks.map((c) => (
+							<li key={c}>
+								<Link
+									to="/c/$category"
+									params={{ category: c }}
+									className="transition-colors hover:text-foreground"
+								>
+									{m.categories[c]}
+								</Link>
+							</li>
+						))}
+					</ul>
 				</div>
 				{columns.map((col) => (
 					<div key={col.title}>
