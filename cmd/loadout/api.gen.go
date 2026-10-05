@@ -328,6 +328,22 @@ type BuildPart struct {
 	Specs map[string]interface{} `json:"specs"`
 }
 
+// BuildSelection The parts picked for a build, by product slug, as in the builder's query parameters.
+type BuildSelection struct {
+	Case        string `json:"case,omitempty"`
+	Cooler      string `json:"cooler,omitempty"`
+	Cpu         string `json:"cpu,omitempty"`
+	Gpu         string `json:"gpu,omitempty"`
+	Motherboard string `json:"motherboard,omitempty"`
+	Psu         string `json:"psu,omitempty"`
+
+	// Ram One slug per kit. Repeat a slug to buy that kit twice.
+	Ram []string `json:"ram,omitempty"`
+
+	// Storage One slug per drive. Repeat a slug to buy that drive twice.
+	Storage []string `json:"storage,omitempty"`
+}
+
 // BuilderOption defines model for BuilderOption.
 type BuilderOption struct {
 	// Findings Warnings and notes about this slot if the part is picked.
@@ -454,6 +470,19 @@ type PriceBucket struct {
 	MinCents int64 `json:"min_cents"`
 }
 
+// PriceChange A part whose price changed since the build was saved.
+type PriceChange struct {
+	// Current A retail price. The web app formats it; it never does price math.
+	Current Price `json:"current"`
+
+	// Saved A retail price. The web app formats it; it never does price math.
+	Saved Price `json:"saved"`
+
+	// Slot A part of a PC build, named after its catalog category.
+	Slot Slot   `json:"slot"`
+	Slug string `json:"slug"`
+}
+
 // ProductDetail defines model for ProductDetail.
 type ProductDetail struct {
 	// Attributes The supplier's spec rows, for display only.
@@ -502,6 +531,21 @@ type ProductSummary struct {
 	// Price A retail price. The web app formats it; it never does price math.
 	Price Price  `json:"price"`
 	Slug  string `json:"slug"`
+}
+
+// SavedBuild defines model for SavedBuild.
+type SavedBuild struct {
+	Check     BuildCheck `json:"check"`
+	CreatedAt time.Time  `json:"created_at"`
+
+	// PriceChanges One entry per product whose price changed since it was saved. Empty right after saving.
+	PriceChanges []PriceChange `json:"price_changes"`
+
+	// SavedTotal A retail price. The web app formats it; it never does price math.
+	SavedTotal Price `json:"saved_total"`
+
+	// Slug Short and random; the share link is `/build/{slug}`.
+	Slug string `json:"slug"`
 }
 
 // SearchResult defines model for SearchResult.
@@ -564,6 +608,9 @@ type Page = int
 
 // PageSize defines model for PageSize.
 type PageSize = int
+
+// InvalidBody defines model for InvalidBody.
+type InvalidBody = Error
 
 // NotFound defines model for NotFound.
 type NotFound = Error
@@ -657,6 +704,9 @@ type SearchProductsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
+// SaveBuildJSONRequestBody defines body for SaveBuild for application/json ContentType.
+type SaveBuildJSONRequestBody = BuildSelection
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// CheckBuild Check a PC build's compatibility, power draw and price
@@ -665,6 +715,12 @@ type ServerInterface interface {
 	// ListBuilderOptions The parts that fit a slot of a PC build
 	// (GET /builder/options)
 	ListBuilderOptions(w http.ResponseWriter, r *http.Request, params ListBuilderOptionsParams)
+	// SaveBuild Save a PC build to share
+	// (POST /builds)
+	SaveBuild(w http.ResponseWriter, r *http.Request)
+	// GetBuild A saved PC build, checked again at today's parts and prices
+	// (GET /builds/{slug})
+	GetBuild(w http.ResponseWriter, r *http.Request, slug string)
 	// GetHealth Health summary
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -692,6 +748,18 @@ func (_ Unimplemented) CheckBuild(w http.ResponseWriter, r *http.Request, params
 // ListBuilderOptions The parts that fit a slot of a PC build
 // (GET /builder/options)
 func (_ Unimplemented) ListBuilderOptions(w http.ResponseWriter, r *http.Request, params ListBuilderOptionsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SaveBuild Save a PC build to share
+// (POST /builds)
+func (_ Unimplemented) SaveBuild(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetBuild A saved PC build, checked again at today's parts and prices
+// (GET /builds/{slug})
+func (_ Unimplemented) GetBuild(w http.ResponseWriter, r *http.Request, slug string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -980,6 +1048,46 @@ func (siw *ServerInterfaceWrapper) ListBuilderOptions(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListBuilderOptions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveBuild operation middleware
+func (siw *ServerInterfaceWrapper) SaveBuild(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveBuild(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBuild operation middleware
+func (siw *ServerInterfaceWrapper) GetBuild(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBuild(w, r, slug)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1342,6 +1450,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/builder/options", wrapper.ListBuilderOptions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/builds", wrapper.SaveBuild)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/builds/{slug}", wrapper.GetBuild)
 	})
 
 	return r

@@ -174,6 +174,49 @@ paths:
         "422": { $ref: "#/components/responses/ValidationFailed" }
         default: { $ref: "#/components/responses/Error" }
 
+  /builds:
+    post:
+      operationId: saveBuild
+      summary: Save a PC build to share
+      description: |
+        Stores the build at today's prices under a new short slug, shareable at `/build/{slug}`.
+        A build with compatibility errors can be saved; checkout checks it again. An empty build
+        (`build: empty`) or one with a part that isn't for sale (`<slot>: unavailable`) is a 422.
+      tags: [builder]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BuildSelection" }
+      responses:
+        "201":
+          description: The saved build
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedBuild" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /builds/{slug}:
+    get:
+      operationId: getBuild
+      summary: A saved PC build, checked again at today's parts and prices
+      tags: [builder]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The saved build
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedBuild" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Error" }
+
 components:
   parameters:
     Page:
@@ -235,6 +278,11 @@ components:
   responses:
     ValidationFailed:
       description: "`validation_failed`: one or more inputs are invalid; see `fields`."
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    InvalidBody:
+      description: "`invalid_body`: the request body isn't valid JSON for this endpoint."
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -528,6 +576,52 @@ components:
         options:
           type: array
           items: { $ref: "#/components/schemas/BuilderOption" }
+
+    BuildSelection:
+      type: object
+      description: The parts picked for a build, by product slug, as in the builder's query parameters.
+      properties:
+        cpu: { type: string }
+        motherboard: { type: string }
+        ram:
+          type: array
+          description: One slug per kit. Repeat a slug to buy that kit twice.
+          maxItems: 4
+          items: { type: string }
+        gpu: { type: string }
+        storage:
+          type: array
+          description: One slug per drive. Repeat a slug to buy that drive twice.
+          maxItems: 8
+          items: { type: string }
+        psu: { type: string }
+        case: { type: string }
+        cooler: { type: string }
+
+    PriceChange:
+      type: object
+      description: A part whose price changed since the build was saved.
+      required: [slot, slug, saved, current]
+      properties:
+        slot: { $ref: "#/components/schemas/Slot" }
+        slug: { type: string }
+        saved: { $ref: "#/components/schemas/Price" }
+        current: { $ref: "#/components/schemas/Price" }
+
+    SavedBuild:
+      type: object
+      required: [slug, created_at, check, saved_total, price_changes]
+      properties:
+        slug: { type: string, description: "Short and random; the share link is `/build/{slug}`." }
+        created_at: { type: string, format: date-time }
+        check:
+          $ref: "#/components/schemas/BuildCheck"
+          description: The build checked at today's parts and prices.
+        saved_total: { $ref: "#/components/schemas/Price" }
+        price_changes:
+          type: array
+          description: One entry per product whose price changed since it was saved. Empty right after saving.
+          items: { $ref: "#/components/schemas/PriceChange" }
 
     Error:
       type: object

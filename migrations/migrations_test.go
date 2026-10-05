@@ -32,7 +32,7 @@ func TestMigrationsRoundTrip(t *testing.T) {
 		}
 	}
 	var schemas int
-	err = pool.QueryRow(ctx, `SELECT count(*) FROM pg_namespace WHERE nspname IN ('catalog', 'specs')`).Scan(&schemas)
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM pg_namespace WHERE nspname IN ('catalog', 'specs', 'configurator')`).Scan(&schemas)
 	if err != nil {
 		t.Fatal(err)
 	}

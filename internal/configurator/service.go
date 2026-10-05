@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/money"
@@ -27,15 +28,17 @@ type Specs interface {
 	EligibleParts(ctx context.Context, category string) ([]specs.ProductSpecs, error)
 }
 
-// Service checks builds and finds the parts that fit them. It has no tables of its own yet: it
-// reads parts through the catalog and specs services.
+// Service checks builds, finds the parts that fit them and saves builds to share. It reads
+// parts through the catalog and specs services; its own tables hold only saved builds.
 type Service struct {
+	pool    *pgxpool.Pool
+	store   store
 	catalog Catalog
 	specs   Specs
 }
 
-func NewService(c Catalog, s Specs) *Service {
-	return &Service{catalog: c, specs: s}
+func NewService(pool *pgxpool.Pool, c Catalog, s Specs) *Service {
+	return &Service{pool: pool, catalog: c, specs: s}
 }
 
 // Selection is a build as the shopper picked it: a product slug per slot, "" for none. RAM and

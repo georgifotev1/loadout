@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gfotev/loadout/internal/catalog"
+	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/platform/validate"
 	"github.com/gfotev/loadout/internal/specs"
 )
@@ -26,7 +27,7 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 		app.writeError(w, r, http.StatusBadRequest, ErrorCodeInvalidBody, bodyErr.Error())
 	case errors.As(err, &validationErr):
 		app.writeValidation(w, r, validationErr)
-	case errors.Is(err, catalog.ErrNotFound), errors.Is(err, specs.ErrNotFound):
+	case errors.Is(err, catalog.ErrNotFound), errors.Is(err, specs.ErrNotFound), errors.Is(err, configurator.ErrNotFound):
 		app.writeError(w, r, http.StatusNotFound, ErrorCodeNotFound, "resource not found")
 	case errors.Is(err, context.Canceled) && r.Context().Err() != nil:
 		w.WriteHeader(statusClientClosedRequest)

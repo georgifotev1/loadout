@@ -115,7 +115,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			db:           pool,
 			catalog:      catalogSvc,
 			specs:        specsSvc,
-			configurator: configurator.NewService(catalogSvc, specsSvc),
+			configurator: configurator.NewService(pool, catalogSvc, specsSvc),
 			jobs:         jobsClient,
 		}
 		return app.serve(ctx)

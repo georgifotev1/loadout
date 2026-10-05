@@ -26,7 +26,7 @@ func newBuilderApp(t *testing.T) *application {
 	if !strings.HasSuffix(out.String(), "seeded 47 products: 47 approved, 0 incomplete\n") {
 		t.Fatalf("seed output:\n%s", out.String())
 	}
-	app.configurator = configurator.NewService(app.catalog, app.specs)
+	app.configurator = configurator.NewService(app.db, app.catalog, app.specs)
 	return app
 }
 

@@ -121,6 +121,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/builds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a PC build to share
+         * @description Stores the build at today's prices under a new short slug, shareable at `/build/{slug}`.
+         *     A build with compatibility errors can be saved; checkout checks it again. An empty build
+         *     (`build: empty`) or one with a part that isn't for sale (`<slot>: unavailable`) is a 422.
+         */
+        post: operations["saveBuild"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/builds/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A saved PC build, checked again at today's parts and prices */
+        get: operations["getBuild"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -294,6 +333,37 @@ export interface components {
             slot: components["schemas"]["Slot"];
             options: components["schemas"]["BuilderOption"][];
         };
+        /** @description The parts picked for a build, by product slug, as in the builder's query parameters. */
+        BuildSelection: {
+            cpu?: string;
+            motherboard?: string;
+            /** @description One slug per kit. Repeat a slug to buy that kit twice. */
+            ram?: string[];
+            gpu?: string;
+            /** @description One slug per drive. Repeat a slug to buy that drive twice. */
+            storage?: string[];
+            psu?: string;
+            case?: string;
+            cooler?: string;
+        };
+        /** @description A part whose price changed since the build was saved. */
+        PriceChange: {
+            slot: components["schemas"]["Slot"];
+            slug: string;
+            saved: components["schemas"]["Price"];
+            current: components["schemas"]["Price"];
+        };
+        SavedBuild: {
+            /** @description Short and random; the share link is `/build/{slug}`. */
+            slug: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description The build checked at today's parts and prices. */
+            check: components["schemas"]["BuildCheck"];
+            saved_total: components["schemas"]["Price"];
+            /** @description One entry per product whose price changed since it was saved. Empty right after saving. */
+            price_changes: components["schemas"]["PriceChange"][];
+        };
         Error: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -318,6 +388,15 @@ export interface components {
     responses: {
         /** @description `validation_failed`: one or more inputs are invalid; see `fields`. */
         ValidationFailed: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `invalid_body`: the request body isn't valid JSON for this endpoint. */
+        InvalidBody: {
             headers: {
                 [name: string]: unknown;
             };
@@ -563,6 +642,57 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    saveBuild: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuildSelection"];
+            };
+        };
+        responses: {
+            /** @description The saved build */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedBuild"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getBuild: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The saved build */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedBuild"];
+                };
+            };
+            404: components["responses"]["NotFound"];
             default: components["responses"]["Error"];
         };
     };

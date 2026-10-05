@@ -23,27 +23,7 @@ func (app *application) CheckBuild(w http.ResponseWriter, r *http.Request, param
 		return
 	}
 
-	resp := BuildCheck{
-		Parts:           make([]BuildPart, 0, len(v.Parts)),
-		Unavailable:     make([]UnavailablePart, 0, len(v.Unavailable)),
-		Errors:          findings(v.Errors),
-		Warnings:        findings(v.Warnings),
-		Info:            findings(v.Info),
-		EstimatedPowerW: v.EstimatedPowerW,
-		RecommendedPsuW: v.RecommendedPSUW,
-		Total:           eur(v.TotalCents),
-	}
-	for _, p := range v.Parts {
-		resp.Parts = append(resp.Parts, BuildPart{
-			Slot:    Slot(p.Slot),
-			Product: summary(p.Part.ProductSummary),
-			Specs:   p.Specs,
-		})
-	}
-	for _, u := range v.Unavailable {
-		resp.Unavailable = append(resp.Unavailable, UnavailablePart{Slot: Slot(u.Slot), Slug: u.Slug})
-	}
-	app.writeJSON(w, r, http.StatusOK, resp)
+	app.writeJSON(w, r, http.StatusOK, buildCheck(v))
 }
 
 // ListBuilderOptions handles GET /api/builder/options.
@@ -75,6 +55,84 @@ func (app *application) ListBuilderOptions(w http.ResponseWriter, r *http.Reques
 		})
 	}
 	app.writeJSON(w, r, http.StatusOK, resp)
+}
+
+// SaveBuild handles POST /api/builds.
+func (app *application) SaveBuild(w http.ResponseWriter, r *http.Request) {
+	var in BuildSelection
+	if err := readJSON(w, r, &in); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	saved, err := app.configurator.SaveBuild(r.Context(), configurator.Selection{
+		CPU:         in.Cpu,
+		Motherboard: in.Motherboard,
+		RAM:         in.Ram,
+		GPU:         in.Gpu,
+		Storage:     in.Storage,
+		PSU:         in.Psu,
+		Case:        in.Case,
+		Cooler:      in.Cooler,
+	})
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	w.Header().Set("Location", "/api/builds/"+saved.Slug)
+	app.writeJSON(w, r, http.StatusCreated, savedBuild(saved))
+}
+
+// GetBuild handles GET /api/builds/{slug}.
+func (app *application) GetBuild(w http.ResponseWriter, r *http.Request, slug string) {
+	saved, err := app.configurator.Build(r.Context(), slug)
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	app.writeJSON(w, r, http.StatusOK, savedBuild(saved))
+}
+
+func buildCheck(v configurator.Validation) BuildCheck {
+	resp := BuildCheck{
+		Parts:           make([]BuildPart, 0, len(v.Parts)),
+		Unavailable:     make([]UnavailablePart, 0, len(v.Unavailable)),
+		Errors:          findings(v.Errors),
+		Warnings:        findings(v.Warnings),
+		Info:            findings(v.Info),
+		EstimatedPowerW: v.EstimatedPowerW,
+		RecommendedPsuW: v.RecommendedPSUW,
+		Total:           eur(v.TotalCents),
+	}
+	for _, p := range v.Parts {
+		resp.Parts = append(resp.Parts, BuildPart{
+			Slot:    Slot(p.Slot),
+			Product: summary(p.Part.ProductSummary),
+			Specs:   p.Specs,
+		})
+	}
+	for _, u := range v.Unavailable {
+		resp.Unavailable = append(resp.Unavailable, UnavailablePart{Slot: Slot(u.Slot), Slug: u.Slug})
+	}
+	return resp
+}
+
+func savedBuild(s configurator.Saved) SavedBuild {
+	resp := SavedBuild{
+		Slug:         s.Slug,
+		CreatedAt:    s.CreatedAt,
+		Check:        buildCheck(s.Validation),
+		SavedTotal:   eur(s.SavedTotalCents),
+		PriceChanges: make([]PriceChange, 0, len(s.PriceChanges)),
+	}
+	for _, c := range s.PriceChanges {
+		resp.PriceChanges = append(resp.PriceChanges, PriceChange{
+			Slot:    Slot(c.Slot),
+			Slug:    c.Slug,
+			Saved:   eur(c.SavedCents),
+			Current: eur(c.CurrentCents),
+		})
+	}
+	return resp
 }
 
 func findings(fs []configurator.Finding) []Finding {
