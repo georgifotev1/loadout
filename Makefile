@@ -65,6 +65,11 @@ migrate:
 sync:
 	go run -ldflags "$(LDFLAGS)" ./cmd/loadout sync
 
+## seed-specs: store the development spec values for builder parts (fixtures/specs.json); run after sync
+.PHONY: seed-specs
+seed-specs:
+	go run ./cmd/loadout specs seed
+
 ## migration: create a new SQL migration (make migration name=create_catalog_products)
 .PHONY: migration
 migration:

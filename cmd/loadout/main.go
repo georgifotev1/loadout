@@ -12,7 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
+	"github.com/gfotev/loadout/fixtures"
 	"github.com/gfotev/loadout/internal/catalog"
+	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/jobs"
@@ -32,6 +34,8 @@ commands:
   migrate up|down|status    manage the database schema (up also applies River's migrations;
                             down only rolls back our own)
   sync                      pull products from the supplier (Vali, VALI_URL) into the catalog
+  specs seed                store the development spec values (fixtures/specs.json) as admin
+                            values, so the PC builder has parts; run after sync
   version                   print the version
 `
 
@@ -58,7 +62,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	case "version":
 		fmt.Fprintln(stdout, version)
 		return nil
-	case "serve", "migrate", "sync":
+	case "serve", "migrate", "sync", "specs":
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, usage)
 		return nil
@@ -106,12 +110,13 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return err
 		}
 		app := &application{
-			cfg:     cfg,
-			logger:  logger,
-			db:      pool,
-			catalog: catalogSvc,
-			specs:   specsSvc,
-			jobs:    jobsClient,
+			cfg:          cfg,
+			logger:       logger,
+			db:           pool,
+			catalog:      catalogSvc,
+			specs:        specsSvc,
+			configurator: configurator.NewService(catalogSvc, specsSvc),
+			jobs:         jobsClient,
 		}
 		return app.serve(ctx)
 	case "migrate":
@@ -121,6 +126,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return fmt.Errorf("%w: sync takes no arguments", errUsage)
 		}
 		return syncCatalog(ctx, catalogSvc, stdout)
+	case "specs":
+		if len(args) != 1 || args[0] != "seed" {
+			return fmt.Errorf("%w: specs needs: seed", errUsage)
+		}
+		return seedSpecs(ctx, fixtures.Specs, catalogSvc, specsSvc, stdout)
 	}
 	return nil
 }

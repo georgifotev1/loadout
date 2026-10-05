@@ -502,6 +502,63 @@ func (store) listProducts(ctx context.Context, q db.DBTX, category string, limit
 	return products, total, nil
 }
 
+// visibleParts returns the visible products whose ID is in ids or whose slug is in slugs.
+func (store) visibleParts(ctx context.Context, q db.DBTX, ids []uuid.UUID, slugs []string) ([]Part, error) {
+	query := `
+		SELECT p.id, p.slug, p.name, p.brand, p.category, coalesce(p.images ->> 0, ''), pr.retail_cents,
+		       ` + stockQty + `
+		` + visibleProducts + ` AND (p.id = ANY ($1) OR p.slug = ANY ($2))`
+
+	rows, err := q.Query(ctx, query, ids, slugs)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: visible parts: %w", err)
+	}
+	parts, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Part, error) {
+		var p Part
+		err := row.Scan(
+			&p.ID,
+			&p.Slug,
+			&p.Name,
+			&p.Brand,
+			&p.Category,
+			&p.Image,
+			&p.RetailCents,
+			&p.StockQty,
+		)
+		return p, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("catalog: visible parts: %w", err)
+	}
+	return parts, nil
+}
+
+func (store) productIDsBySKU(ctx context.Context, q db.DBTX, provider string, skus []string) (map[string]uuid.UUID, error) {
+	query := `SELECT provider_sku, id FROM catalog.products WHERE provider = $1 AND provider_sku = ANY ($2)`
+
+	rows, err := q.Query(ctx, query, provider, skus)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: product ids by sku: %w", err)
+	}
+	defer rows.Close()
+	ids := make(map[string]uuid.UUID, len(skus))
+	for rows.Next() {
+		var sku string
+		var id uuid.UUID
+		if err := rows.Scan(
+			&sku,
+			&id,
+		); err != nil {
+			return nil, fmt.Errorf("catalog: product ids by sku: %w", err)
+		}
+		ids[sku] = id
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("catalog: product ids by sku: %w", err)
+	}
+	return ids, nil
+}
+
 // visibleProductBySlug returns a visible product with its retail price and stock in one
 // query. Hidden products are ErrNotFound, the same as a slug that doesn't exist.
 func (store) visibleProductBySlug(ctx context.Context, q db.DBTX, slug string) (ProductDetail, error) {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -45,7 +47,20 @@ func (store) deleteProduct(ctx context.Context, q db.DBTX, productID uuid.UUID) 
 
 // replaceSupplierFields makes the product's supplier rows exactly values. Admin rows are never
 // touched. Unchanged values aren't rewritten.
-func (store) replaceSupplierFields(ctx context.Context, q db.DBTX, productID uuid.UUID, values map[string]any) error {
+func (st store) replaceSupplierFields(ctx context.Context, q db.DBTX, productID uuid.UUID, values map[string]any) error {
+	names := append([]string{}, slices.Collect(maps.Keys(values))...) // never nil: NULL would delete nothing
+	deleteQuery := `
+		DELETE FROM specs.spec_fields
+		WHERE product_id = $1 AND source = 'supplier' AND NOT (field = ANY($2::text[]))`
+	if _, err := q.Exec(ctx, deleteQuery, productID, names); err != nil {
+		return fmt.Errorf("specs: delete stale fields of %s: %w", productID, err)
+	}
+	return st.upsertFields(ctx, q, productID, SourceSupplier, values)
+}
+
+// upsertFields stores one source's values for the given fields, leaving its other fields
+// alone. Unchanged values aren't rewritten.
+func (store) upsertFields(ctx context.Context, q db.DBTX, productID uuid.UUID, src Source, values map[string]any) error {
 	names := make([]string, 0, len(values))
 	encoded := make([]string, 0, len(values))
 	for field, v := range values {
@@ -57,17 +72,10 @@ func (store) replaceSupplierFields(ctx context.Context, q db.DBTX, productID uui
 		encoded = append(encoded, string(b))
 	}
 
-	deleteQuery := `
-		DELETE FROM specs.spec_fields
-		WHERE product_id = $1 AND source = 'supplier' AND NOT (field = ANY($2::text[]))`
-	if _, err := q.Exec(ctx, deleteQuery, productID, names); err != nil {
-		return fmt.Errorf("specs: delete stale fields of %s: %w", productID, err)
-	}
-
 	// unnest turns the parallel arrays into rows: one statement for all fields.
-	upsertQuery := `
+	query := `
 		INSERT INTO specs.spec_fields AS f (product_id, field, source, value)
-		SELECT $1, u.field, 'supplier', u.value
+		SELECT $1, u.field, $4, u.value
 		FROM unnest($2::text[], $3::text[]::jsonb[]) AS u(field, value)
 		ON CONFLICT (product_id, field, source) DO UPDATE SET
 			value      = EXCLUDED.value,
@@ -78,11 +86,26 @@ func (store) replaceSupplierFields(ctx context.Context, q db.DBTX, productID uui
 		productID,
 		names,
 		encoded,
+		src,
 	}
-	if _, err := q.Exec(ctx, upsertQuery, args...); err != nil {
-		return fmt.Errorf("specs: upsert fields of %s: %w", productID, err)
+	if _, err := q.Exec(ctx, query, args...); err != nil {
+		return fmt.Errorf("specs: upsert %s fields of %s: %w", src, productID, err)
 	}
 	return nil
+}
+
+// lockProduct returns a product's category and locks its product_specs row until the
+// transaction ends, so a sync can't recompute the specs halfway through an admin change.
+func (store) lockProduct(ctx context.Context, q db.DBTX, productID uuid.UUID) (string, error) {
+	var category string
+	err := q.QueryRow(ctx, `SELECT category FROM specs.product_specs WHERE product_id = $1 FOR UPDATE`, productID).Scan(&category)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return "", ErrNotFound
+	case err != nil:
+		return "", fmt.Errorf("specs: lock product %s: %w", productID, err)
+	}
+	return category, nil
 }
 
 // fields returns every source's values for a product.
@@ -199,4 +222,44 @@ func (store) reviewQueue(ctx context.Context, q db.DBTX, f ReviewFilter) ([]Prod
 		return nil, 0, fmt.Errorf("specs: review queue: %w", err)
 	}
 	return items, total, nil
+}
+
+func collectProductSpecs(rows pgx.Rows) ([]ProductSpecs, error) {
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (ProductSpecs, error) {
+		return scanProductSpecs(row)
+	})
+}
+
+// productSpecsByIDs returns the specs of the given products; products without specs are left out.
+func (store) productSpecsByIDs(ctx context.Context, q db.DBTX, ids []uuid.UUID) ([]ProductSpecs, error) {
+	query := `SELECT ` + productSpecsColumns + ` FROM specs.product_specs WHERE product_id = ANY($1)`
+
+	rows, err := q.Query(ctx, query, ids)
+	if err != nil {
+		return nil, fmt.Errorf("specs: products by ids: %w", err)
+	}
+	items, err := collectProductSpecs(rows)
+	if err != nil {
+		return nil, fmt.Errorf("specs: products by ids: %w", err)
+	}
+	return items, nil
+}
+
+// eligible returns a category's builder-eligible products.
+func (store) eligible(ctx context.Context, q db.DBTX, category string) ([]ProductSpecs, error) {
+	query := `
+		SELECT ` + productSpecsColumns + `
+		FROM specs.product_specs
+		WHERE category = $1 AND builder_eligible
+		ORDER BY product_id`
+
+	rows, err := q.Query(ctx, query, category)
+	if err != nil {
+		return nil, fmt.Errorf("specs: eligible %s: %w", category, err)
+	}
+	items, err := collectProductSpecs(rows)
+	if err != nil {
+		return nil, fmt.Errorf("specs: eligible %s: %w", category, err)
+	}
+	return items, nil
 }

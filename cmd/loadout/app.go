@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gfotev/loadout/internal/catalog"
+	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/specs"
@@ -20,6 +21,7 @@ type application struct {
 	db           *pgxpool.Pool
 	catalog      *catalog.Service
 	specs        *specs.Service
+	configurator *configurator.Service
 	jobs         *jobs.Client
 	shuttingDown atomic.Bool
 }

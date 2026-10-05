@@ -92,6 +92,24 @@ func (s *Service) Search(ctx context.Context, q SearchQuery) (SearchResult, erro
 	return SearchResult{Products: products, Total: total, Facets: facets}, nil
 }
 
+// PartsByIDs returns the visible products among ids, in no particular order. Hidden and unknown
+// IDs are left out.
+func (s *Service) PartsByIDs(ctx context.Context, ids []uuid.UUID) ([]Part, error) {
+	return s.store.visibleParts(ctx, s.pool, ids, []string{})
+}
+
+// PartsBySlugs returns the visible products among slugs, in no particular order. Hidden and
+// unknown slugs are left out.
+func (s *Service) PartsBySlugs(ctx context.Context, slugs []string) ([]Part, error) {
+	return s.store.visibleParts(ctx, s.pool, []uuid.UUID{}, slugs)
+}
+
+// ProductIDsBySKU maps a supplier's SKUs to our product IDs, active or not. Unknown SKUs are
+// left out.
+func (s *Service) ProductIDsBySKU(ctx context.Context, provider string, skus []string) (map[string]uuid.UUID, error) {
+	return s.store.productIDsBySKU(ctx, s.pool, provider, skus)
+}
+
 // Product returns the product page data for slug, with its canonical specs. Inactive or
 // unpriced products are ErrNotFound, the same as a slug that doesn't exist.
 func (s *Service) Product(ctx context.Context, slug string) (ProductDetail, error) {

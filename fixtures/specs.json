@@ -1,0 +1,60 @@
+{
+  "_note": "Admin spec values for the builder parts in vali/, for development until admins enter them in the Phase 6 UI. Mostly read off each fixture's spec rows. Not from the fixtures: GPU tdp_w (the manufacturers' board power), the B550 GAMING X V2 form factor (missing) and the B860M DS3H form factor (the fixture says ATX; it's mATX). Lengths round towards the safe side: GPUs up, case limits down. Cooler TDP ratings are left out: these vendors don't publish one.",
+  "provider": "vali",
+  "products": {
+    "AMD-AM4-R3-RYZ-4100-BOX": { "socket": "AM4", "tdp_w": 65, "igpu": false, "cooler_included": true, "generation": "ryzen-4000" },
+    "AMD-AM4-R5-RYZEN-5600G": { "socket": "AM4", "tdp_w": 65, "igpu": true, "cooler_included": true, "generation": "ryzen-5000" },
+    "AMD-AM5-R5-7600-BOX": { "socket": "AM5", "tdp_w": 65, "igpu": true, "cooler_included": true, "generation": "ryzen-7000" },
+    "AMD-AM5-R7-7800X3D-BOX": { "socket": "AM5", "tdp_w": 120, "igpu": true, "cooler_included": false, "generation": "ryzen-7000" },
+    "INTEL-I5-12400F-BOX": { "socket": "LGA1700", "tdp_w": 65, "igpu": false, "cooler_included": true, "generation": "core-12" },
+    "INTEL-I5-14600K-TRAY": { "socket": "LGA1700", "tdp_w": 125, "igpu": true, "cooler_included": false, "generation": "core-14" },
+    "INTEL-ULTRA-5-245K-BOX": { "socket": "LGA1851", "tdp_w": 125, "igpu": true, "cooler_included": false, "generation": "core-ultra-2" },
+
+    "GA-MB-A520M-K-V2": { "socket": "AM4", "chipset": "A520", "form_factor": "mATX", "memory_type": "DDR4", "memory_slots": 2, "max_memory_gb": 64, "max_memory_mhz": 5100, "m2_slots": 1, "supported_cpu_generations": ["ryzen-3000", "ryzen-4000", "ryzen-5000"] },
+    "GA-MB-B550-GAMING-X-V2": { "socket": "AM4", "chipset": "B550", "form_factor": "ATX", "memory_type": "DDR4", "memory_slots": 4, "max_memory_gb": 128, "max_memory_mhz": 4733, "m2_slots": 2, "supported_cpu_generations": ["ryzen-3000", "ryzen-5000"] },
+    "GA-MB-B550I-AORUS-PRO-AX": { "socket": "AM4", "chipset": "B550", "form_factor": "ITX", "memory_type": "DDR4", "memory_slots": 2, "max_memory_gb": 128, "max_memory_mhz": 5400, "m2_slots": 2, "supported_cpu_generations": ["ryzen-3000", "ryzen-4000", "ryzen-5000"] },
+    "GA-MB-B650-EAGLE-AX": { "socket": "AM5", "chipset": "B650", "form_factor": "ATX", "memory_type": "DDR5", "memory_slots": 4, "max_memory_gb": 192, "max_memory_mhz": 7600, "m2_slots": 3, "supported_cpu_generations": ["ryzen-7000", "ryzen-8000"] },
+    "GA-MB-B650M-D3HP": { "socket": "AM5", "chipset": "B650", "form_factor": "mATX", "memory_type": "DDR5", "memory_slots": 4, "max_memory_gb": 192, "max_memory_mhz": 7600, "m2_slots": 2, "supported_cpu_generations": ["ryzen-7000"] },
+    "GA-MB-B760M-D3HP-D4": { "socket": "LGA1700", "chipset": "B760", "form_factor": "mATX", "memory_type": "DDR4", "memory_slots": 4, "max_memory_gb": 128, "max_memory_mhz": 5333, "m2_slots": 2, "supported_cpu_generations": ["core-12", "core-13", "core-14"] },
+    "GA-MB-B760M-D3HP": { "socket": "LGA1700", "chipset": "B760", "form_factor": "mATX", "memory_type": "DDR5", "memory_slots": 4, "max_memory_gb": 128, "max_memory_mhz": 5600, "m2_slots": 2, "supported_cpu_generations": ["core-12", "core-13", "core-14"] },
+    "GA-MB-B860M-DS3H": { "socket": "LGA1851", "chipset": "B860", "form_factor": "mATX", "memory_type": "DDR5", "memory_slots": 4, "max_memory_gb": 256, "max_memory_mhz": 9066, "m2_slots": 2, "supported_cpu_generations": ["core-ultra-2"] },
+
+    "GSKILL-F5-52J36C-32RS5K": { "type": "DDR5", "capacity_gb_total": 32, "modules": 2, "speed_mhz": 5200 },
+    "KIN-RAM-KF432C16RB2A-8": { "type": "DDR4", "capacity_gb_total": 8, "modules": 1, "speed_mhz": 3200 },
+    "KIN-RAM-KF432C16RB2AK2-16": { "type": "DDR4", "capacity_gb_total": 16, "modules": 2, "speed_mhz": 3200 },
+    "KIN-RAM-KF552C36BBE-16": { "type": "DDR5", "capacity_gb_total": 16, "modules": 1, "speed_mhz": 5200 },
+    "KIN-RAM-KF560C40BBK2-32": { "type": "DDR5", "capacity_gb_total": 32, "modules": 2, "speed_mhz": 6000 },
+
+    "ASR-VC-B580-CL-12G": { "length_mm": 249, "tdp_w": 190, "power_connectors": ["8-pin", "8-pin"] },
+    "GA-VC-N5050-OC-8GL": { "length_mm": 182, "tdp_w": 130, "power_connectors": ["8-pin"] },
+    "GA-VC-N5070WF3-12GD": { "length_mm": 282, "tdp_w": 250, "power_connectors": ["12V-2x6"] },
+    "GA-VC-R9060XT-GAM-OC-16GB": { "length_mm": 281, "tdp_w": 160, "power_connectors": ["8-pin"] },
+    "PC-VC-RX9070GRE-12G-E": { "length_mm": 340, "tdp_w": 220, "power_connectors": ["8-pin", "8-pin"] },
+    "ZOTAC-VC-N5060-8GB-TW": { "length_mm": 221, "tdp_w": 145, "power_connectors": ["8-pin"] },
+
+    "CRS-PSU-9020278-EU": { "wattage_w": 650, "form_factor": "ATX", "pcie_12v2x6_count": 0 },
+    "CRS-PSU-9020296-EU": { "wattage_w": 850, "form_factor": "ATX", "pcie_12v2x6_count": 1 },
+    "FORT-PS-DAGGER-650W-SFX": { "wattage_w": 650, "form_factor": "SFX", "pcie_12v2x6_count": 1 },
+    "GA-PS-P450B": { "wattage_w": 450, "form_factor": "ATX", "pcie_12v2x6_count": 0 },
+    "SS-PS-SSR-750W-CORE": { "wattage_w": 750, "form_factor": "ATX", "pcie_12v2x6_count": 1 },
+
+    "JONSBO-GEJB-161": { "form_factors_supported": ["ITX"], "max_gpu_length_mm": 190, "max_cooler_height_mm": 38, "psu_form_factor": "SFX", "radiator_support": [] },
+    "LL-CASE-GELI-216X": { "form_factors_supported": ["E-ATX", "ATX", "mATX", "ITX"], "max_gpu_length_mm": 392, "max_cooler_height_mm": 180, "psu_form_factor": "ATX", "radiator_support": ["front:240", "front:280", "front:360", "top:240", "top:280", "top:360", "bottom:240"] },
+    "LL-CASE-GELI-953": { "form_factors_supported": ["mATX", "ITX"], "max_gpu_length_mm": 414, "max_cooler_height_mm": 165, "psu_form_factor": "SFX-L", "radiator_support": ["top:280", "top:360", "side:240", "side:280", "side:360"] },
+    "LL-CASE-GELI-963": { "form_factors_supported": ["ATX", "mATX", "ITX"], "max_gpu_length_mm": 375, "max_cooler_height_mm": 180, "psu_form_factor": "ATX", "radiator_support": ["top:120", "top:240", "top:280", "top:360"] },
+    "NZXT-CASE-H31FB-01": { "form_factors_supported": ["mATX", "ITX"], "max_gpu_length_mm": 375, "max_cooler_height_mm": 170, "psu_form_factor": "ATX", "radiator_support": ["top:120", "top:240", "front:240", "front:280"] },
+
+    "ARCTIC-FAN-ACALP00035A": { "type": "air", "sockets": ["AM4"], "height_mm": 65 },
+    "ARCTIC-FAN-ACFRE00123A": { "type": "air", "sockets": ["AM4", "AM5", "LGA1700"], "height_mm": 159 },
+    "CM-FAN-RR-S4KK-25SN-R1": { "type": "air", "sockets": ["AM4", "AM5", "LGA1150", "LGA1151", "LGA1155", "LGA1156", "LGA1200", "LGA1700"], "height_mm": 152 },
+    "END-FAN-EY3B001": { "type": "aio", "sockets": ["AM4", "AM5", "LGA1150", "LGA1151", "LGA1155", "LGA1156", "LGA2011", "LGA2011-3", "LGA1200", "LGA1700", "LGA1851"], "radiator_mm": 240 },
+    "END-FAN-EY3B003": { "type": "aio", "sockets": ["AM4", "AM5", "LGA1150", "LGA1151", "LGA1155", "LGA1156", "LGA2011", "LGA2011-3", "LGA1200", "LGA1700", "LGA1851"], "radiator_mm": 360 },
+    "NOCTUA-FAN-NH-L9A-AM5": { "type": "air", "sockets": ["AM5"], "height_mm": 37 },
+
+    "KIN-SSD-SNV3S-1000G": { "interface": "nvme", "form_factor": "m2_2280", "capacity_gb": 1000 },
+    "SAM-SSD-MZ-77E500B-EU": { "interface": "sata", "form_factor": "2.5", "capacity_gb": 500 },
+    "SAM-SSD-MZ-V9P1T0BW": { "interface": "nvme", "form_factor": "m2_2280", "capacity_gb": 1000 },
+    "SAM-SSD-MZ-VAP1T0BW": { "interface": "nvme", "form_factor": "m2_2280", "capacity_gb": 1000 },
+    "SLP-SSD-A55M28-512GB": { "interface": "sata", "form_factor": "m2_2280", "capacity_gb": 512 }
+  }
+}

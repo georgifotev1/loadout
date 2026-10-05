@@ -91,6 +91,102 @@ func (e ErrorCode) Valid() bool {
 	}
 }
 
+// Defines values for FindingSeverity.
+const (
+	FindingSeverityError   FindingSeverity = "error"
+	FindingSeverityInfo    FindingSeverity = "info"
+	FindingSeverityWarning FindingSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the FindingSeverity enum.
+func (e FindingSeverity) Valid() bool {
+	switch e {
+	case FindingSeverityError:
+		return true
+	case FindingSeverityInfo:
+		return true
+	case FindingSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingRule.
+const (
+	FindingRuleCASECOOLERHEIGHT FindingRule = "CASE_COOLER_HEIGHT"
+	FindingRuleCASEGPULENGTH    FindingRule = "CASE_GPU_LENGTH"
+	FindingRuleCASEMBFORM       FindingRule = "CASE_MB_FORM"
+	FindingRuleCASEPSUFORM      FindingRule = "CASE_PSU_FORM"
+	FindingRuleCASERADIATOR     FindingRule = "CASE_RADIATOR"
+	FindingRuleCOOLERREQUIRED   FindingRule = "COOLER_REQUIRED"
+	FindingRuleCOOLERSOCKET     FindingRule = "COOLER_SOCKET"
+	FindingRuleCOOLERTDP        FindingRule = "COOLER_TDP"
+	FindingRuleCPUMBGENERATION  FindingRule = "CPU_MB_GENERATION"
+	FindingRuleCPUMBSOCKET      FindingRule = "CPU_MB_SOCKET"
+	FindingRuleGPUREQUIRED      FindingRule = "GPU_REQUIRED"
+	FindingRuleMISSINGSPEC      FindingRule = "MISSING_SPEC"
+	FindingRulePARTREQUIRED     FindingRule = "PART_REQUIRED"
+	FindingRulePSUCONNECTORS    FindingRule = "PSU_CONNECTORS"
+	FindingRulePSUWATTAGE       FindingRule = "PSU_WATTAGE"
+	FindingRuleRAMCAPACITY      FindingRule = "RAM_CAPACITY"
+	FindingRuleRAMDUALCHANNEL   FindingRule = "RAM_DUAL_CHANNEL"
+	FindingRuleRAMMBTYPE        FindingRule = "RAM_MB_TYPE"
+	FindingRuleRAMSLOTS         FindingRule = "RAM_SLOTS"
+	FindingRuleRAMSPEED         FindingRule = "RAM_SPEED"
+	FindingRuleSTORAGEM2SLOTS   FindingRule = "STORAGE_M2_SLOTS"
+)
+
+// Valid indicates whether the value is a known member of the FindingRule enum.
+func (e FindingRule) Valid() bool {
+	switch e {
+	case FindingRuleCASECOOLERHEIGHT:
+		return true
+	case FindingRuleCASEGPULENGTH:
+		return true
+	case FindingRuleCASEMBFORM:
+		return true
+	case FindingRuleCASEPSUFORM:
+		return true
+	case FindingRuleCASERADIATOR:
+		return true
+	case FindingRuleCOOLERREQUIRED:
+		return true
+	case FindingRuleCOOLERSOCKET:
+		return true
+	case FindingRuleCOOLERTDP:
+		return true
+	case FindingRuleCPUMBGENERATION:
+		return true
+	case FindingRuleCPUMBSOCKET:
+		return true
+	case FindingRuleGPUREQUIRED:
+		return true
+	case FindingRuleMISSINGSPEC:
+		return true
+	case FindingRulePARTREQUIRED:
+		return true
+	case FindingRulePSUCONNECTORS:
+		return true
+	case FindingRulePSUWATTAGE:
+		return true
+	case FindingRuleRAMCAPACITY:
+		return true
+	case FindingRuleRAMDUALCHANNEL:
+		return true
+	case FindingRuleRAMMBTYPE:
+		return true
+	case FindingRuleRAMSLOTS:
+		return true
+	case FindingRuleRAMSPEED:
+		return true
+	case FindingRuleSTORAGEM2SLOTS:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthDatabase.
 const (
 	HealthDatabaseOk          HealthDatabase = "ok"
@@ -163,6 +259,93 @@ func (e SearchSort) Valid() bool {
 	}
 }
 
+// Defines values for Slot.
+const (
+	SlotCase        Slot = "case"
+	SlotCooler      Slot = "cooler"
+	SlotCpu         Slot = "cpu"
+	SlotGpu         Slot = "gpu"
+	SlotMotherboard Slot = "motherboard"
+	SlotPsu         Slot = "psu"
+	SlotRam         Slot = "ram"
+	SlotStorage     Slot = "storage"
+)
+
+// Valid indicates whether the value is a known member of the Slot enum.
+func (e Slot) Valid() bool {
+	switch e {
+	case SlotCase:
+		return true
+	case SlotCooler:
+		return true
+	case SlotCpu:
+		return true
+	case SlotGpu:
+		return true
+	case SlotMotherboard:
+		return true
+	case SlotPsu:
+		return true
+	case SlotRam:
+		return true
+	case SlotStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// BuildCheck defines model for BuildCheck.
+type BuildCheck struct {
+	Errors []Finding `json:"errors"`
+
+	// EstimatedPowerW Estimated peak draw: CPU TDP × 1.5 + GPU TDP + 50 W + 10 W per drive. 0 for an empty build.
+	EstimatedPowerW int       `json:"estimated_power_w"`
+	Info            []Finding `json:"info"`
+
+	// Parts The picked parts in slot order. A part bought twice is listed twice.
+	Parts []BuildPart `json:"parts"`
+
+	// RecommendedPsuW The estimate plus 30%, rounded up to the next 50 W.
+	RecommendedPsuW int `json:"recommended_psu_w"`
+
+	// Total A retail price. The web app formats it; it never does price math.
+	Total Price `json:"total"`
+
+	// Unavailable Picked slugs that aren't for sale (any more).
+	Unavailable []UnavailablePart `json:"unavailable"`
+	Warnings    []Finding         `json:"warnings"`
+}
+
+// BuildPart defines model for BuildPart.
+type BuildPart struct {
+	Product ProductSummary `json:"product"`
+
+	// Slot A part of a PC build, named after its catalog category.
+	Slot Slot `json:"slot"`
+
+	// Specs Canonical spec values (socket, tdp_w, ...).
+	Specs map[string]interface{} `json:"specs"`
+}
+
+// BuilderOption defines model for BuilderOption.
+type BuilderOption struct {
+	// Findings Warnings and notes about this slot if the part is picked.
+	Findings []Finding      `json:"findings"`
+	Product  ProductSummary `json:"product"`
+
+	// Specs Canonical spec values (socket, tdp_w, ...).
+	Specs map[string]interface{} `json:"specs"`
+}
+
+// BuilderOptions defines model for BuilderOptions.
+type BuilderOptions struct {
+	Options []BuilderOption `json:"options"`
+
+	// Slot A part of a PC build, named after its catalog category.
+	Slot Slot `json:"slot"`
+}
+
 // Category A canonical product category.
 type Category string
 
@@ -209,6 +392,31 @@ type FieldError struct {
 	Code  string `json:"code"`
 	Field string `json:"field"`
 }
+
+// Finding One problem or note about a build.
+type Finding struct {
+	// Params The values the message needs, e.g. `{"gpu_mm": 340, "max_mm": 320}`.
+	Params map[string]interface{} `json:"params"`
+
+	// Rule The rule behind a finding. The web app has a message for each, filled from `params`.
+	// `MISSING_SPEC` replaces an error-level check that couldn't run because a spec value is
+	// unknown (params: `field`, `check`), so an unknown never reads as compatible.
+	Rule FindingRule `json:"rule"`
+
+	// Severity `error`: the parts don't work together and the build can't be ordered. `warning`: it works, but check this. `info`: a note.
+	Severity FindingSeverity `json:"severity"`
+
+	// Slots The parts involved.
+	Slots []Slot `json:"slots"`
+}
+
+// FindingSeverity `error`: the parts don't work together and the build can't be ordered. `warning`: it works, but check this. `info`: a note.
+type FindingSeverity string
+
+// FindingRule The rule behind a finding. The web app has a message for each, filled from `params`.
+// `MISSING_SPEC` replaces an error-level check that couldn't run because a spec value is
+// unknown (params: `field`, `check`), so an unknown never reads as compatible.
+type FindingRule string
 
 // Health defines model for Health.
 type Health struct {
@@ -311,11 +519,45 @@ type SearchResult struct {
 // SearchSort `relevance` (the default) is the best text match first, or by name without `q`.
 type SearchSort string
 
+// Slot A part of a PC build, named after its catalog category.
+type Slot string
+
+// UnavailablePart defines model for UnavailablePart.
+type UnavailablePart struct {
+	// Slot A part of a PC build, named after its catalog category.
+	Slot Slot   `json:"slot"`
+	Slug string `json:"slug"`
+}
+
 // ValueCount defines model for ValueCount.
 type ValueCount struct {
 	Count int    `json:"count"`
 	Value string `json:"value"`
 }
+
+// BuildCPU defines model for BuildCPU.
+type BuildCPU = string
+
+// BuildCase defines model for BuildCase.
+type BuildCase = string
+
+// BuildCooler defines model for BuildCooler.
+type BuildCooler = string
+
+// BuildGPU defines model for BuildGPU.
+type BuildGPU = string
+
+// BuildMotherboard defines model for BuildMotherboard.
+type BuildMotherboard = string
+
+// BuildPSU defines model for BuildPSU.
+type BuildPSU = string
+
+// BuildRAM defines model for BuildRAM.
+type BuildRAM = []string
+
+// BuildStorage defines model for BuildStorage.
+type BuildStorage = []string
 
 // Page defines model for Page.
 type Page = int
@@ -328,6 +570,62 @@ type NotFound = Error
 
 // ValidationFailed defines model for ValidationFailed.
 type ValidationFailed = Error
+
+// CheckBuildParams defines parameters for CheckBuild.
+type CheckBuildParams struct {
+	// Cpu Product slug.
+	Cpu BuildCPU `form:"cpu,omitempty" json:"cpu,omitempty"`
+
+	// Motherboard Product slug.
+	Motherboard BuildMotherboard `form:"motherboard,omitempty" json:"motherboard,omitempty"`
+
+	// Ram Product slugs, one per kit. Repeat a slug to buy that kit twice.
+	Ram BuildRAM `form:"ram,omitempty" json:"ram,omitempty"`
+
+	// Gpu Product slug.
+	Gpu BuildGPU `form:"gpu,omitempty" json:"gpu,omitempty"`
+
+	// Storage Product slugs, one per drive. Repeat a slug to buy that drive twice.
+	Storage BuildStorage `form:"storage,omitempty" json:"storage,omitempty"`
+
+	// Psu Product slug.
+	Psu BuildPSU `form:"psu,omitempty" json:"psu,omitempty"`
+
+	// Case Product slug.
+	Case BuildCase `form:"case,omitempty" json:"case,omitempty"`
+
+	// Cooler Product slug.
+	Cooler BuildCooler `form:"cooler,omitempty" json:"cooler,omitempty"`
+}
+
+// ListBuilderOptionsParams defines parameters for ListBuilderOptions.
+type ListBuilderOptionsParams struct {
+	Slot Slot `form:"slot" json:"slot"`
+
+	// Cpu Product slug.
+	Cpu BuildCPU `form:"cpu,omitempty" json:"cpu,omitempty"`
+
+	// Motherboard Product slug.
+	Motherboard BuildMotherboard `form:"motherboard,omitempty" json:"motherboard,omitempty"`
+
+	// Ram Product slugs, one per kit. Repeat a slug to buy that kit twice.
+	Ram BuildRAM `form:"ram,omitempty" json:"ram,omitempty"`
+
+	// Gpu Product slug.
+	Gpu BuildGPU `form:"gpu,omitempty" json:"gpu,omitempty"`
+
+	// Storage Product slugs, one per drive. Repeat a slug to buy that drive twice.
+	Storage BuildStorage `form:"storage,omitempty" json:"storage,omitempty"`
+
+	// Psu Product slug.
+	Psu BuildPSU `form:"psu,omitempty" json:"psu,omitempty"`
+
+	// Case Product slug.
+	Case BuildCase `form:"case,omitempty" json:"case,omitempty"`
+
+	// Cooler Product slug.
+	Cooler BuildCooler `form:"cooler,omitempty" json:"cooler,omitempty"`
+}
 
 // ListProductsParams defines parameters for ListProducts.
 type ListProductsParams struct {
@@ -361,6 +659,12 @@ type SearchProductsParams struct {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// CheckBuild Check a PC build's compatibility, power draw and price
+	// (GET /builder/check)
+	CheckBuild(w http.ResponseWriter, r *http.Request, params CheckBuildParams)
+	// ListBuilderOptions The parts that fit a slot of a PC build
+	// (GET /builder/options)
+	ListBuilderOptions(w http.ResponseWriter, r *http.Request, params ListBuilderOptionsParams)
 	// GetHealth Health summary
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -378,6 +682,18 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// CheckBuild Check a PC build's compatibility, power draw and price
+// (GET /builder/check)
+func (_ Unimplemented) CheckBuild(w http.ResponseWriter, r *http.Request, params CheckBuildParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListBuilderOptions The parts that fit a slot of a PC build
+// (GET /builder/options)
+func (_ Unimplemented) ListBuilderOptions(w http.ResponseWriter, r *http.Request, params ListBuilderOptionsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // GetHealth Health summary
 // (GET /healthz)
@@ -411,6 +727,267 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// CheckBuild operation middleware
+func (siw *ServerInterfaceWrapper) CheckBuild(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CheckBuildParams
+
+	// ------------- Optional query parameter "cpu" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cpu", r.URL.Query(), &params.Cpu, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cpu"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cpu", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "motherboard" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "motherboard", r.URL.Query(), &params.Motherboard, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "motherboard"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "motherboard", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "ram" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "ram", r.URL.Query(), &params.Ram, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ram"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ram", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "gpu" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "gpu", r.URL.Query(), &params.Gpu, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "gpu"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "gpu", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "storage" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "storage", r.URL.Query(), &params.Storage, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "storage"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "psu" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "psu", r.URL.Query(), &params.Psu, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "psu"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "psu", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "case" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "case", r.URL.Query(), &params.Case, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "case"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "case", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cooler" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cooler", r.URL.Query(), &params.Cooler, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cooler"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cooler", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckBuild(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBuilderOptions operation middleware
+func (siw *ServerInterfaceWrapper) ListBuilderOptions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBuilderOptionsParams
+
+	// ------------- Required query parameter "slot" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "slot", r.URL.Query(), &params.Slot, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "slot"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slot", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cpu" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cpu", r.URL.Query(), &params.Cpu, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cpu"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cpu", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "motherboard" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "motherboard", r.URL.Query(), &params.Motherboard, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "motherboard"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "motherboard", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "ram" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "ram", r.URL.Query(), &params.Ram, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ram"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ram", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "gpu" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "gpu", r.URL.Query(), &params.Gpu, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "gpu"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "gpu", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "storage" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "storage", r.URL.Query(), &params.Storage, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "storage"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "psu" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "psu", r.URL.Query(), &params.Psu, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "psu"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "psu", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "case" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "case", r.URL.Query(), &params.Case, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "case"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "case", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cooler" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cooler", r.URL.Query(), &params.Cooler, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cooler"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cooler", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBuilderOptions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
@@ -759,6 +1336,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/products/{slug}", wrapper.GetProduct)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/builder/check", wrapper.CheckBuild)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/builder/options", wrapper.ListBuilderOptions)
 	})
 
 	return r

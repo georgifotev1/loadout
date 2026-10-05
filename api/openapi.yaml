@@ -116,6 +116,64 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Error" }
 
+  /builder/check:
+    get:
+      operationId: checkBuild
+      summary: Check a PC build's compatibility, power draw and price
+      description: |
+        The build is the parts picked so far, by product slug. Rules whose parts aren't picked
+        yet don't run, so a partial build has no errors beyond the parts it still needs.
+        Parts that aren't for sale any more are listed in `unavailable` and left out of the check.
+      tags: [builder]
+      parameters:
+        - $ref: "#/components/parameters/BuildCPU"
+        - $ref: "#/components/parameters/BuildMotherboard"
+        - $ref: "#/components/parameters/BuildRAM"
+        - $ref: "#/components/parameters/BuildGPU"
+        - $ref: "#/components/parameters/BuildStorage"
+        - $ref: "#/components/parameters/BuildPSU"
+        - $ref: "#/components/parameters/BuildCase"
+        - $ref: "#/components/parameters/BuildCooler"
+      responses:
+        "200":
+          description: The checked build
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BuildCheck" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /builder/options:
+    get:
+      operationId: listBuilderOptions
+      summary: The parts that fit a slot of a PC build
+      description: |
+        Builder-eligible parts for `slot` that fit the rest of the build, cheapest first. A part
+        fits if picking it in place of the slot's current parts causes no error involving the
+        slot. Parts the build still needs (a cooler for a tray CPU) don't count against it.
+      tags: [builder]
+      parameters:
+        - name: slot
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/Slot" }
+        - $ref: "#/components/parameters/BuildCPU"
+        - $ref: "#/components/parameters/BuildMotherboard"
+        - $ref: "#/components/parameters/BuildRAM"
+        - $ref: "#/components/parameters/BuildGPU"
+        - $ref: "#/components/parameters/BuildStorage"
+        - $ref: "#/components/parameters/BuildPSU"
+        - $ref: "#/components/parameters/BuildCase"
+        - $ref: "#/components/parameters/BuildCooler"
+      responses:
+        "200":
+          description: The parts that fit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BuilderOptions" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
 components:
   parameters:
     Page:
@@ -128,6 +186,51 @@ components:
       name: page_size
       in: query
       schema: { type: integer, minimum: 1, maximum: 100, default: 24, x-go-type-skip-optional-pointer: false }
+
+    BuildCPU:
+      name: cpu
+      in: query
+      description: Product slug.
+      schema: { type: string }
+    BuildMotherboard:
+      name: motherboard
+      in: query
+      description: Product slug.
+      schema: { type: string }
+    BuildRAM:
+      name: ram
+      in: query
+      description: Product slugs, one per kit. Repeat a slug to buy that kit twice.
+      schema: { type: array, maxItems: 4, items: { type: string } }
+      style: form
+      explode: true
+    BuildGPU:
+      name: gpu
+      in: query
+      description: Product slug.
+      schema: { type: string }
+    BuildStorage:
+      name: storage
+      in: query
+      description: Product slugs, one per drive. Repeat a slug to buy that drive twice.
+      schema: { type: array, maxItems: 8, items: { type: string } }
+      style: form
+      explode: true
+    BuildPSU:
+      name: psu
+      in: query
+      description: Product slug.
+      schema: { type: string }
+    BuildCase:
+      name: case
+      in: query
+      description: Product slug.
+      schema: { type: string }
+    BuildCooler:
+      name: cooler
+      in: query
+      description: Product slug.
+      schema: { type: string }
 
   responses:
     ValidationFailed:
@@ -302,6 +405,129 @@ components:
           additionalProperties: true
         price: { $ref: "#/components/schemas/Price" }
         in_stock: { type: boolean }
+
+    Slot:
+      type: string
+      description: A part of a PC build, named after its catalog category.
+      enum: [cpu, motherboard, ram, gpu, storage, psu, case, cooler]
+
+    FindingRule:
+      type: string
+      description: |
+        The rule behind a finding. The web app has a message for each, filled from `params`.
+        `MISSING_SPEC` replaces an error-level check that couldn't run because a spec value is
+        unknown (params: `field`, `check`), so an unknown never reads as compatible.
+      enum:
+        - CPU_MB_SOCKET
+        - CPU_MB_GENERATION
+        - RAM_MB_TYPE
+        - RAM_SLOTS
+        - RAM_CAPACITY
+        - RAM_SPEED
+        - RAM_DUAL_CHANNEL
+        - CASE_MB_FORM
+        - CASE_GPU_LENGTH
+        - CASE_COOLER_HEIGHT
+        - CASE_RADIATOR
+        - CASE_PSU_FORM
+        - COOLER_SOCKET
+        - COOLER_REQUIRED
+        - COOLER_TDP
+        - GPU_REQUIRED
+        - PSU_WATTAGE
+        - PSU_CONNECTORS
+        - STORAGE_M2_SLOTS
+        - PART_REQUIRED
+        - MISSING_SPEC
+
+    Finding:
+      type: object
+      description: One problem or note about a build.
+      required: [rule, severity, slots, params]
+      properties:
+        rule: { $ref: "#/components/schemas/FindingRule" }
+        severity:
+          type: string
+          description: "`error`: the parts don't work together and the build can't be ordered. `warning`: it works, but check this. `info`: a note."
+          enum: [error, warning, info]
+        slots:
+          type: array
+          description: The parts involved.
+          items: { $ref: "#/components/schemas/Slot" }
+        params:
+          type: object
+          description: "The values the message needs, e.g. `{\"gpu_mm\": 340, \"max_mm\": 320}`."
+          additionalProperties: true
+
+    BuildPart:
+      type: object
+      required: [slot, product, specs]
+      properties:
+        slot: { $ref: "#/components/schemas/Slot" }
+        product: { $ref: "#/components/schemas/ProductSummary" }
+        specs:
+          type: object
+          description: Canonical spec values (socket, tdp_w, ...).
+          additionalProperties: true
+
+    UnavailablePart:
+      type: object
+      required: [slot, slug]
+      properties:
+        slot: { $ref: "#/components/schemas/Slot" }
+        slug: { type: string }
+
+    BuildCheck:
+      type: object
+      required: [parts, unavailable, errors, warnings, info, estimated_power_w, recommended_psu_w, total]
+      properties:
+        parts:
+          type: array
+          description: The picked parts in slot order. A part bought twice is listed twice.
+          items: { $ref: "#/components/schemas/BuildPart" }
+        unavailable:
+          type: array
+          description: Picked slugs that aren't for sale (any more).
+          items: { $ref: "#/components/schemas/UnavailablePart" }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        warnings:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        info:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        estimated_power_w:
+          type: integer
+          description: "Estimated peak draw: CPU TDP × 1.5 + GPU TDP + 50 W + 10 W per drive. 0 for an empty build."
+        recommended_psu_w:
+          type: integer
+          description: The estimate plus 30%, rounded up to the next 50 W.
+        total: { $ref: "#/components/schemas/Price" }
+
+    BuilderOption:
+      type: object
+      required: [product, specs, findings]
+      properties:
+        product: { $ref: "#/components/schemas/ProductSummary" }
+        specs:
+          type: object
+          description: Canonical spec values (socket, tdp_w, ...).
+          additionalProperties: true
+        findings:
+          type: array
+          description: Warnings and notes about this slot if the part is picked.
+          items: { $ref: "#/components/schemas/Finding" }
+
+    BuilderOptions:
+      type: object
+      required: [slot, options]
+      properties:
+        slot: { $ref: "#/components/schemas/Slot" }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/BuilderOption" }
 
     Error:
       type: object

@@ -8,6 +8,9 @@
 // URL there and run `go run ./tools/vali-fixture`. Public fields are copied as-is (no
 // normalization, that is Phase 2's job); dealer price, stock and updated_at are invented and
 // the `_mock` field says so. Hand edits are fine for test scenarios, but note them in `_mock`.
+//
+// specs.json holds admin spec values for the builder parts, keyed by SKU, so the PC builder has
+// data before admins can enter it (`loadout specs seed`).
 package fixtures
 
 import "embed"
@@ -16,3 +19,8 @@ import "embed"
 //
 //go:embed vali/*/*.json
 var Vali embed.FS
+
+// Specs is specs.json: canonical spec values for the builder parts in Vali.
+//
+//go:embed specs.json
+var Specs []byte

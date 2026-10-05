@@ -46,13 +46,6 @@ func save(t *testing.T, pool *pgxpool.Pool, svc *Service, in Input) Status {
 	return status
 }
 
-func exec(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) {
-	t.Helper()
-	if _, err := pool.Exec(context.Background(), sql, args...); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestSaveTx(t *testing.T) {
 	pool := dbtest.New(t)
 	svc := NewService(pool)
@@ -96,8 +89,9 @@ func TestSaveTx(t *testing.T) {
 	t.Run("admin value fills a gap and survives the next sync", func(t *testing.T) {
 		id := uuid.New()
 		save(t, pool, svc, board(id))
-		// TODO(phase-6): use Service.SetField once it exists.
-		exec(t, pool, `INSERT INTO specs.spec_fields (product_id, field, source, value) VALUES ($1, 'form_factor', 'admin', '"ITX"')`, id)
+		if st, err := svc.SetFields(ctx, id, map[string]any{"form_factor": "ITX"}); err != nil || st != StatusApproved {
+			t.Fatalf("SetFields: status %s, err %v", st, err)
+		}
 
 		if st := save(t, pool, svc, board(id)); st != StatusApproved {
 			t.Fatalf("status %s, want approved", st)
@@ -111,7 +105,9 @@ func TestSaveTx(t *testing.T) {
 	t.Run("a supplier value that disappears is removed, admin values stay", func(t *testing.T) {
 		id := uuid.New()
 		save(t, pool, svc, board(id))
-		exec(t, pool, `INSERT INTO specs.spec_fields (product_id, field, source, value) VALUES ($1, 'max_memory_gb', 'admin', '64')`, id)
+		if _, err := svc.SetFields(ctx, id, map[string]any{"max_memory_gb": 64}); err != nil {
+			t.Fatal(err)
+		}
 		in := board(id)
 		delete(in.Values, "chipset")
 		save(t, pool, svc, in)
@@ -171,6 +167,73 @@ func TestSaveTx(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestSetFields(t *testing.T) {
+	pool := dbtest.New(t)
+	svc := NewService(pool)
+	ctx := context.Background()
+
+	t.Run("admin value beats the supplier's", func(t *testing.T) {
+		id := uuid.New()
+		save(t, pool, svc, board(id))
+		if _, err := svc.SetFields(ctx, id, map[string]any{"memory_slots": 4, "form_factor": "ATX"}); err != nil {
+			t.Fatal(err)
+		}
+		ps, _ := svc.Specs(ctx, id)
+		if ps.Specs["memory_slots"] != 4.0 || ps.Specs["socket"] != "AM4" || ps.Status != StatusApproved {
+			t.Errorf("product specs %+v", ps)
+		}
+	})
+
+	t.Run("product without specs", func(t *testing.T) {
+		if _, err := svc.SetFields(ctx, uuid.New(), map[string]any{"socket": "AM4"}); !errors.Is(err, ErrNotFound) {
+			t.Errorf("err = %v, want ErrNotFound", err)
+		}
+	})
+
+	t.Run("an invalid value stores nothing", func(t *testing.T) {
+		id := uuid.New()
+		save(t, pool, svc, board(id))
+		_, err := svc.SetFields(ctx, id, map[string]any{"form_factor": "ITX", "memory_slots": "two"})
+		if !errors.Is(err, ErrInvalidValue) {
+			t.Fatalf("err = %v, want ErrInvalidValue", err)
+		}
+		if ps, _ := svc.Specs(ctx, id); ps.Status != StatusIncomplete {
+			t.Errorf("status %s, want incomplete", ps.Status)
+		}
+	})
+}
+
+func TestEligiblePartsAndSpecsByIDs(t *testing.T) {
+	pool := dbtest.New(t)
+	svc := NewService(pool)
+	ctx := context.Background()
+
+	incomplete, complete := uuid.New(), uuid.New()
+	save(t, pool, svc, board(incomplete))
+	in := board(complete)
+	in.Values["form_factor"] = "ITX"
+	save(t, pool, svc, in)
+
+	parts, err := svc.EligibleParts(ctx, "motherboard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parts) != 1 || parts[0].ProductID != complete {
+		t.Errorf("eligible %+v, want only the complete board", parts)
+	}
+	if parts, _ := svc.EligibleParts(ctx, "peripheral.mouse"); len(parts) != 0 {
+		t.Errorf("peripherals: %+v", parts)
+	}
+
+	byID, err := svc.SpecsByIDs(ctx, []uuid.UUID{incomplete, complete, uuid.New()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byID) != 2 || byID[incomplete].Status != StatusIncomplete || byID[complete].Specs["form_factor"] != "ITX" {
+		t.Errorf("by id %+v", byID)
+	}
 }
 
 func TestReviewQueue(t *testing.T) {

@@ -77,6 +77,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/builder/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check a PC build's compatibility, power draw and price
+         * @description The build is the parts picked so far, by product slug. Rules whose parts aren't picked
+         *     yet don't run, so a partial build has no errors beyond the parts it still needs.
+         *     Parts that aren't for sale any more are listed in `unavailable` and left out of the check.
+         */
+        get: operations["checkBuild"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/builder/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The parts that fit a slot of a PC build
+         * @description Builder-eligible parts for `slot` that fit the rest of the build, cheapest first. A part
+         *     fits if picking it in place of the slot's current parts causes no error involving the
+         *     slot. Parts the build still needs (a cooler for a tray CPU) don't count against it.
+         */
+        get: operations["listBuilderOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -184,6 +228,72 @@ export interface components {
             price: components["schemas"]["Price"];
             in_stock: boolean;
         };
+        /**
+         * @description A part of a PC build, named after its catalog category.
+         * @enum {string}
+         */
+        Slot: "cpu" | "motherboard" | "ram" | "gpu" | "storage" | "psu" | "case" | "cooler";
+        /**
+         * @description The rule behind a finding. The web app has a message for each, filled from `params`.
+         *     `MISSING_SPEC` replaces an error-level check that couldn't run because a spec value is
+         *     unknown (params: `field`, `check`), so an unknown never reads as compatible.
+         * @enum {string}
+         */
+        FindingRule: "CPU_MB_SOCKET" | "CPU_MB_GENERATION" | "RAM_MB_TYPE" | "RAM_SLOTS" | "RAM_CAPACITY" | "RAM_SPEED" | "RAM_DUAL_CHANNEL" | "CASE_MB_FORM" | "CASE_GPU_LENGTH" | "CASE_COOLER_HEIGHT" | "CASE_RADIATOR" | "CASE_PSU_FORM" | "COOLER_SOCKET" | "COOLER_REQUIRED" | "COOLER_TDP" | "GPU_REQUIRED" | "PSU_WATTAGE" | "PSU_CONNECTORS" | "STORAGE_M2_SLOTS" | "PART_REQUIRED" | "MISSING_SPEC";
+        /** @description One problem or note about a build. */
+        Finding: {
+            rule: components["schemas"]["FindingRule"];
+            /**
+             * @description `error`: the parts don't work together and the build can't be ordered. `warning`: it works, but check this. `info`: a note.
+             * @enum {string}
+             */
+            severity: "error" | "warning" | "info";
+            /** @description The parts involved. */
+            slots: components["schemas"]["Slot"][];
+            /** @description The values the message needs, e.g. `{"gpu_mm": 340, "max_mm": 320}`. */
+            params: {
+                [key: string]: unknown;
+            };
+        };
+        BuildPart: {
+            slot: components["schemas"]["Slot"];
+            product: components["schemas"]["ProductSummary"];
+            /** @description Canonical spec values (socket, tdp_w, ...). */
+            specs: {
+                [key: string]: unknown;
+            };
+        };
+        UnavailablePart: {
+            slot: components["schemas"]["Slot"];
+            slug: string;
+        };
+        BuildCheck: {
+            /** @description The picked parts in slot order. A part bought twice is listed twice. */
+            parts: components["schemas"]["BuildPart"][];
+            /** @description Picked slugs that aren't for sale (any more). */
+            unavailable: components["schemas"]["UnavailablePart"][];
+            errors: components["schemas"]["Finding"][];
+            warnings: components["schemas"]["Finding"][];
+            info: components["schemas"]["Finding"][];
+            /** @description Estimated peak draw: CPU TDP × 1.5 + GPU TDP + 50 W + 10 W per drive. 0 for an empty build. */
+            estimated_power_w: number;
+            /** @description The estimate plus 30%, rounded up to the next 50 W. */
+            recommended_psu_w: number;
+            total: components["schemas"]["Price"];
+        };
+        BuilderOption: {
+            product: components["schemas"]["ProductSummary"];
+            /** @description Canonical spec values (socket, tdp_w, ...). */
+            specs: {
+                [key: string]: unknown;
+            };
+            /** @description Warnings and notes about this slot if the part is picked. */
+            findings: components["schemas"]["Finding"][];
+        };
+        BuilderOptions: {
+            slot: components["schemas"]["Slot"];
+            options: components["schemas"]["BuilderOption"][];
+        };
         Error: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -238,6 +348,22 @@ export interface components {
         /** @description 1-based page number. */
         Page: number;
         PageSize: number;
+        /** @description Product slug. */
+        BuildCPU: string;
+        /** @description Product slug. */
+        BuildMotherboard: string;
+        /** @description Product slugs, one per kit. Repeat a slug to buy that kit twice. */
+        BuildRAM: string[];
+        /** @description Product slug. */
+        BuildGPU: string;
+        /** @description Product slugs, one per drive. Repeat a slug to buy that drive twice. */
+        BuildStorage: string[];
+        /** @description Product slug. */
+        BuildPSU: string;
+        /** @description Product slug. */
+        BuildCase: string;
+        /** @description Product slug. */
+        BuildCooler: string;
     };
     requestBodies: never;
     headers: never;
@@ -358,6 +484,85 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    checkBuild: {
+        parameters: {
+            query?: {
+                /** @description Product slug. */
+                cpu?: components["parameters"]["BuildCPU"];
+                /** @description Product slug. */
+                motherboard?: components["parameters"]["BuildMotherboard"];
+                /** @description Product slugs, one per kit. Repeat a slug to buy that kit twice. */
+                ram?: components["parameters"]["BuildRAM"];
+                /** @description Product slug. */
+                gpu?: components["parameters"]["BuildGPU"];
+                /** @description Product slugs, one per drive. Repeat a slug to buy that drive twice. */
+                storage?: components["parameters"]["BuildStorage"];
+                /** @description Product slug. */
+                psu?: components["parameters"]["BuildPSU"];
+                /** @description Product slug. */
+                case?: components["parameters"]["BuildCase"];
+                /** @description Product slug. */
+                cooler?: components["parameters"]["BuildCooler"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The checked build */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildCheck"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listBuilderOptions: {
+        parameters: {
+            query: {
+                slot: components["schemas"]["Slot"];
+                /** @description Product slug. */
+                cpu?: components["parameters"]["BuildCPU"];
+                /** @description Product slug. */
+                motherboard?: components["parameters"]["BuildMotherboard"];
+                /** @description Product slugs, one per kit. Repeat a slug to buy that kit twice. */
+                ram?: components["parameters"]["BuildRAM"];
+                /** @description Product slug. */
+                gpu?: components["parameters"]["BuildGPU"];
+                /** @description Product slugs, one per drive. Repeat a slug to buy that drive twice. */
+                storage?: components["parameters"]["BuildStorage"];
+                /** @description Product slug. */
+                psu?: components["parameters"]["BuildPSU"];
+                /** @description Product slug. */
+                case?: components["parameters"]["BuildCase"];
+                /** @description Product slug. */
+                cooler?: components["parameters"]["BuildCooler"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The parts that fit */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderOptions"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
             default: components["responses"]["Error"];
         };
     };

@@ -143,6 +143,13 @@ type ProductSummary struct {
 	StockQty    int
 }
 
+// Part is a visible product as the PC builder uses it: the listing fields plus its ID, so the
+// builder can join it with its specs.
+type Part struct {
+	ID uuid.UUID
+	ProductSummary
+}
+
 // ProductDetail is everything the product page shows. It has the retail price only: the dealer
 // price and markup are for admins, so shopper-facing code can't leak them by accident.
 type ProductDetail struct {

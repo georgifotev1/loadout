@@ -27,7 +27,7 @@ func newCatalogApp(t *testing.T) *application {
 	app := newTestApp()
 	app.db = pool
 	app.specs = specs.NewService(pool)
-	app.catalog = catalog.NewService(pool, &supplier.Fake{Items: products}, app.specs, app.logger)
+	app.catalog = catalog.NewService(pool, &supplier.Fake{Provider: "vali", Items: products}, app.specs, app.logger)
 	if _, err := app.catalog.Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
