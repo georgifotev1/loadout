@@ -14,6 +14,27 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdminProductSpecsStatus.
+const (
+	AdminProductSpecsStatusApproved   AdminProductSpecsStatus = "approved"
+	AdminProductSpecsStatusIncomplete AdminProductSpecsStatus = "incomplete"
+	AdminProductSpecsStatusNone       AdminProductSpecsStatus = "none"
+)
+
+// Valid indicates whether the value is a known member of the AdminProductSpecsStatus enum.
+func (e AdminProductSpecsStatus) Valid() bool {
+	switch e {
+	case AdminProductSpecsStatusApproved:
+		return true
+	case AdminProductSpecsStatusIncomplete:
+		return true
+	case AdminProductSpecsStatusNone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Category.
 const (
 	CategoryCase               Category = "case"
@@ -71,6 +92,9 @@ func (e Category) Valid() bool {
 // Defines values for ErrorCode.
 const (
 	ErrorCodeAlreadyQueued        ErrorCode = "already_queued"
+	ErrorCodeDefaultRule          ErrorCode = "default_rule"
+	ErrorCodeDuplicateRule        ErrorCode = "duplicate_rule"
+	ErrorCodeEditConflict         ErrorCode = "edit_conflict"
 	ErrorCodeForbidden            ErrorCode = "forbidden"
 	ErrorCodeInternal             ErrorCode = "internal"
 	ErrorCodeInvalidBody          ErrorCode = "invalid_body"
@@ -88,6 +112,12 @@ const (
 func (e ErrorCode) Valid() bool {
 	switch e {
 	case ErrorCodeAlreadyQueued:
+		return true
+	case ErrorCodeDefaultRule:
+		return true
+	case ErrorCodeDuplicateRule:
+		return true
+	case ErrorCodeEditConflict:
 		return true
 	case ErrorCodeForbidden:
 		return true
@@ -281,6 +311,51 @@ func (e Role) Valid() bool {
 	}
 }
 
+// Defines values for Rounding.
+const (
+	RoundingN90  Rounding = "90"
+	RoundingN99  Rounding = "99"
+	RoundingNone Rounding = "none"
+)
+
+// Valid indicates whether the value is a known member of the Rounding enum.
+func (e Rounding) Valid() bool {
+	switch e {
+	case RoundingN90:
+		return true
+	case RoundingN99:
+		return true
+	case RoundingNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuleScope.
+const (
+	RuleScopeBrandCategory RuleScope = "brand_category"
+	RuleScopeCategory      RuleScope = "category"
+	RuleScopeDefault       RuleScope = "default"
+	RuleScopeSku           RuleScope = "sku"
+)
+
+// Valid indicates whether the value is a known member of the RuleScope enum.
+func (e RuleScope) Valid() bool {
+	switch e {
+	case RuleScopeBrandCategory:
+		return true
+	case RuleScopeCategory:
+		return true
+	case RuleScopeDefault:
+		return true
+	case RuleScopeSku:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchSort.
 const (
 	SearchSortPriceAsc  SearchSort = "price_asc"
@@ -425,6 +500,24 @@ func (e SyncStatus) Valid() bool {
 	}
 }
 
+// Defines values for ListAdminProductsParamsStatus.
+const (
+	ListAdminProductsParamsStatusActive   ListAdminProductsParamsStatus = "active"
+	ListAdminProductsParamsStatusInactive ListAdminProductsParamsStatus = "inactive"
+)
+
+// Valid indicates whether the value is a known member of the ListAdminProductsParamsStatus enum.
+func (e ListAdminProductsParamsStatus) Valid() bool {
+	switch e {
+	case ListAdminProductsParamsStatusActive:
+		return true
+	case ListAdminProductsParamsStatusInactive:
+		return true
+	default:
+		return false
+	}
+}
+
 // AdminOverview defines model for AdminOverview.
 type AdminOverview struct {
 	DiscardedJobs int `json:"discarded_jobs"`
@@ -435,6 +528,66 @@ type AdminOverview struct {
 
 	// SpecsIncomplete Builder parts waiting in the specs review queue.
 	SpecsIncomplete int `json:"specs_incomplete"`
+}
+
+// AdminPrice Euro cents, VAT included in all of them.
+type AdminPrice struct {
+	// DealerCents What we pay the supplier.
+	DealerCents int64 `json:"dealer_cents"`
+
+	// MarginBp The margin as a share of retail; 2000 = 20%.
+	MarginBp int `json:"margin_bp"`
+
+	// MarginCents Retail minus dealer.
+	MarginCents int64 `json:"margin_cents"`
+
+	// RetailCents What the customer pays.
+	RetailCents int64 `json:"retail_cents"`
+}
+
+// AdminProduct defines model for AdminProduct.
+type AdminProduct struct {
+	// Active Still offered by the supplier.
+	Active bool   `json:"active"`
+	Brand  string `json:"brand"`
+
+	// Category A canonical product category.
+	Category Category           `json:"category"`
+	Id       openapi_types.UUID `json:"id"`
+
+	// Image The first image. Absent if there's none.
+	Image string `json:"image,omitempty"`
+	Name  string `json:"name"`
+
+	// Price `null` until a sync prices the product.
+	Price *AdminPrice `json:"price"`
+
+	// Rule The rule that made the retail price. `null` if unpriced, or the rule was deleted since.
+	Rule *PriceRule `json:"rule"`
+	Sku  string     `json:"sku"`
+	Slug string     `json:"slug"`
+
+	// SpecsStatus `none` for categories without canonical specs (peripherals).
+	SpecsStatus AdminProductSpecsStatus `json:"specs_status"`
+
+	// StockQty What the supplier has.
+	StockQty int `json:"stock_qty"`
+
+	// UpdatedAt When the supplier's data last changed.
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// AdminProductSpecsStatus `none` for categories without canonical specs (peripherals).
+type AdminProductSpecsStatus string
+
+// AdminProductList defines model for AdminProductList.
+type AdminProductList struct {
+	Items    []AdminProduct `json:"items"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"page_size"`
+
+	// Total Matching products over all pages.
+	Total int `json:"total"`
 }
 
 // BuildCheck defines model for BuildCheck.
@@ -631,10 +784,114 @@ type JobAttemptError struct {
 	Error string `json:"error"`
 }
 
+// ListedMarkupRule defines model for ListedMarkupRule.
+type ListedMarkupRule struct {
+	Brand string `json:"brand,omitempty"`
+
+	// Category A canonical product category.
+	Category       Category `json:"category,omitempty"`
+	Id             int64    `json:"id"`
+	MarkupBp       int      `json:"markup_bp"`
+	MinMarginCents int64    `json:"min_margin_cents"`
+
+	// Products Products whose current price this rule made.
+	Products int `json:"products"`
+
+	// Rounding `99` / `90`: round up to a .99 / .90 ending. `none`: to the cent.
+	Rounding Rounding `json:"rounding"`
+
+	// Scope What a rule matches on. A more specific scope wins.
+	Scope     RuleScope `json:"scope"`
+	Sku       string    `json:"sku,omitempty"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// Version Goes up on every edit; send it back with the next one.
+	Version int `json:"version"`
+}
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// MarkupRule defines model for MarkupRule.
+type MarkupRule struct {
+	Brand string `json:"brand,omitempty"`
+
+	// Category A canonical product category.
+	Category       Category `json:"category,omitempty"`
+	Id             int64    `json:"id"`
+	MarkupBp       int      `json:"markup_bp"`
+	MinMarginCents int64    `json:"min_margin_cents"`
+
+	// Rounding `99` / `90`: round up to a .99 / .90 ending. `none`: to the cent.
+	Rounding Rounding `json:"rounding"`
+
+	// Scope What a rule matches on. A more specific scope wins.
+	Scope     RuleScope `json:"scope"`
+	Sku       string    `json:"sku,omitempty"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// Version Goes up on every edit; send it back with the next one.
+	Version int `json:"version"`
+}
+
+// MarkupRuleInput Set exactly the target fields the scope matches on: `category` for `category`,
+// `category` and `brand` for `brand_category`, `sku` for `sku`, none for `default`.
+type MarkupRuleInput struct {
+	// Brand Matches ignoring case.
+	Brand string `json:"brand,omitempty"`
+
+	// Category A canonical product category.
+	Category Category `json:"category,omitempty"`
+
+	// MarkupBp 2500 = +25% on the dealer price.
+	MarkupBp int `json:"markup_bp"`
+
+	// MinMarginCents The retail price is at least the dealer price plus this.
+	MinMarginCents int64 `json:"min_margin_cents"`
+
+	// Rounding `99` / `90`: round up to a .99 / .90 ending. `none`: to the cent.
+	Rounding Rounding `json:"rounding"`
+
+	// Scope What a rule matches on. A more specific scope wins.
+	Scope RuleScope `json:"scope"`
+
+	// Sku The supplier's product code.
+	Sku string `json:"sku,omitempty"`
+}
+
+// MarkupRuleList defines model for MarkupRuleList.
+type MarkupRuleList struct {
+	Items []ListedMarkupRule `json:"items"`
+}
+
+// MarkupRuleUpdate defines model for MarkupRuleUpdate.
+type MarkupRuleUpdate struct {
+	// Brand Matches ignoring case.
+	Brand string `json:"brand,omitempty"`
+
+	// Category A canonical product category.
+	Category Category `json:"category,omitempty"`
+
+	// MarkupBp 2500 = +25% on the dealer price.
+	MarkupBp int `json:"markup_bp"`
+
+	// MinMarginCents The retail price is at least the dealer price plus this.
+	MinMarginCents int64 `json:"min_margin_cents"`
+
+	// Rounding `99` / `90`: round up to a .99 / .90 ending. `none`: to the cent.
+	Rounding Rounding `json:"rounding"`
+
+	// Scope What a rule matches on. A more specific scope wins.
+	Scope RuleScope `json:"scope"`
+
+	// Sku The supplier's product code.
+	Sku string `json:"sku,omitempty"`
+
+	// Version The version the edit started from.
+	Version int `json:"version"`
 }
 
 // Me The logged-in user, and where their session stands with the second factor.
@@ -681,6 +938,14 @@ type PriceChange struct {
 	// Slot A part of a PC build, named after its catalog category.
 	Slot Slot   `json:"slot"`
 	Slug string `json:"slug"`
+}
+
+// PriceRule defines model for PriceRule.
+type PriceRule struct {
+	Id int64 `json:"id"`
+
+	// Scope What a rule matches on. A more specific scope wins.
+	Scope RuleScope `json:"scope"`
 }
 
 // ProductCounts defines model for ProductCounts.
@@ -800,6 +1065,12 @@ type ReviewQueue struct {
 
 // Role defines model for Role.
 type Role string
+
+// Rounding `99` / `90`: round up to a .99 / .90 ending. `none`: to the cent.
+type Rounding string
+
+// RuleScope What a rule matches on. A more specific scope wins.
+type RuleScope string
 
 // SavedBuild defines model for SavedBuild.
 type SavedBuild struct {
@@ -1009,6 +1280,23 @@ type ListDiscardedJobsParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListAdminProductsParams defines parameters for ListAdminProducts.
+type ListAdminProductsParams struct {
+	// Q Part of the name, brand or SKU, ignoring case.
+	Q        string   `form:"q,omitempty" json:"q,omitempty"`
+	Category Category `form:"category,omitempty" json:"category,omitempty"`
+
+	// Status `active`: on the supplier's list. `inactive`: no longer listed. Absent: both.
+	Status ListAdminProductsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Page 1-based page number.
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListAdminProductsParamsStatus defines parameters for ListAdminProducts.
+type ListAdminProductsParamsStatus string
+
 // ListSpecsReviewQueueParams defines parameters for ListSpecsReviewQueue.
 type ListSpecsReviewQueueParams struct {
 	// Category A builder category. Others have no canonical specs (422).
@@ -1112,6 +1400,12 @@ type SearchProductsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
+// CreateMarkupRuleJSONRequestBody defines body for CreateMarkupRule for application/json ContentType.
+type CreateMarkupRuleJSONRequestBody = MarkupRuleInput
+
+// UpdateMarkupRuleJSONRequestBody defines body for UpdateMarkupRule for application/json ContentType.
+type UpdateMarkupRuleJSONRequestBody = MarkupRuleUpdate
+
 // UpdateProductSpecsJSONRequestBody defines body for UpdateProductSpecs for application/json ContentType.
 type UpdateProductSpecsJSONRequestBody = SpecsUpdate
 
@@ -1138,9 +1432,24 @@ type ServerInterface interface {
 	// RetryDiscardedJob Run a discarded job again
 	// (POST /admin/jobs/discarded/{job_id}/retry)
 	RetryDiscardedJob(w http.ResponseWriter, r *http.Request, jobId JobID)
+	// ListMarkupRules Every markup rule, from the least to the most specific scope
+	// (GET /admin/markup-rules)
+	ListMarkupRules(w http.ResponseWriter, r *http.Request)
+	// CreateMarkupRule Add a markup rule
+	// (POST /admin/markup-rules)
+	CreateMarkupRule(w http.ResponseWriter, r *http.Request)
+	// DeleteMarkupRule Delete a markup rule
+	// (DELETE /admin/markup-rules/{rule_id})
+	DeleteMarkupRule(w http.ResponseWriter, r *http.Request, ruleId int64)
+	// UpdateMarkupRule Change a markup rule
+	// (PUT /admin/markup-rules/{rule_id})
+	UpdateMarkupRule(w http.ResponseWriter, r *http.Request, ruleId int64)
 	// GetAdminOverview The numbers on the admin dashboard
 	// (GET /admin/overview)
 	GetAdminOverview(w http.ResponseWriter, r *http.Request)
+	// ListAdminProducts Every product with its dealer price, margin and markup rule, by name
+	// (GET /admin/products)
+	ListAdminProducts(w http.ResponseWriter, r *http.Request, params ListAdminProductsParams)
 	// ListSpecsReviewQueue Builder parts whose specs are incomplete, waiting longest first
 	// (GET /admin/specs/review-queue)
 	ListSpecsReviewQueue(w http.ResponseWriter, r *http.Request, params ListSpecsReviewQueueParams)
@@ -1225,9 +1534,39 @@ func (_ Unimplemented) RetryDiscardedJob(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListMarkupRules Every markup rule, from the least to the most specific scope
+// (GET /admin/markup-rules)
+func (_ Unimplemented) ListMarkupRules(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateMarkupRule Add a markup rule
+// (POST /admin/markup-rules)
+func (_ Unimplemented) CreateMarkupRule(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteMarkupRule Delete a markup rule
+// (DELETE /admin/markup-rules/{rule_id})
+func (_ Unimplemented) DeleteMarkupRule(w http.ResponseWriter, r *http.Request, ruleId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateMarkupRule Change a markup rule
+// (PUT /admin/markup-rules/{rule_id})
+func (_ Unimplemented) UpdateMarkupRule(w http.ResponseWriter, r *http.Request, ruleId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetAdminOverview The numbers on the admin dashboard
 // (GET /admin/overview)
 func (_ Unimplemented) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAdminProducts Every product with its dealer price, margin and markup rule, by name
+// (GET /admin/products)
+func (_ Unimplemented) ListAdminProducts(w http.ResponseWriter, r *http.Request, params ListAdminProductsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1445,11 +1784,176 @@ func (siw *ServerInterfaceWrapper) RetryDiscardedJob(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListMarkupRules operation middleware
+func (siw *ServerInterfaceWrapper) ListMarkupRules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMarkupRules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMarkupRule operation middleware
+func (siw *ServerInterfaceWrapper) CreateMarkupRule(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMarkupRule(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMarkupRule operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMarkupRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", chi.URLParam(r, "rule_id"), &ruleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMarkupRule(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMarkupRule operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMarkupRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", chi.URLParam(r, "rule_id"), &ruleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMarkupRule(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAdminOverview operation middleware
 func (siw *ServerInterfaceWrapper) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAdminProducts operation middleware
+func (siw *ServerInterfaceWrapper) ListAdminProducts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAdminProductsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "category" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "category", r.URL.Query(), &params.Category, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "category"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "category", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAdminProducts(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2436,6 +2940,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/admin/jobs/discarded/{job_id}/retry", wrapper.RetryDiscardedJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/products", wrapper.ListAdminProducts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/markup-rules", wrapper.ListMarkupRules)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/markup-rules", wrapper.CreateMarkupRule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/admin/markup-rules/{rule_id}", wrapper.DeleteMarkupRule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/admin/markup-rules/{rule_id}", wrapper.UpdateMarkupRule)
 	})
 
 	return r

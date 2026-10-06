@@ -56,8 +56,12 @@ func newSyncEnvWith(t *testing.T, pool *pgxpool.Pool, sp Specs) *syncEnv {
 
 func (e *syncEnv) setDefaultRule(t *testing.T, markupBP int) {
 	t.Helper()
-	_, err := store{}.upsertMarkupRule(context.Background(), e.pool, MarkupRule{Scope: ScopeDefault, MarkupBP: markupBP, Rounding: RoundNone})
-	if err != nil {
+	query := `
+		INSERT INTO catalog.markup_rules (scope, markup_bp, min_margin_cents, rounding)
+		VALUES ('default', $1, 0, 'none')
+		ON CONFLICT (scope, category, lower(brand), sku) DO UPDATE SET
+			markup_bp = EXCLUDED.markup_bp, min_margin_cents = 0, rounding = 'none'`
+	if _, err := e.pool.Exec(context.Background(), query, markupBP); err != nil {
 		t.Fatal(err)
 	}
 }

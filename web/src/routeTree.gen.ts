@@ -20,6 +20,8 @@ import { Route as ShopSearchRouteImport } from './routes/_shop/search'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAccountRouteImport } from './routes/admin/account'
 import { Route as AdminJobsRouteImport } from './routes/admin/jobs'
+import { Route as AdminMarkupRulesRouteImport } from './routes/admin/markup-rules'
+import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminSyncRouteImport } from './routes/admin/sync'
 import { Route as PreviewIndexRouteImport } from './routes/preview/index'
 import { Route as PreviewCartRouteImport } from './routes/preview/cart'
@@ -85,6 +87,16 @@ const AdminJobsRoute = AdminJobsRouteImport.update({
   path: '/jobs',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminMarkupRulesRoute = AdminMarkupRulesRouteImport.update({
+  id: '/markup-rules',
+  path: '/markup-rules',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminSyncRoute = AdminSyncRouteImport.update({
   id: '/sync',
   path: '/sync',
@@ -146,6 +158,8 @@ export interface FileRoutesByFullPath {
   '/search': typeof ShopSearchRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
+  '/admin/markup-rules': typeof AdminMarkupRulesRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/sync': typeof AdminSyncRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
@@ -165,6 +179,8 @@ export interface FileRoutesByTo {
   '/search': typeof ShopSearchRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
+  '/admin/markup-rules': typeof AdminMarkupRulesRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/sync': typeof AdminSyncRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
@@ -189,6 +205,8 @@ export interface FileRoutesById {
   '/_shop/search': typeof ShopSearchRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
+  '/admin/markup-rules': typeof AdminMarkupRulesRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/sync': typeof AdminSyncRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
@@ -214,6 +232,8 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/account'
     | '/admin/jobs'
+    | '/admin/markup-rules'
+    | '/admin/products'
     | '/admin/sync'
     | '/preview/cart'
     | '/preview/checkout'
@@ -233,6 +253,8 @@ export interface FileRouteTypes {
     | '/search'
     | '/admin/account'
     | '/admin/jobs'
+    | '/admin/markup-rules'
+    | '/admin/products'
     | '/admin/sync'
     | '/preview/cart'
     | '/preview/checkout'
@@ -256,6 +278,8 @@ export interface FileRouteTypes {
     | '/_shop/search'
     | '/admin/account'
     | '/admin/jobs'
+    | '/admin/markup-rules'
+    | '/admin/products'
     | '/admin/sync'
     | '/preview/cart'
     | '/preview/checkout'
@@ -356,6 +380,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminJobsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/markup-rules': {
+      id: '/admin/markup-rules'
+      path: '/markup-rules'
+      fullPath: '/admin/markup-rules'
+      preLoaderRoute: typeof AdminMarkupRulesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/sync': {
       id: '/admin/sync'
       path: '/sync'
@@ -432,6 +470,8 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminAccountRoute: typeof AdminAccountRoute
   AdminJobsRoute: typeof AdminJobsRoute
+  AdminMarkupRulesRoute: typeof AdminMarkupRulesRoute
+  AdminProductsRoute: typeof AdminProductsRoute
   AdminSyncRoute: typeof AdminSyncRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminSpecsProductIdRoute: typeof AdminSpecsProductIdRoute
@@ -441,6 +481,8 @@ interface AdminRouteRouteChildren {
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAccountRoute: AdminAccountRoute,
   AdminJobsRoute: AdminJobsRoute,
+  AdminMarkupRulesRoute: AdminMarkupRulesRoute,
+  AdminProductsRoute: AdminProductsRoute,
   AdminSyncRoute: AdminSyncRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminSpecsProductIdRoute: AdminSpecsProductIdRoute,

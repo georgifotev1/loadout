@@ -90,3 +90,25 @@ func TestRetailPrice(t *testing.T) {
 		})
 	}
 }
+
+func TestMargin(t *testing.T) {
+	tests := []struct {
+		dealer, retail money.Cents
+		wantCents      money.Cents
+		wantBP         int
+	}{
+		{5000, 6250, 1250, 2000},
+		{10000, 10000, 0, 0},
+		{2999, 3990, 991, 2484}, // 24.837% rounds to 2484 bp
+		{0, 0, 0, 0},            // a free product doesn't divide by zero
+	}
+	for _, tt := range tests {
+		p := Price{DealerCents: tt.dealer, RetailCents: tt.retail}
+		if got := p.MarginCents(); got != tt.wantCents {
+			t.Errorf("%d → %d: margin %d, want %d", tt.dealer, tt.retail, got, tt.wantCents)
+		}
+		if got := p.MarginBP(); got != tt.wantBP {
+			t.Errorf("%d → %d: margin %d bp, want %d", tt.dealer, tt.retail, got, tt.wantBP)
+		}
+	}
+}

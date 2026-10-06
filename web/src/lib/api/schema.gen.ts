@@ -474,6 +474,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every product with its dealer price, margin and markup rule, by name
+         * @description Active or not and priced or not, unlike the storefront's lists.
+         */
+        get: operations["listAdminProducts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/markup-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every markup rule, from the least to the most specific scope
+         * @description A product is priced by the most specific rule that matches it: `sku` > `brand_category`
+         *     > `category` > `default`.
+         */
+        get: operations["listMarkupRules"];
+        put?: never;
+        /**
+         * Add a markup rule
+         * @description Prices change at the next sync, not now.
+         */
+        post: operations["createMarkupRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/markup-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a markup rule
+         * @description Replaces the rule's target and pricing, if it's still at `version`. Prices change at the
+         *     next sync, not now. The default rule's scope can't change.
+         */
+        put: operations["updateMarkupRule"];
+        post?: never;
+        /**
+         * Delete a markup rule
+         * @description Its products keep their prices until the next sync reprices them with the rule that
+         *     matches then.
+         */
+        delete: operations["deleteMarkupRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -870,6 +943,124 @@ export interface components {
             /** @description All discarded jobs */
             total: number;
         };
+        AdminProduct: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            sku: string;
+            name: string;
+            brand: string;
+            category: components["schemas"]["Category"];
+            /** @description The first image. Absent if there's none. */
+            image?: string;
+            /** @description Still offered by the supplier. */
+            active: boolean;
+            /** @description `null` until a sync prices the product. */
+            price: components["schemas"]["AdminPrice"] | null;
+            /** @description The rule that made the retail price. `null` if unpriced, or the rule was deleted since. */
+            rule: components["schemas"]["PriceRule"] | null;
+            /** @description What the supplier has. */
+            stock_qty: number;
+            /**
+             * @description `none` for categories without canonical specs (peripherals).
+             * @enum {string}
+             */
+            specs_status: "incomplete" | "approved" | "none";
+            /**
+             * Format: date-time
+             * @description When the supplier's data last changed.
+             */
+            updated_at: string;
+        };
+        /** @description Euro cents, VAT included in all of them. */
+        AdminPrice: {
+            /**
+             * Format: int64
+             * @description What we pay the supplier.
+             */
+            dealer_cents: number;
+            /**
+             * Format: int64
+             * @description What the customer pays.
+             */
+            retail_cents: number;
+            /**
+             * Format: int64
+             * @description Retail minus dealer.
+             */
+            margin_cents: number;
+            /** @description The margin as a share of retail; 2000 = 20%. */
+            margin_bp: number;
+        };
+        PriceRule: {
+            /** Format: int64 */
+            id: number;
+            scope: components["schemas"]["RuleScope"];
+        };
+        AdminProductList: {
+            items: components["schemas"]["AdminProduct"][];
+            page: number;
+            page_size: number;
+            /** @description Matching products over all pages. */
+            total: number;
+        };
+        /**
+         * @description What a rule matches on. A more specific scope wins.
+         * @enum {string}
+         */
+        RuleScope: "default" | "category" | "brand_category" | "sku";
+        /**
+         * @description `99` / `90`: round up to a .99 / .90 ending. `none`: to the cent.
+         * @enum {string}
+         */
+        Rounding: "none" | "99" | "90";
+        /**
+         * @description Set exactly the target fields the scope matches on: `category` for `category`,
+         *     `category` and `brand` for `brand_category`, `sku` for `sku`, none for `default`.
+         */
+        MarkupRuleInput: {
+            scope: components["schemas"]["RuleScope"];
+            category?: components["schemas"]["Category"];
+            /** @description Matches ignoring case. */
+            brand?: string;
+            /** @description The supplier's product code. */
+            sku?: string;
+            /** @description 2500 = +25% on the dealer price. */
+            markup_bp: number;
+            /**
+             * Format: int64
+             * @description The retail price is at least the dealer price plus this.
+             */
+            min_margin_cents: number;
+            rounding: components["schemas"]["Rounding"];
+        };
+        MarkupRuleUpdate: components["schemas"]["MarkupRuleInput"] & {
+            /** @description The version the edit started from. */
+            version: number;
+        };
+        MarkupRule: {
+            /** Format: int64 */
+            id: number;
+            scope: components["schemas"]["RuleScope"];
+            category?: components["schemas"]["Category"];
+            brand?: string;
+            sku?: string;
+            markup_bp: number;
+            /** Format: int64 */
+            min_margin_cents: number;
+            rounding: components["schemas"]["Rounding"];
+            /** @description Goes up on every edit; send it back with the next one. */
+            version: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ListedMarkupRule: components["schemas"]["MarkupRule"] & {
+            /** @description Products whose current price this rule made. */
+            products: number;
+        };
+        MarkupRuleList: {
+            items: components["schemas"]["ListedMarkupRule"][];
+        };
         Error: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -884,7 +1075,7 @@ export interface components {
          * @description Stable reason the web app translates. Renaming one breaks translations.
          * @enum {string}
          */
-        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "already_queued" | "internal";
+        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "already_queued" | "edit_conflict" | "duplicate_rule" | "default_rule" | "internal";
         FieldError: {
             field: string;
             /** @description Why the field is invalid, e.g. `required`, `out_of_range`, `unknown`, `invalid_format`. */
@@ -1688,6 +1879,179 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description `already_queued`: an equal job is already waiting or running. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listAdminProducts: {
+        parameters: {
+            query?: {
+                /** @description Part of the name, brand or SKU, ignoring case. */
+                q?: string;
+                category?: components["schemas"]["Category"];
+                /** @description `active`: on the supplier's list. `inactive`: no longer listed. Absent: both. */
+                status?: "active" | "inactive";
+                /** @description 1-based page number. */
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of products */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listMarkupRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkupRuleList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createMarkupRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkupRuleInput"];
+            };
+        };
+        responses: {
+            /** @description The new rule */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkupRule"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            /** @description `duplicate_rule`: a rule for this target already exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateMarkupRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkupRuleUpdate"];
+            };
+        };
+        responses: {
+            /** @description The rule after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkupRule"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `edit_conflict`: someone changed the rule since `version`; reload it and try again.
+             *     `duplicate_rule`: another rule has this target. `default_rule`: the default rule
+             *     must stay default.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteMarkupRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `default_rule`: the default rule can't be deleted. */
             409: {
                 headers: {
                     [name: string]: unknown;

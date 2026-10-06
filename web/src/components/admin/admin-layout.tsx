@@ -10,6 +10,8 @@ import {
 	House,
 	ListChecks,
 	LogOut,
+	Package,
+	Percent,
 	RefreshCw,
 	TriangleAlert,
 	UserRound,
@@ -64,7 +66,15 @@ const nav: { title?: string; items: NavItem[] }[] = [
 	},
 	{
 		title: m.admin.nav.catalog,
-		items: [{ to: "/admin/specs", label: m.admin.nav.specs, icon: ListChecks }],
+		items: [
+			{ to: "/admin/products", label: m.admin.nav.products, icon: Package },
+			{
+				to: "/admin/markup-rules",
+				label: m.admin.nav.markupRules,
+				icon: Percent,
+			},
+			{ to: "/admin/specs", label: m.admin.nav.specs, icon: ListChecks },
+		],
 	},
 	{
 		title: m.admin.nav.system,

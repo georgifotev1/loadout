@@ -20,6 +20,17 @@ var (
 	// ErrSyncRunNotRunning is returned when finishing a sync run that doesn't exist or has
 	// already finished.
 	ErrSyncRunNotRunning = errors.New("catalog: sync run not found or already finished")
+
+	// ErrEditConflict is returned when a markup rule changed since the version an edit started
+	// from.
+	ErrEditConflict = errors.New("catalog: edited since it was loaded")
+
+	// ErrDuplicateRule is returned when another markup rule already has the same target.
+	ErrDuplicateRule = errors.New("catalog: a markup rule for this target already exists")
+
+	// ErrDefaultRule is returned when deleting the default markup rule or changing its scope:
+	// without it, products that no other rule matches couldn't be priced.
+	ErrDefaultRule = errors.New("catalog: the default markup rule must stay")
 )
 
 // Product is a catalog product as we store it: the supplier's content plus our own state.
@@ -107,8 +118,15 @@ type MarkupRule struct {
 	MinMarginCents money.Cents
 	Rounding       Rounding
 	Priority       int
+	Version        int // goes up on every edit
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// ListedRule is a markup rule with how many products it currently prices.
+type ListedRule struct {
+	MarkupRule
+	Products int
 }
 
 // SyncStatus is the state of a sync run.
@@ -142,6 +160,45 @@ type SyncRunPage struct {
 type ProductCounts struct {
 	Active   int
 	Inactive int // no longer listed by the supplier
+}
+
+// ProductStatus filters admin product lists: active products are on the supplier's list.
+type ProductStatus string
+
+const (
+	StatusActive   ProductStatus = "active"
+	StatusInactive ProductStatus = "inactive"
+)
+
+// AdminProductFilter is the admin product list's query.
+type AdminProductFilter struct {
+	Text     string        // part of the name, brand or SKU; "" = any
+	Category string        // "" = all categories
+	Status   ProductStatus // "" = both
+	Page     int           // 1-based
+	PageSize int
+}
+
+// AdminProduct is a product as the admin product list shows it, priced or not.
+type AdminProduct struct {
+	ID        uuid.UUID
+	Slug      string
+	SKU       string
+	Name      string
+	Brand     string
+	Category  string
+	Image     string // the first image, "" if there is none
+	Active    bool
+	Price     *Price    // nil until the first sync prices it
+	RuleScope RuleScope // the scope of Price.RuleID; "" if unpriced or the rule was deleted
+	StockQty  int
+	UpdatedAt time.Time
+}
+
+// AdminProductPage is one page of the admin product list.
+type AdminProductPage struct {
+	Products []AdminProduct
+	Total    int // matching products over all pages
 }
 
 // ProductSummary is a product as the storefront lists it.

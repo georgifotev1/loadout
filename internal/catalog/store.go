@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/platform/db"
 )
 
 type store struct{}
+
+const uniqueViolation = "23505"
 
 func (store) upsertProduct(ctx context.Context, q db.DBTX, p Product) (uuid.UUID, bool, error) {
 	query := `
@@ -215,23 +219,48 @@ func (store) stockByProduct(ctx context.Context, q db.DBTX, productID uuid.UUID)
 	return qty, nil
 }
 
-// upsertMarkupRule creates the rule for r's target (scope + category/brand/sku) or updates the
-// existing one, and returns its id. Empty target fields are stored as NULL; the
-// markup_rules_scope_fields CHECK rejects combinations that don't fit the scope.
-//
-// TODO(phase-6): add a version column and return ErrEditConflict on a stale version (Greenlight's
-// optimistic locking), once admins edit rules from two tabs.
-func (store) upsertMarkupRule(ctx context.Context, q db.DBTX, r MarkupRule) (int64, error) {
+// markupRuleColumns and scanMarkupRule go together, like productColumns and scanProduct.
+const markupRuleColumns = `
+	id, scope, coalesce(category, ''), coalesce(brand, ''), coalesce(sku, ''),
+	markup_bp, min_margin_cents, rounding, priority, version, created_at, updated_at`
+
+func scanMarkupRule(row pgx.Row, extra ...any) (MarkupRule, error) {
+	var r MarkupRule
+	dest := []any{
+		&r.ID,
+		&r.Scope,
+		&r.Category,
+		&r.Brand,
+		&r.SKU,
+		&r.MarkupBP,
+		&r.MinMarginCents,
+		&r.Rounding,
+		&r.Priority,
+		&r.Version,
+		&r.CreatedAt,
+		&r.UpdatedAt,
+	}
+	err := row.Scan(append(dest, extra...)...)
+	return r, err
+}
+
+// ruleTargetErr turns a violation of the one-rule-per-target index into ErrDuplicateRule.
+func ruleTargetErr(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "markup_rules_target_key" {
+		return ErrDuplicateRule
+	}
+	return err
+}
+
+// insertMarkupRule creates a rule at version 1. Empty target fields are stored as NULL; the
+// markup_rules_scope_fields CHECK rejects combinations that don't fit the scope. A rule with
+// the same target is ErrDuplicateRule.
+func (store) insertMarkupRule(ctx context.Context, q db.DBTX, r MarkupRule) (MarkupRule, error) {
 	query := `
 		INSERT INTO catalog.markup_rules (scope, category, brand, sku, markup_bp, min_margin_cents, rounding, priority)
 		VALUES ($1, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, ''), $5, $6, $7, $8)
-		ON CONFLICT ON CONSTRAINT markup_rules_target_key DO UPDATE SET
-			markup_bp        = EXCLUDED.markup_bp,
-			min_margin_cents = EXCLUDED.min_margin_cents,
-			rounding         = EXCLUDED.rounding,
-			priority         = EXCLUDED.priority,
-			updated_at       = now()
-		RETURNING id`
+		RETURNING ` + markupRuleColumns
 
 	args := []any{
 		r.Scope,
@@ -244,45 +273,105 @@ func (store) upsertMarkupRule(ctx context.Context, q db.DBTX, r MarkupRule) (int
 		r.Priority,
 	}
 
-	var id int64
-	if err := q.QueryRow(ctx, query, args...).Scan(&id); err != nil {
-		return 0, fmt.Errorf("catalog: upsert markup rule: %w", err)
+	created, err := scanMarkupRule(q.QueryRow(ctx, query, args...))
+	if err != nil {
+		return MarkupRule{}, fmt.Errorf("catalog: insert markup rule: %w", ruleTargetErr(err))
 	}
-	return id, nil
+	return created, nil
+}
+
+// markupRuleForUpdate returns a rule and locks its row until the transaction ends.
+func (store) markupRuleForUpdate(ctx context.Context, q db.DBTX, id int64) (MarkupRule, error) {
+	query := `SELECT ` + markupRuleColumns + ` FROM catalog.markup_rules WHERE id = $1 FOR UPDATE`
+
+	r, err := scanMarkupRule(q.QueryRow(ctx, query, id))
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return MarkupRule{}, ErrNotFound
+	case err != nil:
+		return MarkupRule{}, fmt.Errorf("catalog: markup rule %d: %w", id, err)
+	}
+	return r, nil
+}
+
+// updateMarkupRule overwrites rule r.ID with r's target and pricing (not its priority) and
+// bumps its version. The caller has checked the version under markupRuleForUpdate's lock.
+func (store) updateMarkupRule(ctx context.Context, q db.DBTX, r MarkupRule) (MarkupRule, error) {
+	query := `
+		UPDATE catalog.markup_rules SET
+			scope            = $2,
+			category         = NULLIF($3, ''),
+			brand            = NULLIF($4, ''),
+			sku              = NULLIF($5, ''),
+			markup_bp        = $6,
+			min_margin_cents = $7,
+			rounding         = $8,
+			version          = version + 1,
+			updated_at       = now()
+		WHERE id = $1
+		RETURNING ` + markupRuleColumns
+
+	args := []any{
+		r.ID,
+		r.Scope,
+		r.Category,
+		r.Brand,
+		r.SKU,
+		r.MarkupBP,
+		r.MinMarginCents,
+		r.Rounding,
+	}
+
+	updated, err := scanMarkupRule(q.QueryRow(ctx, query, args...))
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return MarkupRule{}, ErrNotFound
+	case err != nil:
+		return MarkupRule{}, fmt.Errorf("catalog: update markup rule %d: %w", r.ID, ruleTargetErr(err))
+	}
+	return updated, nil
 }
 
 // markupRules returns every rule. The table is small (tens of rows), so pricing loads them all
 // once per sync and resolves in Go.
 func (store) markupRules(ctx context.Context, q db.DBTX) ([]MarkupRule, error) {
-	query := `
-		SELECT id, scope, coalesce(category, ''), coalesce(brand, ''), coalesce(sku, ''),
-		       markup_bp, min_margin_cents, rounding, priority, created_at, updated_at
-		FROM catalog.markup_rules
-		ORDER BY id`
+	query := `SELECT ` + markupRuleColumns + ` FROM catalog.markup_rules ORDER BY id`
 
 	rows, err := q.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("catalog: markup rules: %w", err)
 	}
 	rules, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (MarkupRule, error) {
-		var r MarkupRule
-		err := row.Scan(
-			&r.ID,
-			&r.Scope,
-			&r.Category,
-			&r.Brand,
-			&r.SKU,
-			&r.MarkupBP,
-			&r.MinMarginCents,
-			&r.Rounding,
-			&r.Priority,
-			&r.CreatedAt,
-			&r.UpdatedAt,
-		)
-		return r, err
+		return scanMarkupRule(row)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("catalog: markup rules: %w", err)
+	}
+	return rules, nil
+}
+
+// listedRules returns every rule with the number of products it prices, from the least to the
+// most specific scope, then by target.
+func (store) listedRules(ctx context.Context, q db.DBTX) ([]ListedRule, error) {
+	query := `
+		SELECT ` + markupRuleColumns + `,
+		       (SELECT count(*) FROM catalog.prices pr WHERE pr.rule_id = r.id)
+		FROM catalog.markup_rules r
+		ORDER BY array_position(ARRAY['default', 'category', 'brand_category', 'sku'], scope),
+		         category, lower(brand), sku, id`
+
+	rows, err := q.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: listed rules: %w", err)
+	}
+	rules, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ListedRule, error) {
+		var lr ListedRule
+		var err error
+		lr.MarkupRule, err = scanMarkupRule(row, &lr.Products)
+		return lr, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("catalog: listed rules: %w", err)
 	}
 	return rules, nil
 }
@@ -406,6 +495,86 @@ func (store) productCounts(ctx context.Context, q db.DBTX) (ProductCounts, error
 		return ProductCounts{}, fmt.Errorf("catalog: product counts: %w", err)
 	}
 	return c, nil
+}
+
+// adminProducts returns one page of products, active or not and priced or not, by name, and
+// the number of matches over all pages. Text matches part of the name, brand or SKU, ignoring
+// case; strpos rather than LIKE, so % and _ in what an admin types aren't wildcards.
+func (store) adminProducts(ctx context.Context, q db.DBTX, f AdminProductFilter, limit, offset int) ([]AdminProduct, int, error) {
+	query := `
+		SELECT p.id, p.slug, p.provider_sku, p.name, p.brand, p.category, coalesce(p.images ->> 0, ''),
+		       p.active, p.updated_at, coalesce(s.qty, 0),
+		       pr.dealer_cents, pr.retail_cents, pr.vat_bp, pr.rule_id, pr.computed_at, coalesce(r.scope, ''),
+		       count(*) OVER ()
+		FROM catalog.products p
+		LEFT JOIN catalog.prices pr ON pr.product_id = p.id
+		LEFT JOIN catalog.markup_rules r ON r.id = pr.rule_id
+		LEFT JOIN catalog.stock s ON s.product_id = p.id
+		WHERE ($1 = '' OR strpos(lower(p.name), lower($1)) > 0
+		               OR strpos(lower(p.brand), lower($1)) > 0
+		               OR strpos(lower(p.provider_sku), lower($1)) > 0)
+		  AND ($2 = '' OR p.category = $2)
+		  AND ($3 = '' OR p.active = ($3 = 'active'))
+		ORDER BY p.name, p.id
+		LIMIT $4 OFFSET $5`
+
+	args := []any{
+		f.Text,
+		f.Category,
+		f.Status,
+		limit,
+		offset,
+	}
+
+	rows, err := q.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("catalog: admin products: %w", err)
+	}
+	var total int
+	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminProduct, error) {
+		var (
+			p              AdminProduct
+			dealer, retail *money.Cents
+			vat            *int
+			ruleID         *int64
+			computedAt     *time.Time
+		)
+		err := row.Scan(
+			&p.ID,
+			&p.Slug,
+			&p.SKU,
+			&p.Name,
+			&p.Brand,
+			&p.Category,
+			&p.Image,
+			&p.Active,
+			&p.UpdatedAt,
+			&p.StockQty,
+			&dealer,
+			&retail,
+			&vat,
+			&ruleID,
+			&computedAt,
+			&p.RuleScope,
+			&total,
+		)
+		if err != nil || dealer == nil {
+			return p, err // unpriced: no prices row
+		}
+		p.Price = &Price{
+			ProductID:   p.ID,
+			DealerCents: *dealer,
+			RetailCents: *retail,
+			VATbp:       *vat,
+			RuleID:      ruleID,
+			ComputedAt:  *computedAt,
+		}
+		return p, nil
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("catalog: admin products: %w", err)
+	}
+	return products, total, nil
 }
 
 // productState is what the sync needs to know about a stored product to tell whether a fetched

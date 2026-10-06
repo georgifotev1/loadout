@@ -116,6 +116,28 @@ func (s *Service) ProductByID(ctx context.Context, id uuid.UUID) (Product, error
 	return s.store.productByID(ctx, s.pool, id)
 }
 
+// AdminProducts returns one page of every product, active or not and priced or not, by name,
+// with its dealer price and the rule that priced it. Only admins may see this.
+func (s *Service) AdminProducts(ctx context.Context, f AdminProductFilter) (AdminProductPage, error) {
+	f.Text = strings.TrimSpace(f.Text)
+
+	var v validate.Validator
+	v.Check(utf8.RuneCountInString(f.Text) <= MaxSearchTextLen, "q", "too_long")
+	v.Check(f.Category == "" || IsCategory(f.Category), "category", "unknown")
+	v.Check(slices.Contains([]ProductStatus{"", StatusActive, StatusInactive}, f.Status), "status", "unknown")
+	v.Check(f.Page >= 1, "page", "out_of_range")
+	v.Check(f.PageSize >= 1 && f.PageSize <= MaxPageSize, "page_size", "out_of_range")
+	if err := v.Err(); err != nil {
+		return AdminProductPage{}, err
+	}
+
+	products, total, err := s.store.adminProducts(ctx, s.pool, f, f.PageSize, (f.Page-1)*f.PageSize)
+	if err != nil {
+		return AdminProductPage{}, err
+	}
+	return AdminProductPage{Products: products, Total: total}, nil
+}
+
 // SyncRuns returns one page of sync runs, newest first.
 func (s *Service) SyncRuns(ctx context.Context, page, pageSize int) (SyncRunPage, error) {
 	var v validate.Validator

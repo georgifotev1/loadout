@@ -3,6 +3,8 @@ package catalog
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -173,10 +175,11 @@ func TestPrices(t *testing.T) {
 	ctx := context.Background()
 	var s store
 	productID := mustUpsert(t, s, pool, testProduct())
-	ruleID, err := s.upsertMarkupRule(ctx, pool, MarkupRule{Scope: ScopeDefault, MarkupBP: 2000, Rounding: RoundNone})
+	rule, err := s.insertMarkupRule(ctx, pool, MarkupRule{Scope: ScopeCategory, Category: "cpu", MarkupBP: 2000, Rounding: RoundNone})
 	if err != nil {
 		t.Fatal(err)
 	}
+	ruleID := rule.ID
 	price := Price{ProductID: productID, DealerCents: 5235, RetailCents: 6282, VATbp: 2000, RuleID: &ruleID}
 
 	if written, err := s.upsertPrice(ctx, pool, price); err != nil || !written {
@@ -271,37 +274,81 @@ func TestMarkupRules(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("one rule per target, upsert updates it", func(t *testing.T) {
-		r := MarkupRule{Scope: ScopeBrandCategory, Category: "gpu", Brand: "Gigabyte", MarkupBP: 1500, Rounding: Round99}
-		id1, err := s.upsertMarkupRule(ctx, pool, r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		r.MarkupBP, r.MinMarginCents = 1800, 2000
-		id2, err := s.upsertMarkupRule(ctx, pool, r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if id1 != id2 {
-			t.Errorf("ids %d and %d, want the same rule updated", id1, id2)
-		}
+	gigabyte := MarkupRule{Scope: ScopeBrandCategory, Category: "gpu", Brand: "Gigabyte", MarkupBP: 1500, Rounding: Round99}
+	created, err := s.insertMarkupRule(ctx, pool, gigabyte)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID == 0 || created.Version != 1 || created.Brand != "Gigabyte" || created.SKU != "" {
+		t.Errorf("created %+v", created)
+	}
 
+	t.Run("one rule per target, brands ignoring case", func(t *testing.T) {
+		same := gigabyte
+		same.Brand = "GIGABYTE"
+		if _, err := s.insertMarkupRule(ctx, pool, same); !errors.Is(err, ErrDuplicateRule) {
+			t.Errorf("same brand in capitals: err = %v, want ErrDuplicateRule", err)
+		}
 		// Two default rules collide too, thanks to NULLS NOT DISTINCT.
-		d1, _ := s.upsertMarkupRule(ctx, pool, MarkupRule{Scope: ScopeDefault, MarkupBP: 2000, Rounding: RoundNone})
-		d2, _ := s.upsertMarkupRule(ctx, pool, MarkupRule{Scope: ScopeDefault, MarkupBP: 2200, Rounding: RoundNone})
-		if d1 != d2 {
-			t.Errorf("default rules %d and %d, want one", d1, d2)
+		def := MarkupRule{Scope: ScopeDefault, MarkupBP: 2000, Rounding: RoundNone}
+		if _, err := s.insertMarkupRule(ctx, pool, def); err != nil {
+			t.Fatal(err)
 		}
+		if _, err := s.insertMarkupRule(ctx, pool, def); !errors.Is(err, ErrDuplicateRule) {
+			t.Errorf("second default: err = %v, want ErrDuplicateRule", err)
+		}
+	})
 
-		rules, err := s.markupRules(ctx, pool)
+	t.Run("update bumps the version", func(t *testing.T) {
+		r := created
+		r.MarkupBP, r.MinMarginCents = 1800, 2000
+		got, err := s.updateMarkupRule(ctx, pool, r)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(rules) != 2 {
-			t.Fatalf("got %d rules, want 2: %+v", len(rules), rules)
+		if got.Version != 2 || got.MarkupBP != 1800 || got.MinMarginCents != 2000 || !got.UpdatedAt.After(created.UpdatedAt) {
+			t.Errorf("updated %+v", got)
 		}
-		if g := rules[0]; g.MarkupBP != 1800 || g.MinMarginCents != 2000 || g.Brand != "Gigabyte" || g.SKU != "" {
-			t.Errorf("got %+v", g)
+		locked, err := s.markupRuleForUpdate(ctx, pool, created.ID)
+		if err != nil || locked != got {
+			t.Errorf("read back %+v, %v", locked, err)
+		}
+	})
+
+	t.Run("update onto another rule's target is ErrDuplicateRule", func(t *testing.T) {
+		other, err := s.insertMarkupRule(ctx, pool, MarkupRule{Scope: ScopeBrandCategory, Category: "gpu", Brand: "ASUS", Rounding: RoundNone})
+		if err != nil {
+			t.Fatal(err)
+		}
+		other.Brand = "gigabyte"
+		if _, err := s.updateMarkupRule(ctx, pool, other); !errors.Is(err, ErrDuplicateRule) {
+			t.Errorf("err = %v, want ErrDuplicateRule", err)
+		}
+	})
+
+	t.Run("listed by scope with product counts", func(t *testing.T) {
+		productID := mustUpsert(t, s, pool, testProduct())
+		price := Price{ProductID: productID, DealerCents: 100, RetailCents: 120, VATbp: 2000, RuleID: &created.ID}
+		if _, err := s.upsertPrice(ctx, pool, price); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if _, err := pool.Exec(ctx, `TRUNCATE catalog.products CASCADE`); err != nil {
+				t.Errorf("truncate: %v", err)
+			}
+		})
+
+		rules, err := s.listedRules(ctx, pool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, r := range rules {
+			got = append(got, fmt.Sprintf("%s/%s:%d", r.Scope, r.Brand, r.Products))
+		}
+		want := []string{"default/:0", "brand_category/ASUS:0", "brand_category/Gigabyte:1"}
+		if !slices.Equal(got, want) {
+			t.Errorf("got %v, want %v", got, want)
 		}
 	})
 
@@ -317,15 +364,21 @@ func TestMarkupRules(t *testing.T) {
 			if r.Rounding == "" {
 				r.Rounding = RoundNone
 			}
-			if _, err := s.upsertMarkupRule(ctx, pool, r); err == nil {
+			if _, err := s.insertMarkupRule(ctx, pool, r); err == nil {
 				t.Errorf("%s: accepted, want a CHECK violation", name)
 			}
 		}
 	})
 
-	t.Run("delete unknown is ErrNotFound", func(t *testing.T) {
+	t.Run("unknown id is ErrNotFound", func(t *testing.T) {
+		if _, err := s.markupRuleForUpdate(ctx, pool, 999999); !errors.Is(err, ErrNotFound) {
+			t.Errorf("lock: err = %v", err)
+		}
+		if _, err := s.updateMarkupRule(ctx, pool, MarkupRule{ID: 999999, Scope: ScopeSKU, SKU: "X", Rounding: RoundNone}); !errors.Is(err, ErrNotFound) {
+			t.Errorf("update: err = %v", err)
+		}
 		if err := s.deleteMarkupRule(ctx, pool, 999999); !errors.Is(err, ErrNotFound) {
-			t.Errorf("err = %v", err)
+			t.Errorf("delete: err = %v", err)
 		}
 	})
 }

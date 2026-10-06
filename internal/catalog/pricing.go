@@ -89,3 +89,17 @@ func roundUpToEnding(c money.Cents, rounding Rounding) money.Cents {
 	}
 	return rounded
 }
+
+// MarginCents is what we keep from a sale: retail minus dealer, VAT included in both.
+func (p Price) MarginCents() money.Cents {
+	return p.RetailCents - p.DealerCents
+}
+
+// MarginBP is the margin as a share of the retail price in basis points (2000 = 20%), rounded
+// half up. 0 for a free product.
+func (p Price) MarginBP() int {
+	if p.RetailCents <= 0 {
+		return 0
+	}
+	return int((p.MarginCents()*10000 + p.RetailCents/2) / p.RetailCents)
+}

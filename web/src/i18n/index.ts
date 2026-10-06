@@ -17,6 +17,16 @@ export function formatPrice(cents: number): string {
 	return price.format(cents / 100);
 }
 
+const percent = new Intl.NumberFormat(locale, {
+	style: "percent",
+	maximumFractionDigits: 2,
+});
+
+// formatPercent formats basis points as the API sends them, e.g. 1250 → "12,5%".
+export function formatPercent(bp: number): string {
+	return percent.format(bp / 10000);
+}
+
 const shortDate = new Intl.DateTimeFormat(locale, {
 	weekday: "short",
 	day: "numeric",

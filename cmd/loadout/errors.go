@@ -35,6 +35,12 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 	case errors.Is(err, catalog.ErrNotFound), errors.Is(err, specs.ErrNotFound), errors.Is(err, configurator.ErrNotFound),
 		errors.Is(err, jobs.ErrNotDiscarded):
 		app.writeError(w, r, http.StatusNotFound, ErrorCodeNotFound, "resource not found")
+	case errors.Is(err, catalog.ErrEditConflict):
+		app.writeError(w, r, http.StatusConflict, ErrorCodeEditConflict, "changed since it was loaded")
+	case errors.Is(err, catalog.ErrDuplicateRule):
+		app.writeError(w, r, http.StatusConflict, ErrorCodeDuplicateRule, "a markup rule for this target already exists")
+	case errors.Is(err, catalog.ErrDefaultRule):
+		app.writeError(w, r, http.StatusConflict, ErrorCodeDefaultRule, "the default markup rule must stay")
 	case errors.Is(err, jobs.ErrAlreadyQueued):
 		app.writeError(w, r, http.StatusConflict, ErrorCodeAlreadyQueued, "an equal job is already waiting or running")
 	case errors.Is(err, auth.ErrUnauthenticated):
