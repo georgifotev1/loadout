@@ -57,7 +57,7 @@ export function SiteSearch({
 				(e.target.isContentEditable ||
 					/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
 			if (
-				(e.key === "k" && (e.metaKey || e.ctrlKey)) ||
+				(e.code === "KeyK" && (e.metaKey || e.ctrlKey)) ||
 				(e.key === "/" && !typing)
 			) {
 				e.preventDefault();
