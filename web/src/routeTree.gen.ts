@@ -15,6 +15,7 @@ import { Route as PreviewRouteRouteImport } from './routes/preview/route'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShopIndexRouteImport } from './routes/_shop/index'
 import { Route as ShopBuilderRouteImport } from './routes/_shop/builder'
+import { Route as ShopCartRouteImport } from './routes/_shop/cart'
 import { Route as ShopLoginRouteImport } from './routes/_shop/login'
 import { Route as ShopSearchRouteImport } from './routes/_shop/search'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -24,7 +25,6 @@ import { Route as AdminMarkupRulesRouteImport } from './routes/admin/markup-rule
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminSyncRouteImport } from './routes/admin/sync'
 import { Route as PreviewIndexRouteImport } from './routes/preview/index'
-import { Route as PreviewCartRouteImport } from './routes/preview/cart'
 import { Route as PreviewCheckoutRouteImport } from './routes/preview/checkout'
 import { Route as PreviewConfirmationRouteImport } from './routes/preview/confirmation'
 import { Route as ShopBuildSlugRouteImport } from './routes/_shop/build.$slug'
@@ -60,6 +60,11 @@ const ShopIndexRoute = ShopIndexRouteImport.update({
 const ShopBuilderRoute = ShopBuilderRouteImport.update({
   id: '/builder',
   path: '/builder',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopCartRoute = ShopCartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
   getParentRoute: () => ShopRoute,
 } as any)
 const ShopLoginRoute = ShopLoginRouteImport.update({
@@ -107,11 +112,6 @@ const PreviewIndexRoute = PreviewIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PreviewRouteRoute,
 } as any)
-const PreviewCartRoute = PreviewCartRouteImport.update({
-  id: '/cart',
-  path: '/cart',
-  getParentRoute: () => PreviewRouteRoute,
-} as any)
 const PreviewCheckoutRoute = PreviewCheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
@@ -154,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/': typeof ShopIndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/builder': typeof ShopBuilderRoute
+  '/cart': typeof ShopCartRoute
   '/login': typeof ShopLoginRoute
   '/search': typeof ShopSearchRoute
   '/admin/account': typeof AdminAccountRoute
@@ -161,7 +162,6 @@ export interface FileRoutesByFullPath {
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/sync': typeof AdminSyncRoute
-  '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
   '/admin/': typeof AdminIndexRoute
@@ -175,6 +175,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/builder': typeof ShopBuilderRoute
+  '/cart': typeof ShopCartRoute
   '/login': typeof ShopLoginRoute
   '/search': typeof ShopSearchRoute
   '/admin/account': typeof AdminAccountRoute
@@ -182,7 +183,6 @@ export interface FileRoutesByTo {
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/sync': typeof AdminSyncRoute
-  '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
   '/': typeof ShopIndexRoute
@@ -201,6 +201,7 @@ export interface FileRoutesById {
   '/_shop': typeof ShopRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_shop/builder': typeof ShopBuilderRoute
+  '/_shop/cart': typeof ShopCartRoute
   '/_shop/login': typeof ShopLoginRoute
   '/_shop/search': typeof ShopSearchRoute
   '/admin/account': typeof AdminAccountRoute
@@ -208,7 +209,6 @@ export interface FileRoutesById {
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/sync': typeof AdminSyncRoute
-  '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
   '/_shop/': typeof ShopIndexRoute
@@ -228,6 +228,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sitemap.xml'
     | '/builder'
+    | '/cart'
     | '/login'
     | '/search'
     | '/admin/account'
@@ -235,7 +236,6 @@ export interface FileRouteTypes {
     | '/admin/markup-rules'
     | '/admin/products'
     | '/admin/sync'
-    | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
     | '/admin/'
@@ -249,6 +249,7 @@ export interface FileRouteTypes {
   to:
     | '/sitemap.xml'
     | '/builder'
+    | '/cart'
     | '/login'
     | '/search'
     | '/admin/account'
@@ -256,7 +257,6 @@ export interface FileRouteTypes {
     | '/admin/markup-rules'
     | '/admin/products'
     | '/admin/sync'
-    | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
     | '/'
@@ -274,6 +274,7 @@ export interface FileRouteTypes {
     | '/_shop'
     | '/sitemap.xml'
     | '/_shop/builder'
+    | '/_shop/cart'
     | '/_shop/login'
     | '/_shop/search'
     | '/admin/account'
@@ -281,7 +282,6 @@ export interface FileRouteTypes {
     | '/admin/markup-rules'
     | '/admin/products'
     | '/admin/sync'
-    | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
     | '/_shop/'
@@ -345,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopBuilderRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/cart': {
+      id: '/_shop/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof ShopCartRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/login': {
       id: '/_shop/login'
       path: '/login'
@@ -406,13 +413,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/preview/'
       preLoaderRoute: typeof PreviewIndexRouteImport
-      parentRoute: typeof PreviewRouteRoute
-    }
-    '/preview/cart': {
-      id: '/preview/cart'
-      path: '/cart'
-      fullPath: '/preview/cart'
-      preLoaderRoute: typeof PreviewCartRouteImport
       parentRoute: typeof PreviewRouteRoute
     }
     '/preview/checkout': {
@@ -494,14 +494,12 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
 )
 
 interface PreviewRouteRouteChildren {
-  PreviewCartRoute: typeof PreviewCartRoute
   PreviewCheckoutRoute: typeof PreviewCheckoutRoute
   PreviewConfirmationRoute: typeof PreviewConfirmationRoute
   PreviewIndexRoute: typeof PreviewIndexRoute
 }
 
 const PreviewRouteRouteChildren: PreviewRouteRouteChildren = {
-  PreviewCartRoute: PreviewCartRoute,
   PreviewCheckoutRoute: PreviewCheckoutRoute,
   PreviewConfirmationRoute: PreviewConfirmationRoute,
   PreviewIndexRoute: PreviewIndexRoute,
@@ -513,6 +511,7 @@ const PreviewRouteRouteWithChildren = PreviewRouteRoute._addFileChildren(
 
 interface ShopRouteChildren {
   ShopBuilderRoute: typeof ShopBuilderRoute
+  ShopCartRoute: typeof ShopCartRoute
   ShopLoginRoute: typeof ShopLoginRoute
   ShopSearchRoute: typeof ShopSearchRoute
   ShopIndexRoute: typeof ShopIndexRoute
@@ -523,6 +522,7 @@ interface ShopRouteChildren {
 
 const ShopRouteChildren: ShopRouteChildren = {
   ShopBuilderRoute: ShopBuilderRoute,
+  ShopCartRoute: ShopCartRoute,
   ShopLoginRoute: ShopLoginRoute,
   ShopSearchRoute: ShopSearchRoute,
   ShopIndexRoute: ShopIndexRoute,

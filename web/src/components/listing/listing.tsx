@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { SearchX, SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
-import { ProductCard } from "#/components/product/product-card";
+import { CartProductCard } from "#/components/cart/cart-product-card";
 import { Pagination } from "#/components/site/pagination";
 import { Button } from "#/components/ui/button";
 import { Checkbox } from "#/components/ui/checkbox";
@@ -294,7 +294,7 @@ export function Listing({
 					{result.products.length > 0 ? (
 						<div className="grid grid-cols-2 gap-3 md:grid-cols-3">
 							{result.products.map((p) => (
-								<ProductCard key={p.slug} product={p} />
+								<CartProductCard key={p.slug} product={p} />
 							))}
 						</div>
 					) : (

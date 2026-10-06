@@ -1,4 +1,5 @@
 import { m } from "#/i18n";
+import type { CartAddLine } from "#/lib/api/cart";
 import type { Schemas } from "#/lib/api/client";
 
 export type Slot = Schemas["Slot"];
@@ -139,6 +140,26 @@ export function selectionOf(check: BuildCheck): BuildSearch {
 			: { ...b, [slot]: slug };
 	}
 	return b;
+}
+
+// cartLinesOf turns a build's parts into cart lines: one per product, a part bought twice as
+// quantity 2.
+export function cartLinesOf(check: BuildCheck): CartAddLine[] {
+	const counts = new Map<string, number>();
+	for (const p of check.parts) {
+		counts.set(p.product.slug, (counts.get(p.product.slug) ?? 0) + 1);
+	}
+	return [...counts].map(([slug, quantity]) => ({ slug, quantity }));
+}
+
+// canOrder says whether a build can go into the cart: complete, without compatibility errors,
+// and every part still for sale.
+export function canOrder(check: BuildCheck, status: BuildStatus): boolean {
+	return (
+		status.missing.length === 0 &&
+		status.errors === 0 &&
+		check.unavailable.length === 0
+	);
 }
 
 // The findings that only say a part is still missing. The builder shows them on the empty slot

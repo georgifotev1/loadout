@@ -2,8 +2,10 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { RotateCcw, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
 import { useState } from "react";
+import { CartProductCard } from "#/components/cart/cart-product-card";
+import { useCart } from "#/components/cart/cart-provider";
+import { Quantity } from "#/components/cart/quantity";
 import { Price } from "#/components/product/price";
-import { ProductCard } from "#/components/product/product-card";
 import { ProductImage } from "#/components/product/product-image";
 import { Stock } from "#/components/product/stock";
 import { Container } from "#/components/site/container";
@@ -11,6 +13,7 @@ import { PageBreadcrumb } from "#/components/site/page-breadcrumb";
 import { ProductSkeleton } from "#/components/site/page-skeletons";
 import { Button } from "#/components/ui/button";
 import { formatPrice, m } from "#/i18n";
+import { maxQuantity } from "#/lib/api/cart";
 import { ApiError, type Schemas } from "#/lib/api/client";
 import { productQuery, searchQuery } from "#/lib/api/products";
 import { cn } from "#/lib/utils";
@@ -55,9 +58,9 @@ export const Route = createFileRoute("/_shop/p/$slug")({
 					links: [{ rel: "canonical", href: `/p/${p.slug}` }],
 				}
 			: {},
-	// The HTML has no per-shopper data yet, so shared caches (the CDN) may keep it for a minute
-	// and serve it stale while refetching. Prices change on the supplier sync, not by the second.
-	// TODO(phase-7): keep the cart out of the server HTML, or make this private.
+	// The HTML has no per-shopper data (the cart loads in the browser), so shared caches (the
+	// CDN) may keep it for a minute and serve it stale while refetching. Prices change on the
+	// supplier sync, not by the second.
 	headers: () => ({
 		"Cache-Control": "public, max-age=60, stale-while-revalidate=300",
 	}),
@@ -91,6 +94,8 @@ function ProductPage() {
 	const { slug } = Route.useParams();
 	const { data: p } = useSuspenseQuery(productQuery(slug));
 	const [image, setImage] = useState(0);
+	const [qty, setQty] = useState(1);
+	const cart = useCart();
 	const specs = Object.entries(p.attributes).filter(([, v]) => v && v !== "-");
 
 	return (
@@ -154,13 +159,24 @@ function ProductPage() {
 						</span>
 					</div>
 
-					<Button size="lg" className="mt-6 h-11 w-full sm:w-auto" disabled>
-						<ShoppingCart /> {m.product.addToCart}
-					</Button>
-					<p className="mt-2 text-subtle-foreground text-xs">
-						{/* TODO(phase-7): quantity and add to cart, once there's a cart. */}
-						{m.product.cartSoon}
-					</p>
+					<div className="mt-6 flex gap-3">
+						<Quantity
+							size="lg"
+							value={qty}
+							max={maxQuantity}
+							disabled={!p.in_stock}
+							onChange={setQty}
+						/>
+						<Button
+							size="lg"
+							className="h-11 flex-1 sm:flex-none"
+							disabled={!p.in_stock || cart.adding}
+							onClick={() => cart.add([{ slug: p.slug, quantity: qty }])}
+						>
+							<ShoppingCart />{" "}
+							{cart.adding ? m.product.adding : m.product.addToCart}
+						</Button>
+					</div>
 
 					<ul className="mt-6 divide-y rounded-lg border bg-card text-sm">
 						{[
@@ -223,7 +239,7 @@ function Related({ product }: { product: ProductDetail }) {
 			</h2>
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 				{related.map((r) => (
-					<ProductCard key={r.slug} product={r} />
+					<CartProductCard key={r.slug} product={r} />
 				))}
 			</div>
 		</section>

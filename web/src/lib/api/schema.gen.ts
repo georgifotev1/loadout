@@ -160,6 +160,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/cart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The shopper's cart at today's prices
+         * @description The cart of the `cart` cookie. Without the cookie, or with one whose cart is gone, it's an
+         *     empty cart; reading never creates one.
+         */
+        get: operations["getCart"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cart/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add products to the cart
+         * @description Adds each product on top of what the cart already has, all or none. Without a cart it
+         *     starts one and sets the `cart` cookie (HttpOnly, 30 days, renewed on every change).
+         *     Field errors name `lines[i].slug` (`unavailable`: not for sale; `out_of_stock`) or
+         *     `lines[i].quantity` (`out_of_range`; `too_many`: over 10 of one product with what's in
+         *     the cart), or `lines` (`too_many`: over 50 products in the cart).
+         */
+        post: operations["addToCart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cart/lines/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Change how many of a product the cart holds */
+        put: operations["setCartQuantity"];
+        post?: never;
+        /**
+         * Take a product out of the cart
+         * @description Removing a product that isn't in the cart isn't an error.
+         */
+        delete: operations["removeFromCart"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -768,6 +836,38 @@ export interface components {
             saved_total: components["schemas"]["Price"];
             /** @description One entry per product whose price changed since it was saved. Empty right after saving. */
             price_changes: components["schemas"]["PriceChange"][];
+        };
+        Cart: {
+            /** @description The last added first. */
+            lines: components["schemas"]["CartLine"][];
+            /** @description Units over all lines, for the header badge. */
+            count: number;
+            /** @description The lines still for sale, at today's prices. Delivery comes at checkout. */
+            subtotal: components["schemas"]["Price"];
+        };
+        CartLine: {
+            /** Format: uuid */
+            product_id: string;
+            /** @description The product's slug now, or as it was added if it's no longer for sale. */
+            slug: string;
+            name: string;
+            quantity: number;
+            /**
+             * @description The product as it's sold now. Absent when it's no longer for sale: the line stays so
+             *     the shopper sees what happened, but it isn't in the subtotal and can't be ordered.
+             */
+            product?: components["schemas"]["ProductSummary"];
+            /** @description The price now × quantity. Absent when the product is no longer for sale. */
+            line_total?: components["schemas"]["Price"];
+        };
+        CartAdd: {
+            lines: {
+                slug: string;
+                quantity: number;
+            }[];
+        };
+        CartQuantity: {
+            quantity: number;
         };
         LoginRequest: {
             email: string;
@@ -1465,6 +1565,108 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getCart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cart */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addToCart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CartAdd"];
+            };
+        };
+        responses: {
+            /** @description The cart after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setCartQuantity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CartQuantity"];
+            };
+        };
+        responses: {
+            /** @description The cart after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    removeFromCart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cart after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
             default: components["responses"]["Error"];
         };
     };

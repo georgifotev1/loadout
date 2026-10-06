@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from "react";
-import { CartDrawer, type CartLine } from "#/components/cart/cart-drawer";
 import { ProductCard } from "#/components/product/product-card";
+import type { Schemas } from "#/lib/api/client";
 import {
 	bySlug,
 	cartLines,
@@ -9,8 +9,9 @@ import {
 	summary,
 } from "./-data";
 
-// In-memory cart for the previews, so add to cart, the drawer and the cart page agree.
-// The real cart lives on the server (Phase 5).
+// In-memory cart for the checkout and confirmation previews.
+
+type CartLine = { product: Schemas["ProductSummary"]; qty: number };
 
 type PreviewCart = {
 	lines: CartLine[];
@@ -18,7 +19,6 @@ type PreviewCart = {
 	add: (slug: string, qty?: number) => void;
 	setQty: (slug: string, qty: number) => void;
 	remove: (slug: string) => void;
-	openDrawer: () => void;
 };
 
 const Ctx = createContext<PreviewCart | null>(null);
@@ -37,8 +37,6 @@ export function PreviewCartProvider({
 	const [lines, setLines] = useState<CartLine[]>(() =>
 		cartLines.map((l) => ({ product: summary(l.product), qty: l.qty })),
 	);
-	const [open, setOpen] = useState(false);
-	const [justAdded, setJustAdded] = useState<string>();
 
 	const cart: PreviewCart = {
 		lines,
@@ -53,8 +51,6 @@ export function PreviewCartProvider({
 						)
 					: [{ product: summary(p), qty }, ...cur],
 			);
-			setJustAdded(slug);
-			setOpen(true);
 		},
 		setQty: (slug, qty) =>
 			setLines((cur) =>
@@ -62,25 +58,9 @@ export function PreviewCartProvider({
 			),
 		remove: (slug) =>
 			setLines((cur) => cur.filter((l) => l.product.slug !== slug)),
-		openDrawer: () => {
-			setJustAdded(undefined);
-			setOpen(true);
-		},
 	};
 
-	return (
-		<Ctx.Provider value={cart}>
-			{children}
-			<CartDrawer
-				open={open}
-				onOpenChange={setOpen}
-				lines={lines}
-				justAdded={justAdded}
-				onQtyChange={cart.setQty}
-				onRemove={cart.remove}
-			/>
-		</Ctx.Provider>
-	);
+	return <Ctx.Provider value={cart}>{children}</Ctx.Provider>;
 }
 
 // PreviewProductCard is ProductCard wired to the preview cart and sample highlights.

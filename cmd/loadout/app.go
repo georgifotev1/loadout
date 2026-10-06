@@ -11,6 +11,7 @@ import (
 	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
+	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/specs"
@@ -24,6 +25,7 @@ type application struct {
 	catalog      *catalog.Service
 	specs        *specs.Service
 	configurator *configurator.Service
+	orders       *orders.Service
 	jobs         *jobs.Client
 	shuttingDown atomic.Bool
 }

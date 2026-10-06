@@ -15,8 +15,8 @@ import {
 	ShieldCheck,
 	Truck,
 } from "lucide-react";
+import { CartProductCard } from "#/components/cart/cart-product-card";
 import { Price } from "#/components/product/price";
-import { ProductCard } from "#/components/product/product-card";
 import { ProductImage } from "#/components/product/product-image";
 import { Container } from "#/components/site/container";
 import { Button } from "#/components/ui/button";
@@ -279,7 +279,7 @@ function ProductRow({
 			</div>
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 				{products.map((p) => (
-					<ProductCard key={p.slug} product={p} />
+					<CartProductCard key={p.slug} product={p} />
 				))}
 			</div>
 		</Container>

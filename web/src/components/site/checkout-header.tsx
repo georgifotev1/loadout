@@ -6,13 +6,12 @@ import { Logo } from "./logo";
 
 // CheckoutHeader replaces the site header during checkout: no search or category links to
 // pull shoppers away, only the way back to the cart and a reassurance that it's secure.
-// TODO(phase-4): real cart route.
 export function CheckoutHeader() {
 	return (
 		<header className="border-b bg-card">
 			<Container className="relative flex h-header items-center justify-between">
 				<Link
-					to="/preview/cart"
+					to="/cart"
 					className="flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
 				>
 					<ChevronLeft className="size-4" />

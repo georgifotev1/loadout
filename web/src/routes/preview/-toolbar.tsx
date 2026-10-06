@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 
 const pages = [
 	{ to: "/preview", label: "Tokens" },
-	{ to: "/preview/cart", label: "Cart" },
 	{ to: "/preview/checkout", label: "Checkout" },
 	{ to: "/preview/confirmation", label: "Done" },
 ] as const;

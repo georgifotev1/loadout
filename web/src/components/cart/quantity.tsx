@@ -6,12 +6,14 @@ export function Quantity({
 	value,
 	onChange,
 	max,
+	disabled,
 	size = "sm",
 	className,
 }: {
 	value: number;
 	onChange: (value: number) => void;
 	max?: number;
+	disabled?: boolean;
 	size?: "sm" | "lg";
 	className?: string;
 }) {
@@ -30,7 +32,7 @@ export function Quantity({
 			<button
 				type="button"
 				aria-label={m.cart.decrease}
-				disabled={value <= 1}
+				disabled={disabled || value <= 1}
 				onClick={() => onChange(value - 1)}
 				className={button}
 			>
@@ -45,7 +47,7 @@ export function Quantity({
 			<button
 				type="button"
 				aria-label={m.cart.increase}
-				disabled={max !== undefined && value >= max}
+				disabled={disabled || (max !== undefined && value >= max)}
 				onClick={() => onChange(value + 1)}
 				className={button}
 			>

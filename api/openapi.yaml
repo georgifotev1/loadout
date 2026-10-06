@@ -229,6 +229,87 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Error" }
 
+  /cart:
+    get:
+      operationId: getCart
+      summary: The shopper's cart at today's prices
+      description: |
+        The cart of the `cart` cookie. Without the cookie, or with one whose cart is gone, it's an
+        empty cart; reading never creates one.
+      tags: [cart]
+      responses:
+        "200":
+          description: The cart
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /cart/lines:
+    post:
+      operationId: addToCart
+      summary: Add products to the cart
+      description: |
+        Adds each product on top of what the cart already has, all or none. Without a cart it
+        starts one and sets the `cart` cookie (HttpOnly, 30 days, renewed on every change).
+        Field errors name `lines[i].slug` (`unavailable`: not for sale; `out_of_stock`) or
+        `lines[i].quantity` (`out_of_range`; `too_many`: over 10 of one product with what's in
+        the cart), or `lines` (`too_many`: over 50 products in the cart).
+      tags: [cart]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CartAdd" }
+      responses:
+        "200":
+          description: The cart after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /cart/lines/{product_id}:
+    parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: setCartQuantity
+      summary: Change how many of a product the cart holds
+      tags: [cart]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CartQuantity" }
+      responses:
+        "200":
+          description: The cart after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: removeFromCart
+      summary: Take a product out of the cart
+      description: Removing a product that isn't in the cart isn't an error.
+      tags: [cart]
+      responses:
+        "200":
+          description: The cart after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
   /auth/login:
     post:
       operationId: login
@@ -1171,6 +1252,63 @@ components:
           type: array
           description: One entry per product whose price changed since it was saved. Empty right after saving.
           items: { $ref: "#/components/schemas/PriceChange" }
+
+    Cart:
+      type: object
+      required: [lines, count, subtotal]
+      properties:
+        lines:
+          type: array
+          description: The last added first.
+          items: { $ref: "#/components/schemas/CartLine" }
+        count:
+          type: integer
+          description: Units over all lines, for the header badge.
+        subtotal:
+          $ref: "#/components/schemas/Price"
+          description: The lines still for sale, at today's prices. Delivery comes at checkout.
+
+    CartLine:
+      type: object
+      required: [product_id, slug, name, quantity]
+      properties:
+        product_id: { type: string, format: uuid }
+        slug:
+          type: string
+          description: The product's slug now, or as it was added if it's no longer for sale.
+        name: { type: string }
+        quantity: { type: integer, minimum: 1, maximum: 10 }
+        product:
+          description: |
+            The product as it's sold now. Absent when it's no longer for sale: the line stays so
+            the shopper sees what happened, but it isn't in the subtotal and can't be ordered.
+          x-go-type-skip-optional-pointer: false
+          allOf: [{ $ref: "#/components/schemas/ProductSummary" }]
+        line_total:
+          description: The price now × quantity. Absent when the product is no longer for sale.
+          x-go-type-skip-optional-pointer: false
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+
+    CartAdd:
+      type: object
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            required: [slug, quantity]
+            properties:
+              slug: { type: string }
+              quantity: { type: integer, minimum: 1, maximum: 10 }
+
+    CartQuantity:
+      type: object
+      required: [quantity]
+      properties:
+        quantity: { type: integer, minimum: 1, maximum: 10 }
 
     LoginRequest:
       type: object

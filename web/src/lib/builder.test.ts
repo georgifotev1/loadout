@@ -3,6 +3,7 @@ import {
 	type BuildCheck,
 	type BuildPart,
 	buildStatus,
+	cartLinesOf,
 	type Finding,
 	findingText,
 	groupSlugs,
@@ -281,5 +282,20 @@ describe("selectionOf", () => {
 				}),
 			),
 		).toEqual({ cpu: "c", ram: ["r", "r"], storage: ["gone"] });
+	});
+});
+
+describe("cartLinesOf", () => {
+	it("counts a part bought twice", () => {
+		expect(
+			cartLinesOf(
+				check({
+					parts: [part("cpu", "c"), part("ram", "r"), part("ram", "r")],
+				}),
+			),
+		).toEqual([
+			{ slug: "c", quantity: 1 },
+			{ slug: "r", quantity: 2 },
+		]);
 	});
 });

@@ -16,6 +16,7 @@ import (
 	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
+	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/jobs"
@@ -129,6 +130,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			catalog:      catalogSvc,
 			specs:        specsSvc,
 			configurator: configurator.NewService(pool, catalogSvc, specsSvc),
+			orders:       orders.NewService(pool, catalogSvc),
 			jobs:         jobsClient,
 		}
 		return app.serve(ctx)

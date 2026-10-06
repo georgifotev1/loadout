@@ -1,7 +1,8 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { RotateCcw, Share2, ShoppingCart } from "lucide-react";
+import { RotateCcw, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AddBuildToCart } from "#/components/builder/add-to-cart";
 import { BuildSummary } from "#/components/builder/build-summary";
 import { SeverityIcon } from "#/components/builder/finding-note";
 import {
@@ -25,6 +26,7 @@ import { ApiError } from "#/lib/api/client";
 import {
 	type BuildSearch,
 	buildStatus,
+	canOrder,
 	hasPowerParts,
 	isEmptyBuild,
 	parseBuildSearch,
@@ -127,10 +129,7 @@ function BuilderPage() {
 	};
 
 	const empty = isEmptyBuild(build);
-	const canOrder =
-		status.missing.length === 0 &&
-		status.errors === 0 &&
-		!check.unavailable.length;
+	const orderable = canOrder(check, status);
 
 	return (
 		<Container className="pt-6 pb-28 lg:pb-0">
@@ -195,15 +194,7 @@ function BuilderPage() {
 					className="scroll-mt-[calc(var(--spacing-header)+2.5rem+1rem)] lg:sticky lg:top-[calc(var(--spacing-header)+2.5rem+1.5rem)] lg:self-start"
 				>
 					<BuildSummary check={check} status={status}>
-						<Button size="lg" className="h-11 w-full" disabled>
-							<ShoppingCart /> {m.builder.summary.addToCart}
-						</Button>
-						<p className="mt-2 text-center text-subtle-foreground text-xs">
-							{/* TODO(phase-7): add the build to the cart. */}
-							{canOrder
-								? m.builder.summary.cartSoon
-								: m.builder.summary.fixFirst}
-						</p>
+						<AddBuildToCart check={check} orderable={orderable} />
 					</BuildSummary>
 				</aside>
 			</div>

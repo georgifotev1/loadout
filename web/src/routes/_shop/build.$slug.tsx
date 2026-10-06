@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { Pencil, ShoppingCart, TriangleAlert } from "lucide-react";
+import { Pencil, TriangleAlert } from "lucide-react";
+import { AddBuildToCart } from "#/components/builder/add-to-cart";
 import { BuildSummary } from "#/components/builder/build-summary";
 import { BuildSlots } from "#/components/builder/slot-row";
 import { Container } from "#/components/site/container";
@@ -11,7 +12,7 @@ import { Button } from "#/components/ui/button";
 import { formatPrice, formatShortDate, m } from "#/i18n";
 import { savedBuildQuery } from "#/lib/api/builder";
 import { ApiError, type Schemas } from "#/lib/api/client";
-import { buildStatus, selectionOf } from "#/lib/builder";
+import { buildStatus, canOrder, selectionOf } from "#/lib/builder";
 
 // /build/{slug}: a saved build as its share link shows it, checked again at today's parts and
 // prices. Read-only; "edit" opens it in the builder.
@@ -89,13 +90,7 @@ function SavedBuildPage() {
 				<BuildSlots check={check} status={status} />
 				<aside className="lg:sticky lg:top-[calc(var(--spacing-header)+2.5rem+1.5rem)] lg:self-start">
 					<BuildSummary check={check} status={status}>
-						{/* TODO(phase-7): add the build to the cart. */}
-						<Button size="lg" className="h-11 w-full" disabled>
-							<ShoppingCart /> {m.builder.summary.addToCart}
-						</Button>
-						<p className="mt-2 text-center text-subtle-foreground text-xs">
-							{m.builder.summary.cartSoon}
-						</p>
+						<AddBuildToCart check={check} orderable={canOrder(check, status)} />
 					</BuildSummary>
 				</aside>
 			</div>

@@ -1,12 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import {
-	ChevronRight,
-	Menu,
-	ShoppingCart,
-	User,
-	Wrench,
-	X,
-} from "lucide-react";
+import { ChevronRight, Menu, ShoppingCart, Wrench, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "#/components/ui/button";
 import {
@@ -26,8 +19,9 @@ import { cn } from "#/lib/utils";
 import { Container } from "./container";
 import { Logo } from "./logo";
 
-// SiteHeader is the storefront header. The account and cart buttons only show with
-// onCartClick: the real cart arrives with checkout.
+// SiteHeader is the storefront header. The cart button only shows with onCartClick (not in
+// checkout).
+// TODO(phase-7): an account button, with customer accounts.
 export function SiteHeader({
 	search,
 	cartCount = 0,
@@ -59,9 +53,6 @@ export function SiteHeader({
 
 				{onCartClick ? (
 					<div className="ml-auto flex items-center gap-0.5">
-						<Button variant="ghost" size="icon" aria-label={m.nav.account}>
-							<User />
-						</Button>
 						<Button
 							variant="ghost"
 							className="-mr-2 gap-3 px-2.5 md:mr-0"

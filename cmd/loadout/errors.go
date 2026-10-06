@@ -10,6 +10,7 @@ import (
 	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
+	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/platform/validate"
 	"github.com/gfotev/loadout/internal/specs"
@@ -33,7 +34,7 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 	case errors.As(err, &validationErr):
 		app.writeValidation(w, r, validationErr)
 	case errors.Is(err, catalog.ErrNotFound), errors.Is(err, specs.ErrNotFound), errors.Is(err, configurator.ErrNotFound),
-		errors.Is(err, jobs.ErrNotDiscarded):
+		errors.Is(err, orders.ErrNotFound), errors.Is(err, jobs.ErrNotDiscarded):
 		app.writeError(w, r, http.StatusNotFound, ErrorCodeNotFound, "resource not found")
 	case errors.Is(err, catalog.ErrEditConflict):
 		app.writeError(w, r, http.StatusConflict, ErrorCodeEditConflict, "changed since it was loaded")

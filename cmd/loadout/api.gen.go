@@ -657,6 +657,47 @@ type BuilderOptions struct {
 	Slot Slot `json:"slot"`
 }
 
+// Cart defines model for Cart.
+type Cart struct {
+	// Count Units over all lines, for the header badge.
+	Count int `json:"count"`
+
+	// Lines The last added first.
+	Lines []CartLine `json:"lines"`
+
+	// Subtotal A retail price. The web app formats it; it never does price math.
+	Subtotal Price `json:"subtotal"`
+}
+
+// CartAdd defines model for CartAdd.
+type CartAdd struct {
+	Lines []struct {
+		Quantity int    `json:"quantity"`
+		Slug     string `json:"slug"`
+	} `json:"lines"`
+}
+
+// CartLine defines model for CartLine.
+type CartLine struct {
+	// LineTotal The price now × quantity. Absent when the product is no longer for sale.
+	LineTotal *Price `json:"line_total,omitempty"`
+	Name      string `json:"name"`
+
+	// Product The product as it's sold now. Absent when it's no longer for sale: the line stays so
+	// the shopper sees what happened, but it isn't in the subtotal and can't be ordered.
+	Product   *ProductSummary    `json:"product,omitempty"`
+	ProductId openapi_types.UUID `json:"product_id"`
+	Quantity  int                `json:"quantity"`
+
+	// Slug The product's slug now, or as it was added if it's no longer for sale.
+	Slug string `json:"slug"`
+}
+
+// CartQuantity defines model for CartQuantity.
+type CartQuantity struct {
+	Quantity int `json:"quantity"`
+}
+
 // Category A canonical product category.
 type Category string
 
@@ -1443,6 +1484,12 @@ type VerifyTotpJSONRequestBody = CodeRequest
 // SaveBuildJSONRequestBody defines body for SaveBuild for application/json ContentType.
 type SaveBuildJSONRequestBody = BuildSelection
 
+// AddToCartJSONRequestBody defines body for AddToCart for application/json ContentType.
+type AddToCartJSONRequestBody = CartAdd
+
+// SetCartQuantityJSONRequestBody defines body for SetCartQuantity for application/json ContentType.
+type SetCartQuantityJSONRequestBody = CartQuantity
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListDiscardedJobs Background jobs that failed every attempt, newest first
@@ -1520,6 +1567,18 @@ type ServerInterface interface {
 	// GetBuild A saved PC build, checked again at today's parts and prices
 	// (GET /builds/{slug})
 	GetBuild(w http.ResponseWriter, r *http.Request, slug string)
+	// GetCart The shopper's cart at today's prices
+	// (GET /cart)
+	GetCart(w http.ResponseWriter, r *http.Request)
+	// AddToCart Add products to the cart
+	// (POST /cart/lines)
+	AddToCart(w http.ResponseWriter, r *http.Request)
+	// RemoveFromCart Take a product out of the cart
+	// (DELETE /cart/lines/{product_id})
+	RemoveFromCart(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID)
+	// SetCartQuantity Change how many of a product the cart holds
+	// (PUT /cart/lines/{product_id})
+	SetCartQuantity(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID)
 	// GetHealth Health summary
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -1685,6 +1744,30 @@ func (_ Unimplemented) SaveBuild(w http.ResponseWriter, r *http.Request) {
 // GetBuild A saved PC build, checked again at today's parts and prices
 // (GET /builds/{slug})
 func (_ Unimplemented) GetBuild(w http.ResponseWriter, r *http.Request, slug string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetCart The shopper's cart at today's prices
+// (GET /cart)
+func (_ Unimplemented) GetCart(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AddToCart Add products to the cart
+// (POST /cart/lines)
+func (_ Unimplemented) AddToCart(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RemoveFromCart Take a product out of the cart
+// (DELETE /cart/lines/{product_id})
+func (_ Unimplemented) RemoveFromCart(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetCartQuantity Change how many of a product the cart holds
+// (PUT /cart/lines/{product_id})
+func (_ Unimplemented) SetCartQuantity(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2555,6 +2638,86 @@ func (siw *ServerInterfaceWrapper) GetBuild(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// GetCart operation middleware
+func (siw *ServerInterfaceWrapper) GetCart(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCart(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddToCart operation middleware
+func (siw *ServerInterfaceWrapper) AddToCart(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddToCart(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveFromCart operation middleware
+func (siw *ServerInterfaceWrapper) RemoveFromCart(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "product_id" -------------
+	var productId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "product_id", chi.URLParam(r, "product_id"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "product_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveFromCart(w, r, productId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetCartQuantity operation middleware
+func (siw *ServerInterfaceWrapper) SetCartQuantity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "product_id" -------------
+	var productId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "product_id", chi.URLParam(r, "product_id"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "product_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetCartQuantity(w, r, productId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -2927,6 +3090,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/builds/{slug}", wrapper.GetBuild)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/cart", wrapper.GetCart)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/cart/lines", wrapper.AddToCart)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/cart/lines/{product_id}", wrapper.RemoveFromCart)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/cart/lines/{product_id}", wrapper.SetCartQuantity)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
