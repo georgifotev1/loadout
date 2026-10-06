@@ -10,11 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ShopRouteImport } from './routes/_shop'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as PreviewRouteRouteImport } from './routes/preview/route'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShopIndexRouteImport } from './routes/_shop/index'
 import { Route as ShopBuilderRouteImport } from './routes/_shop/builder'
+import { Route as ShopLoginRouteImport } from './routes/_shop/login'
 import { Route as ShopSearchRouteImport } from './routes/_shop/search'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PreviewIndexRouteImport } from './routes/preview/index'
 import { Route as PreviewCartRouteImport } from './routes/preview/cart'
 import { Route as PreviewCheckoutRouteImport } from './routes/preview/checkout'
@@ -25,6 +28,11 @@ import { Route as ShopPSlugRouteImport } from './routes/_shop/p.$slug'
 
 const ShopRoute = ShopRouteImport.update({
   id: '/_shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PreviewRouteRoute = PreviewRouteRouteImport.update({
@@ -47,10 +55,20 @@ const ShopBuilderRoute = ShopBuilderRouteImport.update({
   path: '/builder',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopLoginRoute = ShopLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopSearchRoute = ShopSearchRouteImport.update({
   id: '/search',
   path: '/search',
   getParentRoute: () => ShopRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const PreviewIndexRoute = PreviewIndexRouteImport.update({
   id: '/',
@@ -89,14 +107,17 @@ const ShopPSlugRoute = ShopPSlugRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/admin': typeof AdminRouteRouteWithChildren
   '/preview': typeof PreviewRouteRouteWithChildren
   '/': typeof ShopIndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/builder': typeof ShopBuilderRoute
+  '/login': typeof ShopLoginRoute
   '/search': typeof ShopSearchRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
+  '/admin/': typeof AdminIndexRoute
   '/preview/': typeof PreviewIndexRoute
   '/build/$slug': typeof ShopBuildSlugRoute
   '/c/$category': typeof ShopCCategoryRoute
@@ -105,11 +126,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/builder': typeof ShopBuilderRoute
+  '/login': typeof ShopLoginRoute
   '/search': typeof ShopSearchRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
   '/': typeof ShopIndexRoute
+  '/admin': typeof AdminIndexRoute
   '/preview': typeof PreviewIndexRoute
   '/build/$slug': typeof ShopBuildSlugRoute
   '/c/$category': typeof ShopCCategoryRoute
@@ -117,15 +140,18 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/admin': typeof AdminRouteRouteWithChildren
   '/preview': typeof PreviewRouteRouteWithChildren
   '/_shop': typeof ShopRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_shop/builder': typeof ShopBuilderRoute
+  '/_shop/login': typeof ShopLoginRoute
   '/_shop/search': typeof ShopSearchRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
   '/_shop/': typeof ShopIndexRoute
+  '/admin/': typeof AdminIndexRoute
   '/preview/': typeof PreviewIndexRoute
   '/_shop/build/$slug': typeof ShopBuildSlugRoute
   '/_shop/c/$category': typeof ShopCCategoryRoute
@@ -134,14 +160,17 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/admin'
     | '/preview'
     | '/'
     | '/sitemap.xml'
     | '/builder'
+    | '/login'
     | '/search'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
+    | '/admin/'
     | '/preview/'
     | '/build/$slug'
     | '/c/$category'
@@ -150,26 +179,31 @@ export interface FileRouteTypes {
   to:
     | '/sitemap.xml'
     | '/builder'
+    | '/login'
     | '/search'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
     | '/'
+    | '/admin'
     | '/preview'
     | '/build/$slug'
     | '/c/$category'
     | '/p/$slug'
   id:
     | '__root__'
+    | '/admin'
     | '/preview'
     | '/_shop'
     | '/sitemap.xml'
     | '/_shop/builder'
+    | '/_shop/login'
     | '/_shop/search'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
     | '/_shop/'
+    | '/admin/'
     | '/preview/'
     | '/_shop/build/$slug'
     | '/_shop/c/$category'
@@ -177,6 +211,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   PreviewRouteRoute: typeof PreviewRouteRouteWithChildren
   ShopRoute: typeof ShopRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -189,6 +224,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/preview': {
@@ -219,12 +261,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopBuilderRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/login': {
+      id: '/_shop/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof ShopLoginRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/search': {
       id: '/_shop/search'
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof ShopSearchRouteImport
       parentRoute: typeof ShopRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/preview/': {
       id: '/preview/'
@@ -278,6 +334,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
 interface PreviewRouteRouteChildren {
   PreviewCartRoute: typeof PreviewCartRoute
   PreviewCheckoutRoute: typeof PreviewCheckoutRoute
@@ -298,6 +366,7 @@ const PreviewRouteRouteWithChildren = PreviewRouteRoute._addFileChildren(
 
 interface ShopRouteChildren {
   ShopBuilderRoute: typeof ShopBuilderRoute
+  ShopLoginRoute: typeof ShopLoginRoute
   ShopSearchRoute: typeof ShopSearchRoute
   ShopIndexRoute: typeof ShopIndexRoute
   ShopBuildSlugRoute: typeof ShopBuildSlugRoute
@@ -307,6 +376,7 @@ interface ShopRouteChildren {
 
 const ShopRouteChildren: ShopRouteChildren = {
   ShopBuilderRoute: ShopBuilderRoute,
+  ShopLoginRoute: ShopLoginRoute,
   ShopSearchRoute: ShopSearchRoute,
   ShopIndexRoute: ShopIndexRoute,
   ShopBuildSlugRoute: ShopBuildSlugRoute,
@@ -317,6 +387,7 @@ const ShopRouteChildren: ShopRouteChildren = {
 const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   PreviewRouteRoute: PreviewRouteRouteWithChildren,
   ShopRoute: ShopRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

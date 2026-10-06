@@ -435,6 +435,82 @@ export const bg = {
 		stepDeliveredDetail: "До 2 работни дни",
 		backToShop: "Обратно към магазина",
 	},
+	auth: {
+		login: {
+			title: "Вход",
+			email: "Имейл",
+			password: "Парола",
+			submit: "Вход",
+			submitting: "Влизане…",
+		},
+		errors: {
+			invalidCredentials: "Грешен имейл или парола.",
+			invalidCode: "Грешен или вече използван код.",
+			tooManyAttempts: (seconds?: number) =>
+				seconds
+					? `Твърде много опити. Опитайте отново след ${waitFor(seconds)}.`
+					: "Твърде много опити. Опитайте отново по-късно.",
+			sessionExpired: "Сесията изтече. Влезте отново.",
+			generic: "Нещо се обърка. Опитайте отново след малко.",
+		},
+		otherAccount: "Влезте с друг профил",
+		setup: {
+			title: "Настройте двуфакторно влизане",
+			lead: "Администраторските профили искат при всяко влизане и код от приложение за удостоверяване. Така само паролата не стига, ако изтече.",
+			installTitle: "Инсталирайте приложение за удостоверяване",
+			installDetail:
+				"Например Google Authenticator, Microsoft Authenticator, 1Password или Bitwarden. Ако вече имате такова, продължете.",
+			scanTitle: "Сканирайте QR кода",
+			scanDetail:
+				"В приложението изберете добавяне на профил и насочете камерата към кода.",
+			qrLabel: "QR код за приложението за удостоверяване",
+			loading: "Създаване на ключ…",
+			manualToggle: "Не можете да сканирате? Въведете ключа ръчно",
+			manualDetail:
+				"Изберете ръчно въвеждане, вид „базиран на време“ и въведете този ключ:",
+			codeTitle: "Въведете кода от приложението",
+			codeDetail:
+				"Приложението показва 6 цифри, които се сменят на всеки 30 секунди.",
+			code: "Код",
+			submit: "Включи",
+			submitting: "Проверка…",
+		},
+		recovery: {
+			title: "Запазете кодовете за възстановяване",
+			lead: "Ако загубите телефона си, всеки от тези кодове ви пуска веднъж вместо код от приложението. Показваме ги само сега.",
+			listLabel: "Кодове за възстановяване",
+			copy: "Копирай",
+			copied: "Копирано",
+			download: "Изтегли",
+			fileName: "loadout-recovery-codes.txt",
+			saved: "Запазих кодовете на сигурно място",
+			continue: "Продължи",
+		},
+		verify: {
+			title: "Въведете код за потвърждение",
+			lead: "Отворете приложението за удостоверяване и въведете 6-цифрения код за Loadout.",
+			code: "Код",
+			recoveryLead:
+				"Въведете един от кодовете за възстановяване, които запазихте при настройката. Всеки работи веднъж.",
+			recoveryCode: "Код за възстановяване",
+			useRecovery: "Използвайте код за възстановяване",
+			useApp: "Използвайте код от приложението",
+			submit: "Потвърди",
+			submitting: "Проверка…",
+		},
+	},
+	admin: {
+		title: "Администрация",
+		badge: "Админ",
+		nav: {
+			dashboard: "Начало",
+		},
+		logout: "Изход",
+		dashboard: {
+			title: "Начало",
+			lead: "Тук ще се появят синхронизацията, поръчките и задачите за преглед.",
+		},
+	},
 	footer: {
 		shop: "Магазин",
 		help: "Помощ",
@@ -448,3 +524,11 @@ export const bg = {
 		rights: (year: number) => `© ${year} Loadout. Всички права запазени.`,
 	},
 };
+
+// waitFor reads a Retry-After wait, e.g. 30 → "30 секунди", 120 → "2 минути".
+function waitFor(seconds: number): string {
+	if (seconds < 60)
+		return `${seconds} ${plural(seconds, { one: "секунда", other: "секунди" })}`;
+	const minutes = Math.ceil(seconds / 60);
+	return `${minutes} ${plural(minutes, { one: "минута", other: "минути" })}`;
+}

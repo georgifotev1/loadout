@@ -1,3 +1,5 @@
+import { createIsomorphicFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import createClient from "openapi-fetch";
 import { apiInternalUrl } from "./internal-url";
 import type { components, paths } from "./schema.gen";
@@ -16,10 +18,23 @@ export function apiBaseUrl(isServer = typeof window === "undefined"): string {
 	return isServer ? new URL("/api", apiInternalUrl()).toString() : "/api";
 }
 
-// TODO(phase-6): forward the incoming request's cookie during SSR once there are sessions.
 export const api = createClient<paths>({
 	baseUrl: apiBaseUrl(),
 	headers: { Accept: "application/json" },
+});
+
+// During SSR the API call comes from this server, not the browser, so it would go out without
+// the session cookie. Pass on the cookie of the page request being rendered. In the browser the
+// build drops the server branch, and fetch sends the cookie itself (same origin).
+const incomingCookie = createIsomorphicFn()
+	.server(() => getRequestHeader("cookie"))
+	.client(() => undefined);
+
+api.use({
+	onRequest({ request }) {
+		const cookie = incomingCookie();
+		if (cookie) request.headers.set("cookie", cookie);
+	},
 });
 
 /**
@@ -33,6 +48,8 @@ export class ApiError extends Error {
 		message: string,
 		readonly fields: FieldError[] = [],
 		readonly requestId?: string,
+		/** Seconds until another try is allowed, from Retry-After on a 429. */
+		readonly retryAfter?: number,
 	) {
 		super(message);
 		this.name = "ApiError";
@@ -48,6 +65,7 @@ export function toApiError(res: Response, body: unknown): ApiError {
 		detail?.message ?? res.statusText,
 		detail?.fields,
 		res.headers.get("X-Request-Id") ?? undefined,
+		Number(res.headers.get("Retry-After")) || undefined,
 	);
 }
 

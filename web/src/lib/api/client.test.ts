@@ -47,6 +47,18 @@ describe("toApiError", () => {
 		expect(err.message).toBe("Bad Gateway");
 		expect(err.fields).toEqual([]);
 	});
+
+	it("reads Retry-After on a 429", () => {
+		const res = new Response(null, {
+			status: 429,
+			headers: { "Retry-After": "30" },
+		});
+		const err = toApiError(res, { error: { code: "too_many_attempts" } });
+		expect(err.retryAfter).toBe(30);
+		expect(toApiError(new Response(null, { status: 401 }), {}).retryAfter).toBe(
+			undefined,
+		);
+	});
 });
 
 describe("unwrap", () => {

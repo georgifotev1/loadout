@@ -1,0 +1,60 @@
+import { hashKey, type QueryClient, queryOptions } from "@tanstack/react-query";
+import { ApiError, api, type Schemas, unwrap } from "./client";
+
+export type Me = Schemas["Me"];
+
+/** The logged-in user, or null without a session. */
+export const meQuery = queryOptions({
+	queryKey: ["auth", "me"],
+	queryFn: async ({ signal }): Promise<Me | null> => {
+		try {
+			return unwrap(await api.GET("/auth/me", { signal }));
+		} catch (err) {
+			if (err instanceof ApiError && err.status === 401) return null;
+			throw err;
+		}
+	},
+});
+
+const meQueryHash = hashKey(meQuery.queryKey);
+
+/** Whether the session is done logging in: no second factor left to enter or set up. */
+export function signedIn(me: Me | null): me is Me {
+	return (
+		me !== null &&
+		(me.second_factor === "verified" || me.second_factor === "not_required")
+	);
+}
+
+export async function login(body: Schemas["LoginRequest"]) {
+	return unwrap(await api.POST("/auth/login", { body }));
+}
+
+export async function logout(queryClient: QueryClient) {
+	const { response } = await api.POST("/auth/logout");
+	if (!response.ok) throw new ApiError(response.status, "http_error", "");
+	queryClient.setQueryData(meQuery.queryKey, null);
+	// Anything else cached may have been the logged-in user's.
+	queryClient.removeQueries({
+		predicate: (q) => q.queryHash !== meQueryHash,
+	});
+}
+
+// Each call makes a new secret and replaces the unconfirmed one, so this is a query: it runs once
+// per setup screen, not again on a re-render or a second mount in StrictMode.
+export const totpEnrollQuery = queryOptions({
+	queryKey: ["auth", "totp", "enroll"],
+	queryFn: async () => unwrap(await api.POST("/auth/totp/enroll")),
+	staleTime: Number.POSITIVE_INFINITY,
+	gcTime: 0,
+	retry: false,
+	refetchOnWindowFocus: false,
+});
+
+export async function confirmTotp(code: string) {
+	return unwrap(await api.POST("/auth/totp/confirm", { body: { code } }));
+}
+
+export async function verifyTotp(code: string) {
+	return unwrap(await api.POST("/auth/totp/verify", { body: { code } }));
+}
