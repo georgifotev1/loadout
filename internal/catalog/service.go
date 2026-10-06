@@ -110,6 +110,12 @@ func (s *Service) ProductIDsBySKU(ctx context.Context, provider string, skus []s
 	return s.store.productIDsBySKU(ctx, s.pool, provider, skus)
 }
 
+// ProductByID returns a product as stored, active or not, for admins. An unknown ID is
+// ErrNotFound.
+func (s *Service) ProductByID(ctx context.Context, id uuid.UUID) (Product, error) {
+	return s.store.productByID(ctx, s.pool, id)
+}
+
 // Product returns the product page data for slug, with its canonical specs. Inactive or
 // unpriced products are ErrNotFound, the same as a slug that doesn't exist.
 func (s *Service) Product(ctx context.Context, slug string) (ProductDetail, error) {

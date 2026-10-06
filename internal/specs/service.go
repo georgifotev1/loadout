@@ -3,6 +3,7 @@ package specs
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/google/uuid"
@@ -14,7 +15,6 @@ import (
 )
 
 // Service is the specs module's public API.
-// TODO(phase-6): ClearField for admins, used by the review queue UI with SetFields.
 type Service struct {
 	pool  *pgxpool.Pool
 	store store
@@ -35,6 +35,9 @@ func (s *Service) SaveTx(ctx context.Context, tx pgx.Tx, in Input) (Status, erro
 	if !ok {
 		return "", s.store.deleteProduct(ctx, tx, in.ProductID)
 	}
+	// A nil value means the adapter doesn't know it: the same as leaving it out.
+	in.Values = maps.Clone(in.Values)
+	maps.DeleteFunc(in.Values, func(_ string, v any) bool { return v == nil })
 	if err := sc.validate(in.Values); err != nil {
 		return "", fmt.Errorf("%w: product %s: %v", ErrInvalidValue, in.ProductID, err)
 	}
@@ -49,26 +52,54 @@ func (s *Service) SaveTx(ctx context.Context, tx pgx.Tx, in Input) (Status, erro
 }
 
 // SetFields stores admin values for some of a product's fields and recomputes its effective
-// specs. Admin values win over the supplier's and survive syncs; fields not in values keep
-// theirs. A product without specs (a peripheral, or not synced yet) is ErrNotFound, and a
-// value that doesn't fit its field is ErrInvalidValue.
+// specs. Admin values win over the supplier's and survive syncs; a nil value removes the admin's
+// value, so the supplier's (if any) counts again. Fields not in values keep theirs.
+//
+// A product without specs (a peripheral, or not synced yet) is ErrNotFound. An unknown field or a
+// value that doesn't fit its field is a *validate.Error naming the field, and nothing is stored.
 func (s *Service) SetFields(ctx context.Context, productID uuid.UUID, values map[string]any) (Status, error) {
+	set := maps.Clone(values)
+	var cleared []string
+	for field, v := range values {
+		if v == nil {
+			cleared = append(cleared, field)
+			delete(set, field)
+		}
+	}
+
 	var status Status
 	err := db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
 		category, err := s.store.lockProduct(ctx, tx, productID)
 		if err != nil {
 			return err
 		}
-		if err := schemas[category].validate(values); err != nil {
-			return fmt.Errorf("%w: product %s: %v", ErrInvalidValue, productID, err)
+		if err := schemas[category].checkAdmin(values); err != nil {
+			return err
 		}
-		if err := s.store.upsertFields(ctx, tx, productID, SourceAdmin, values); err != nil {
+		if err := s.store.deleteFields(ctx, tx, productID, SourceAdmin, cleared); err != nil {
+			return err
+		}
+		if err := s.store.upsertFields(ctx, tx, productID, SourceAdmin, set); err != nil {
 			return err
 		}
 		status, err = s.recompute(ctx, tx, productID, category)
 		return err
 	})
 	return status, err
+}
+
+// Fields returns a product's specs with each of its category's fields: the supplier's value, the
+// admin's and the effective one. A product without specs is ErrNotFound.
+func (s *Service) Fields(ctx context.Context, productID uuid.UUID) (ProductFields, error) {
+	ps, err := s.store.productSpecs(ctx, s.pool, productID)
+	if err != nil {
+		return ProductFields{}, err
+	}
+	rows, err := s.store.fields(ctx, s.pool, productID)
+	if err != nil {
+		return ProductFields{}, err
+	}
+	return fieldsOf(ps, rows), nil
 }
 
 // recompute resolves a product's field values into its effective specs and stores them.

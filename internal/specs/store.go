@@ -94,6 +94,24 @@ func (store) upsertFields(ctx context.Context, q db.DBTX, productID uuid.UUID, s
 	return nil
 }
 
+// deleteFields removes one source's values for the given fields.
+func (store) deleteFields(ctx context.Context, q db.DBTX, productID uuid.UUID, src Source, fields []string) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	query := `DELETE FROM specs.spec_fields WHERE product_id = $1 AND source = $2 AND field = ANY($3::text[])`
+
+	args := []any{
+		productID,
+		src,
+		fields,
+	}
+	if _, err := q.Exec(ctx, query, args...); err != nil {
+		return fmt.Errorf("specs: delete %s fields of %s: %w", src, productID, err)
+	}
+	return nil
+}
+
 // lockProduct returns a product's category and locks its product_specs row until the
 // transaction ends, so a sync can't recompute the specs halfway through an admin change.
 func (store) lockProduct(ctx context.Context, q db.DBTX, productID uuid.UUID) (string, error) {

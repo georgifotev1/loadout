@@ -25,6 +25,8 @@ import { Route as PreviewConfirmationRouteImport } from './routes/preview/confir
 import { Route as ShopBuildSlugRouteImport } from './routes/_shop/build.$slug'
 import { Route as ShopCCategoryRouteImport } from './routes/_shop/c.$category'
 import { Route as ShopPSlugRouteImport } from './routes/_shop/p.$slug'
+import { Route as AdminSpecsIndexRouteImport } from './routes/admin/specs/index'
+import { Route as AdminSpecsProductIdRouteImport } from './routes/admin/specs/$productId'
 
 const ShopRoute = ShopRouteImport.update({
   id: '/_shop',
@@ -105,6 +107,16 @@ const ShopPSlugRoute = ShopPSlugRouteImport.update({
   path: '/p/$slug',
   getParentRoute: () => ShopRoute,
 } as any)
+const AdminSpecsIndexRoute = AdminSpecsIndexRouteImport.update({
+  id: '/specs/',
+  path: '/specs/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSpecsProductIdRoute = AdminSpecsProductIdRouteImport.update({
+  id: '/specs/$productId',
+  path: '/specs/$productId',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
@@ -122,6 +134,8 @@ export interface FileRoutesByFullPath {
   '/build/$slug': typeof ShopBuildSlugRoute
   '/c/$category': typeof ShopCCategoryRoute
   '/p/$slug': typeof ShopPSlugRoute
+  '/admin/specs/$productId': typeof AdminSpecsProductIdRoute
+  '/admin/specs/': typeof AdminSpecsIndexRoute
 }
 export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -137,6 +151,8 @@ export interface FileRoutesByTo {
   '/build/$slug': typeof ShopBuildSlugRoute
   '/c/$category': typeof ShopCCategoryRoute
   '/p/$slug': typeof ShopPSlugRoute
+  '/admin/specs/$productId': typeof AdminSpecsProductIdRoute
+  '/admin/specs': typeof AdminSpecsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -156,6 +172,8 @@ export interface FileRoutesById {
   '/_shop/build/$slug': typeof ShopBuildSlugRoute
   '/_shop/c/$category': typeof ShopCCategoryRoute
   '/_shop/p/$slug': typeof ShopPSlugRoute
+  '/admin/specs/$productId': typeof AdminSpecsProductIdRoute
+  '/admin/specs/': typeof AdminSpecsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -175,6 +193,8 @@ export interface FileRouteTypes {
     | '/build/$slug'
     | '/c/$category'
     | '/p/$slug'
+    | '/admin/specs/$productId'
+    | '/admin/specs/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sitemap.xml'
@@ -190,6 +210,8 @@ export interface FileRouteTypes {
     | '/build/$slug'
     | '/c/$category'
     | '/p/$slug'
+    | '/admin/specs/$productId'
+    | '/admin/specs'
   id:
     | '__root__'
     | '/admin'
@@ -208,6 +230,8 @@ export interface FileRouteTypes {
     | '/_shop/build/$slug'
     | '/_shop/c/$category'
     | '/_shop/p/$slug'
+    | '/admin/specs/$productId'
+    | '/admin/specs/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -331,15 +355,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopPSlugRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/admin/specs/': {
+      id: '/admin/specs/'
+      path: '/specs'
+      fullPath: '/admin/specs/'
+      preLoaderRoute: typeof AdminSpecsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/specs/$productId': {
+      id: '/admin/specs/$productId'
+      path: '/specs/$productId'
+      fullPath: '/admin/specs/$productId'
+      preLoaderRoute: typeof AdminSpecsProductIdRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
   }
 }
 
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminSpecsProductIdRoute: typeof AdminSpecsProductIdRoute
+  AdminSpecsIndexRoute: typeof AdminSpecsIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
+  AdminSpecsProductIdRoute: AdminSpecsProductIdRoute,
+  AdminSpecsIndexRoute: AdminSpecsIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(

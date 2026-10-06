@@ -17,8 +17,8 @@ import (
 var (
 	// ErrNotFound is returned when a product has no specs.
 	ErrNotFound = errors.New("specs: not found")
-	// ErrInvalidValue is returned when a value doesn't fit its canonical field: an unknown field
-	// name or the wrong type. From a supplier adapter, that's a bug in the adapter.
+	// ErrInvalidValue is returned when a supplier's value doesn't fit its canonical field: an
+	// unknown field name or the wrong type. That's a bug in the adapter.
 	ErrInvalidValue = errors.New("specs: invalid value")
 )
 
@@ -63,6 +63,23 @@ type ProductSpecs struct {
 	Status          Status
 	BuilderEligible bool
 	UpdatedAt       time.Time
+}
+
+// Field is one canonical field of a product with its values. A nil value means none. Value is
+// the effective one: the admin's, else the supplier's, else derived from other fields.
+type Field struct {
+	Name     string
+	Kind     Kind
+	Required bool // the builder needs it, given the product's other values
+	Supplier any
+	Admin    any
+	Value    any
+}
+
+// ProductFields is a product's specs with all of its category's fields, for the admin's editor.
+type ProductFields struct {
+	ProductSpecs
+	Fields []Field
 }
 
 // ReviewFilter selects review queue items.

@@ -1,42 +1,21 @@
 package main
 
 import (
+	"context"
 	"net/http"
-	"time"
 
-	"github.com/gfotev/loadout/internal/platform/validate"
+	"github.com/google/uuid"
+
 	"github.com/gfotev/loadout/internal/specs"
 )
 
-type reviewItemJSON struct {
-	ProductID   string         `json:"product_id"`
-	ProductName string         `json:"product_name"`
-	Category    string         `json:"category"`
-	Specs       map[string]any `json:"specs"`
-	Missing     []string       `json:"missing"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-}
-
-type reviewQueueJSON struct {
-	Items    []reviewItemJSON `json:"items"`
-	Page     int              `json:"page"`
-	PageSize int              `json:"page_size"`
-	Total    int              `json:"total"`
-}
-
-// GET /api/admin/specs/review-queue?category=&page=&page_size=
-func (app *application) specsReviewQueue(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	var v validate.Validator
-	page := queryInt(&v, q, "page", 1)
-	pageSize := queryInt(&v, q, "page_size", defaultPageSize)
-	if err := v.Err(); err != nil {
-		app.handleError(w, r, err)
-		return
-	}
+// ListSpecsReviewQueue handles GET /api/admin/specs/review-queue.
+func (app *application) ListSpecsReviewQueue(w http.ResponseWriter, r *http.Request, params ListSpecsReviewQueueParams) {
+	page := valueOr(params.Page, 1)
+	pageSize := valueOr(params.PageSize, defaultPageSize)
 
 	res, err := app.specs.ReviewQueue(r.Context(), specs.ReviewFilter{
-		Category: q.Get("category"),
+		Category: string(params.Category),
 		Page:     page,
 		PageSize: pageSize,
 	})
@@ -45,21 +24,106 @@ func (app *application) specsReviewQueue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp := reviewQueueJSON{
-		Items:    make([]reviewItemJSON, 0, len(res.Items)),
+	resp := ReviewQueue{
+		Items:    make([]ReviewItem, 0, len(res.Items)),
 		Page:     page,
 		PageSize: pageSize,
 		Total:    res.Total,
 	}
 	for _, it := range res.Items {
-		resp.Items = append(resp.Items, reviewItemJSON{
-			ProductID:   it.ProductID.String(),
+		resp.Items = append(resp.Items, ReviewItem{
+			ProductId:   it.ProductID,
 			ProductName: it.ProductName,
-			Category:    it.Category,
-			Specs:       it.Specs,
+			Category:    Category(it.Category),
 			Missing:     it.Missing,
 			UpdatedAt:   it.UpdatedAt,
 		})
 	}
 	app.writeJSON(w, r, http.StatusOK, resp)
+}
+
+// GetProductSpecs handles GET /api/admin/specs/{product_id}.
+func (app *application) GetProductSpecs(w http.ResponseWriter, r *http.Request, productID uuid.UUID) {
+	resp, err := app.productSpecs(r.Context(), productID)
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	app.writeJSON(w, r, http.StatusOK, resp)
+}
+
+// UpdateProductSpecs handles PATCH /api/admin/specs/{product_id}.
+func (app *application) UpdateProductSpecs(w http.ResponseWriter, r *http.Request, productID uuid.UUID) {
+	var in SpecsUpdate
+	if err := readJSON(w, r, &in); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	values := make(map[string]any, len(in.Values))
+	for field, v := range in.Values {
+		if v == nil {
+			values[field] = nil // JSON null: clear the admin value
+		} else {
+			values[field] = *v
+		}
+	}
+	if _, err := app.specs.SetFields(r.Context(), productID, values); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+
+	resp, err := app.productSpecs(r.Context(), productID)
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	app.writeJSON(w, r, http.StatusOK, resp)
+}
+
+// productSpecs joins a product's spec fields with the catalog's product, whose attributes the
+// admin reads values from.
+func (app *application) productSpecs(ctx context.Context, productID uuid.UUID) (ProductSpecs, error) {
+	pf, err := app.specs.Fields(ctx, productID)
+	if err != nil {
+		return ProductSpecs{}, err
+	}
+	p, err := app.catalog.ProductByID(ctx, productID)
+	if err != nil {
+		return ProductSpecs{}, err
+	}
+
+	resp := ProductSpecs{
+		ProductId:   p.ID,
+		ProductName: p.Name,
+		Slug:        p.Slug,
+		Sku:         p.ProviderSKU,
+		Brand:       p.Brand,
+		Category:    Category(pf.Category),
+		Active:      p.Active,
+		Attributes:  p.Attributes,
+		Status:      SpecStatus(pf.Status),
+		Missing:     pf.Missing,
+		Fields:      make([]SpecField, 0, len(pf.Fields)),
+		UpdatedAt:   pf.UpdatedAt,
+	}
+	if len(p.Images) > 0 {
+		resp.Image = p.Images[0]
+	}
+	if resp.Attributes == nil {
+		resp.Attributes = map[string]string{}
+	}
+	if resp.Missing == nil {
+		resp.Missing = []string{}
+	}
+	for _, f := range pf.Fields {
+		resp.Fields = append(resp.Fields, SpecField{
+			Name:     f.Name,
+			Kind:     SpecKind(f.Kind),
+			Required: f.Required,
+			Supplier: f.Supplier,
+			Admin:    f.Admin,
+			Value:    f.Value,
+		})
+	}
+	return resp, nil
 }

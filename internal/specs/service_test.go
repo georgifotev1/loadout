@@ -196,13 +196,73 @@ func TestSetFields(t *testing.T) {
 		id := uuid.New()
 		save(t, pool, svc, board(id))
 		_, err := svc.SetFields(ctx, id, map[string]any{"form_factor": "ITX", "memory_slots": "two"})
-		if !errors.Is(err, ErrInvalidValue) {
-			t.Fatalf("err = %v, want ErrInvalidValue", err)
+		var verr *validate.Error
+		if !errors.As(err, &verr) || len(verr.Fields) != 1 || verr.Fields[0] != (validate.FieldError{Field: "memory_slots", Code: "invalid_type"}) {
+			t.Fatalf("err = %v, want memory_slots: invalid_type", err)
 		}
 		if ps, _ := svc.Specs(ctx, id); ps.Status != StatusIncomplete {
 			t.Errorf("status %s, want incomplete", ps.Status)
 		}
 	})
+
+	t.Run("nil clears the admin value and the supplier's counts again", func(t *testing.T) {
+		id := uuid.New()
+		save(t, pool, svc, board(id))
+		if _, err := svc.SetFields(ctx, id, map[string]any{"socket": "AM5", "form_factor": "ITX"}); err != nil {
+			t.Fatal(err)
+		}
+		status, err := svc.SetFields(ctx, id, map[string]any{"socket": nil, "form_factor": nil})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ps, _ := svc.Specs(ctx, id)
+		if status != StatusIncomplete || ps.Specs["socket"] != "AM4" || !slices.Equal(ps.Missing, []string{"form_factor"}) {
+			t.Errorf("status %s, specs %+v", status, ps)
+		}
+		// The next sync doesn't bring the cleared values back.
+		save(t, pool, svc, board(id))
+		if ps, _ := svc.Specs(ctx, id); ps.Specs["socket"] != "AM4" {
+			t.Errorf("after sync %+v", ps.Specs)
+		}
+	})
+}
+
+func TestFields(t *testing.T) {
+	pool := dbtest.New(t)
+	svc := NewService(pool)
+	ctx := context.Background()
+
+	id := uuid.New()
+	in := board(id)
+	in.Values["max_memory_gb"] = nil // the adapter doesn't know it
+	save(t, pool, svc, in)
+	if _, err := svc.SetFields(ctx, id, map[string]any{"memory_slots": 4}); err != nil {
+		t.Fatal(err)
+	}
+
+	pf, err := svc.Fields(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pf.ProductID != id || pf.Status != StatusIncomplete || len(pf.Fields) != len(schemas["motherboard"].fields) {
+		t.Fatalf("product fields %+v", pf)
+	}
+	for _, f := range pf.Fields {
+		switch f.Name {
+		case "memory_slots":
+			if f.Supplier != 2.0 || f.Admin != 4.0 || f.Value != 4.0 || !f.Required {
+				t.Errorf("memory_slots %+v", f)
+			}
+		case "max_memory_gb":
+			if f.Supplier != nil || f.Value != nil || f.Required {
+				t.Errorf("max_memory_gb %+v", f)
+			}
+		}
+	}
+
+	if _, err := svc.Fields(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown product: err = %v, want ErrNotFound", err)
+	}
 }
 
 func TestEligiblePartsAndSpecsByIDs(t *testing.T) {

@@ -1,7 +1,8 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
 import { ProductCard } from "#/components/product/product-card";
+import { Pagination } from "#/components/site/pagination";
 import { Button } from "#/components/ui/button";
 import { Checkbox } from "#/components/ui/checkbox";
 import {
@@ -21,8 +22,7 @@ import {
 } from "#/components/ui/select";
 import { formatPrice, m } from "#/i18n";
 import type { Schemas } from "#/lib/api/client";
-import { type ListingSearch, pageNumbers, pageSize } from "#/lib/listing";
-import { cn } from "#/lib/utils";
+import { type ListingSearch, pageSize } from "#/lib/listing";
 
 type SearchResult = Schemas["SearchResult"];
 type PriceBucket = Schemas["PriceBucket"];
@@ -280,63 +280,6 @@ function priceLabel(min: number, max?: number) {
 	return max === undefined
 		? m.listing.priceFrom(formatPrice(min))
 		: `${formatPrice(min)} – ${formatPrice(max)}`;
-}
-
-// Pagination links to the other pages, so crawlers can follow them too.
-function Pagination({ page, last }: { page: number; last: number }) {
-	if (last <= 1) return null;
-	const to = (n: number) => (prev: ListingSearch) => ({
-		...prev,
-		page: n === 1 ? undefined : n,
-	});
-	return (
-		<nav
-			aria-label={m.listing.pages}
-			className="mt-10 flex items-center justify-center gap-1"
-		>
-			<Button
-				variant="ghost"
-				size="sm"
-				disabled={page <= 1}
-				render={page > 1 ? <Link to="." search={to(page - 1)} /> : undefined}
-			>
-				<ChevronLeft />
-				<span className="hidden sm:inline">{m.listing.previous}</span>
-			</Button>
-			{pageNumbers(page, last).map((n, i) =>
-				n === null ? (
-					<span
-						// biome-ignore lint/suspicious/noArrayIndexKey: a gap has no identity
-						key={`gap-${i}`}
-						className="px-1 text-subtle-foreground"
-					>
-						…
-					</span>
-				) : (
-					<Button
-						key={n}
-						variant={n === page ? "outline" : "ghost"}
-						size="icon-sm"
-						className={cn("tabular-nums", n === page && "bg-card")}
-						aria-label={m.listing.page(n)}
-						aria-current={n === page ? "page" : undefined}
-						render={<Link to="." search={to(n)} />}
-					>
-						{n}
-					</Button>
-				),
-			)}
-			<Button
-				variant="ghost"
-				size="sm"
-				disabled={page >= last}
-				render={page < last ? <Link to="." search={to(page + 1)} /> : undefined}
-			>
-				<span className="hidden sm:inline">{m.listing.next}</span>
-				<ChevronRight />
-			</Button>
-		</nav>
-	);
 }
 
 function FacetGroup({

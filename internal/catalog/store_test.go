@@ -57,6 +57,9 @@ func TestUpsertProduct(t *testing.T) {
 		if got.ID != id || got.Attributes["Сокет"] != "AM4" || len(got.Images) != 1 || !got.Active {
 			t.Errorf("read back %+v", got)
 		}
+		if byID, err := s.productByID(ctx, pool, id); err != nil || byID.Slug != got.Slug {
+			t.Errorf("by id: %+v, %v", byID, err)
+		}
 	})
 
 	t.Run("same sku from another provider is a separate product", func(t *testing.T) {
@@ -137,8 +140,11 @@ func TestUpsertProduct(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown slug is ErrNotFound", func(t *testing.T) {
+	t.Run("unknown slug or ID is ErrNotFound", func(t *testing.T) {
 		if _, err := s.productBySlug(ctx, pool, "nope"); !errors.Is(err, ErrNotFound) {
+			t.Errorf("err = %v, want ErrNotFound", err)
+		}
+		if _, err := s.productByID(ctx, pool, uuid.New()); !errors.Is(err, ErrNotFound) {
 			t.Errorf("err = %v, want ErrNotFound", err)
 		}
 	})

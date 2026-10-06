@@ -115,6 +115,20 @@ func (store) productBySlug(ctx context.Context, q db.DBTX, slug string) (Product
 	return p, nil
 }
 
+// productByID returns the product with that ID, active or not.
+func (store) productByID(ctx context.Context, q db.DBTX, id uuid.UUID) (Product, error) {
+	query := `SELECT ` + productColumns + ` FROM catalog.products p WHERE p.id = $1`
+
+	p, err := scanProduct(q.QueryRow(ctx, query, id))
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return Product{}, ErrNotFound
+	case err != nil:
+		return Product{}, fmt.Errorf("catalog: product %s: %w", id, err)
+	}
+	return p, nil
+}
+
 // upsertPrice sets a product's price and reports whether a row was written. An identical price
 // (same amounts, VAT and rule) is skipped, like an unchanged product in upsertProduct.
 func (store) upsertPrice(ctx context.Context, q db.DBTX, p Price) (bool, error) {

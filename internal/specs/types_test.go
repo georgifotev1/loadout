@@ -1,8 +1,11 @@
 package specs
 
 import (
+	"errors"
 	"slices"
 	"testing"
+
+	"github.com/gfotev/loadout/internal/platform/validate"
 )
 
 func TestSchemasAreConsistent(t *testing.T) {
@@ -32,6 +35,72 @@ func TestValidate(t *testing.T) {
 		if err := cpu.validate(tt.values); (err == nil) != tt.ok {
 			t.Errorf("%s: err = %v, want ok=%v", tt.name, err, tt.ok)
 		}
+	}
+}
+
+func TestCheckAdmin(t *testing.T) {
+	cpu := schemas["cpu"]
+	tests := []struct {
+		name   string
+		values map[string]any
+		want   string // the field error, "" for none
+	}{
+		{"right types from JSON", map[string]any{"socket": "AM5", "tdp_w": 65.0, "igpu": true, "memory_types": []any{"DDR5"}}, ""},
+		{"nil clears", map[string]any{"socket": nil}, ""},
+		{"zero is a value", map[string]any{"tdp_w": 0}, ""},
+		{"empty list is a value", map[string]any{"memory_types": []any{}}, ""},
+		{"unknown field", map[string]any{"cores": 8}, "cores: unknown"},
+		{"wrong type", map[string]any{"tdp_w": "65 W"}, "tdp_w: invalid_type"},
+		{"fraction", map[string]any{"tdp_w": 65.5}, "tdp_w: invalid_type"},
+		{"negative", map[string]any{"tdp_w": -1.0}, "tdp_w: out_of_range"},
+		{"blank string", map[string]any{"socket": "  "}, "socket: required"},
+		{"blank list entry", map[string]any{"memory_types": []any{"DDR5", ""}}, "memory_types: required"},
+	}
+	for _, tt := range tests {
+		err := cpu.checkAdmin(tt.values)
+		var got string
+		var verr *validate.Error
+		if errors.As(err, &verr) {
+			got = verr.Fields[0].Field + ": " + verr.Fields[0].Code
+		} else if err != nil {
+			got = err.Error()
+		}
+		if got != tt.want {
+			t.Errorf("%s: got %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestFieldsOf(t *testing.T) {
+	ps := ProductSpecs{
+		Category: "cooler",
+		Specs:    map[string]any{"type": CoolerAir, "sockets": []any{"AM5"}},
+	}
+	rows := []FieldValue{
+		{Field: "type", Source: SourceSupplier, Value: CoolerAIO},
+		{Field: "type", Source: SourceAdmin, Value: CoolerAir},
+		{Field: "sockets", Source: SourceSupplier, Value: []any{"AM5"}},
+	}
+	fields := fieldsOf(ps, rows)
+	if len(fields.Fields) != len(schemas["cooler"].fields) || fields.Fields[0].Name != "type" {
+		t.Fatalf("fields %+v", fields.Fields)
+	}
+	byName := map[string]Field{}
+	for _, f := range fields.Fields {
+		byName[f.Name] = f
+	}
+	if f := byName["type"]; f.Kind != KindString || !f.Required || f.Supplier != CoolerAIO || f.Admin != CoolerAir || f.Value != CoolerAir {
+		t.Errorf("type %+v", f)
+	}
+	// An air cooler needs a height, not a radiator size.
+	if f := byName["height_mm"]; f.Kind != KindInteger || !f.Required || f.Value != nil {
+		t.Errorf("height_mm %+v", f)
+	}
+	if f := byName["radiator_mm"]; f.Required {
+		t.Errorf("radiator_mm %+v", f)
+	}
+	if f := byName["sockets"]; f.Kind != KindStringList || f.Admin != nil {
+		t.Errorf("sockets %+v", f)
 	}
 }
 

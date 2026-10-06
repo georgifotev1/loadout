@@ -359,6 +359,48 @@ func (e Slot) Valid() bool {
 	}
 }
 
+// Defines values for SpecKind.
+const (
+	SpecKindBoolean    SpecKind = "boolean"
+	SpecKindInteger    SpecKind = "integer"
+	SpecKindString     SpecKind = "string"
+	SpecKindStringList SpecKind = "string_list"
+)
+
+// Valid indicates whether the value is a known member of the SpecKind enum.
+func (e SpecKind) Valid() bool {
+	switch e {
+	case SpecKindBoolean:
+		return true
+	case SpecKindInteger:
+		return true
+	case SpecKindString:
+		return true
+	case SpecKindStringList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SpecStatus.
+const (
+	SpecStatusApproved   SpecStatus = "approved"
+	SpecStatusIncomplete SpecStatus = "incomplete"
+)
+
+// Valid indicates whether the value is a known member of the SpecStatus enum.
+func (e SpecStatus) Valid() bool {
+	switch e {
+	case SpecStatusApproved:
+		return true
+	case SpecStatusIncomplete:
+		return true
+	default:
+		return false
+	}
+}
+
 // BuildCheck defines model for BuildCheck.
 type BuildCheck struct {
 	Errors []Finding `json:"errors"`
@@ -603,6 +645,34 @@ type ProductList struct {
 	Total int `json:"total"`
 }
 
+// ProductSpecs defines model for ProductSpecs.
+type ProductSpecs struct {
+	// Active Still offered by the supplier.
+	Active bool `json:"active"`
+
+	// Attributes The supplier's spec rows as it shows them, to read values from.
+	Attributes map[string]string `json:"attributes"`
+	Brand      string            `json:"brand"`
+
+	// Category A canonical product category.
+	Category Category `json:"category"`
+
+	// Fields Every canonical field of the category, in a fixed order.
+	Fields []SpecField `json:"fields"`
+
+	// Image The first image. Absent if there's none.
+	Image       string             `json:"image,omitempty"`
+	Missing     []string           `json:"missing"`
+	ProductId   openapi_types.UUID `json:"product_id"`
+	ProductName string             `json:"product_name"`
+	Sku         string             `json:"sku"`
+	Slug        string             `json:"slug"`
+
+	// Status `approved` once every required field has a value.
+	Status    SpecStatus `json:"status"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
 // ProductSummary defines model for ProductSummary.
 type ProductSummary struct {
 	Brand string `json:"brand"`
@@ -623,6 +693,30 @@ type ProductSummary struct {
 // RecoveryCodes defines model for RecoveryCodes.
 type RecoveryCodes struct {
 	RecoveryCodes []string `json:"recovery_codes"`
+}
+
+// ReviewItem defines model for ReviewItem.
+type ReviewItem struct {
+	// Category A canonical product category.
+	Category Category `json:"category"`
+
+	// Missing Required fields without a value.
+	Missing     []string           `json:"missing"`
+	ProductId   openapi_types.UUID `json:"product_id"`
+	ProductName string             `json:"product_name"`
+
+	// UpdatedAt When the specs last changed, so how long it has waited.
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ReviewQueue defines model for ReviewQueue.
+type ReviewQueue struct {
+	Items    []ReviewItem `json:"items"`
+	Page     int          `json:"page"`
+	PageSize int          `json:"page_size"`
+
+	// Total Matching products over all pages.
+	Total int `json:"total"`
 }
 
 // Role defines model for Role.
@@ -665,6 +759,43 @@ type SecondFactor string
 
 // Slot A part of a PC build, named after its catalog category.
 type Slot string
+
+// SpecField One canonical field. `value` is the effective one: the admin's, else the supplier's,
+// else derived from other fields. `null` means none.
+type SpecField struct {
+	// Admin A number, string, boolean or array of strings, as the field's `kind` says.
+	Admin SpecValue `json:"admin"`
+
+	// Kind The JSON type of a field's values. `string_list` is an array of strings.
+	Kind SpecKind `json:"kind"`
+
+	// Name Canonical field name: socket, tdp_w, ...
+	Name string `json:"name"`
+
+	// Required The builder needs it, given the product's other values (an air cooler needs a height).
+	Required bool `json:"required"`
+
+	// Supplier A number, string, boolean or array of strings, as the field's `kind` says.
+	Supplier SpecValue `json:"supplier"`
+
+	// Value A number, string, boolean or array of strings, as the field's `kind` says.
+	Value SpecValue `json:"value"`
+}
+
+// SpecKind The JSON type of a field's values. `string_list` is an array of strings.
+type SpecKind string
+
+// SpecStatus `approved` once every required field has a value.
+type SpecStatus string
+
+// SpecValue A number, string, boolean or array of strings, as the field's `kind` says.
+type SpecValue = interface{}
+
+// SpecsUpdate defines model for SpecsUpdate.
+type SpecsUpdate struct {
+	// Values Canonical field → admin value; `null` clears it.
+	Values map[string]*SpecValue `json:"values"`
+}
 
 // TotpConfirmed defines model for TotpConfirmed.
 type TotpConfirmed struct {
@@ -748,6 +879,16 @@ type Unauthenticated = Error
 
 // ValidationFailed defines model for ValidationFailed.
 type ValidationFailed = Error
+
+// ListSpecsReviewQueueParams defines parameters for ListSpecsReviewQueue.
+type ListSpecsReviewQueueParams struct {
+	// Category A builder category. Others have no canonical specs (422).
+	Category Category `form:"category,omitempty" json:"category,omitempty"`
+
+	// Page 1-based page number.
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
 
 // CheckBuildParams defines parameters for CheckBuild.
 type CheckBuildParams struct {
@@ -835,6 +976,9 @@ type SearchProductsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
+// UpdateProductSpecsJSONRequestBody defines body for UpdateProductSpecs for application/json ContentType.
+type UpdateProductSpecsJSONRequestBody = SpecsUpdate
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -849,6 +993,15 @@ type SaveBuildJSONRequestBody = BuildSelection
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListSpecsReviewQueue Builder parts whose specs are incomplete, waiting longest first
+	// (GET /admin/specs/review-queue)
+	ListSpecsReviewQueue(w http.ResponseWriter, r *http.Request, params ListSpecsReviewQueueParams)
+	// GetProductSpecs A builder part's canonical fields with the supplier's, the admin's and the effective values
+	// (GET /admin/specs/{product_id})
+	GetProductSpecs(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID)
+	// UpdateProductSpecs Set or clear admin values
+	// (PATCH /admin/specs/{product_id})
+	UpdateProductSpecs(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID)
 	// Login Log in with email and password
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -899,6 +1052,24 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// ListSpecsReviewQueue Builder parts whose specs are incomplete, waiting longest first
+// (GET /admin/specs/review-queue)
+func (_ Unimplemented) ListSpecsReviewQueue(w http.ResponseWriter, r *http.Request, params ListSpecsReviewQueueParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProductSpecs A builder part's canonical fields with the supplier's, the admin's and the effective values
+// (GET /admin/specs/{product_id})
+func (_ Unimplemented) GetProductSpecs(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateProductSpecs Set or clear admin values
+// (PATCH /admin/specs/{product_id})
+func (_ Unimplemented) UpdateProductSpecs(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Login Log in with email and password
 // (POST /auth/login)
@@ -998,6 +1169,117 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListSpecsReviewQueue operation middleware
+func (siw *ServerInterfaceWrapper) ListSpecsReviewQueue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSpecsReviewQueueParams
+
+	// ------------- Optional query parameter "category" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "category", r.URL.Query(), &params.Category, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "category"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "category", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSpecsReviewQueue(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProductSpecs operation middleware
+func (siw *ServerInterfaceWrapper) GetProductSpecs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "product_id" -------------
+	var productId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "product_id", chi.URLParam(r, "product_id"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "product_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProductSpecs(w, r, productId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProductSpecs operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProductSpecs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "product_id" -------------
+	var productId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "product_id", chi.URLParam(r, "product_id"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "product_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProductSpecs(w, r, productId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
@@ -1778,6 +2060,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/totp/recovery-codes", wrapper.RegenerateRecoveryCodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/specs/review-queue", wrapper.ListSpecsReviewQueue)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/specs/{product_id}", wrapper.GetProductSpecs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/admin/specs/{product_id}", wrapper.UpdateProductSpecs)
 	})
 
 	return r

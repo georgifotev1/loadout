@@ -226,6 +226,18 @@ func TestAdminRoutesNeedAnAdmin(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("every admin path, generated or not", func(t *testing.T) {
+		for _, tt := range []struct{ method, target string }{
+			{http.MethodPatch, "/api/admin/specs/6f1c8e1e-4a3b-4f0e-9a51-2a8d3c1b7e90"},
+			{http.MethodPost, "/api/admin/sync"},
+			{http.MethodGet, "/api/admin/no-such-page"},
+		} {
+			if rec := send(t, app, tt.method, tt.target, `{}`, customer); rec.Code != http.StatusForbidden {
+				t.Errorf("%s %s: status %d, want 403", tt.method, tt.target, rec.Code)
+			}
+		}
+	})
 }
 
 func TestSecondFactorAPI(t *testing.T) {

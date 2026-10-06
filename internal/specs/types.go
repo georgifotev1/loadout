@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+
+	"github.com/gfotev/loadout/internal/platform/validate"
 )
 
 // The canonical specs per builder category: what the builder's compatibility rules need. JSON
@@ -102,9 +104,20 @@ func Decode[T any](specs map[string]any) (T, error) {
 	return v, nil
 }
 
+// Kind is the JSON type of a canonical field's value, so an admin form knows which input to show.
+type Kind string
+
+const (
+	KindInteger    Kind = "integer"
+	KindString     Kind = "string"
+	KindBoolean    Kind = "boolean"
+	KindStringList Kind = "string_list"
+)
+
 // schema is how one builder category's specs are checked and completed.
 type schema struct {
-	fields []string // the JSON field names of the category's struct
+	fields []string        // the JSON field names of the category's struct, in order
+	kinds  map[string]Kind // field → kind
 	// validate decodes specs into the category's struct: a wrong name or type is an error.
 	validate func(specs map[string]any) error
 	// required lists the fields the builder can't work without, given what's known (a cooler
@@ -116,8 +129,10 @@ type schema struct {
 
 func schemaOf[T any](required func(map[string]any) []string, derive func(map[string]any)) schema {
 	var zero T
+	fields, kinds := jsonFields(zero)
 	return schema{
-		fields:   jsonFields(zero),
+		fields:   fields,
+		kinds:    kinds,
 		validate: func(m map[string]any) error { _, err := Decode[T](m); return err },
 		required: required,
 		derive:   derive,
@@ -147,6 +162,78 @@ var schemas = map[string]schema{
 		return req
 	}, nil),
 	"storage": schemaOf[Storage](always("interface", "form_factor", "capacity_gb"), nil),
+}
+
+// checkAdmin checks the values an admin sets. A nil value is fine: it clears the admin's value.
+// Each wrong field is reported by name, so a form can show the error next to its input.
+func (sc schema) checkAdmin(values map[string]any) error {
+	var v validate.Validator
+	for _, field := range slices.Sorted(maps.Keys(values)) {
+		value := values[field]
+		kind, ok := sc.kinds[field]
+		switch {
+		case !ok:
+			v.Add(field, "unknown")
+		case value == nil:
+		case sc.validate(map[string]any{field: value}) != nil:
+			v.Add(field, "invalid_type")
+		case kind == KindInteger:
+			n, _ := value.(float64) // JSON numbers; validate rejected fractions
+			if i, ok := value.(int); ok {
+				n = float64(i)
+			}
+			v.Check(n >= 0, field, "out_of_range")
+		case kind == KindString:
+			v.Check(strings.TrimSpace(value.(string)) != "", field, "required")
+		case kind == KindStringList:
+			v.Check(!slices.ContainsFunc(stringList(value), func(s string) bool { return strings.TrimSpace(s) == "" }), field, "required")
+		}
+	}
+	return v.Err()
+}
+
+// stringList returns a list value's strings, whether it came from JSON ([]any) or Go code.
+func stringList(value any) []string {
+	switch l := value.(type) {
+	case []string:
+		return l
+	case []any:
+		out := make([]string, 0, len(l))
+		for _, e := range l {
+			s, _ := e.(string)
+			out = append(out, s)
+		}
+		return out
+	}
+	return nil
+}
+
+// fieldsOf lists every field of a product's category, in the struct's order, with its values.
+func fieldsOf(ps ProductSpecs, rows []FieldValue) ProductFields {
+	sc := schemas[ps.Category]
+	required := sc.required(ps.Specs)
+	fields := make([]Field, 0, len(sc.fields))
+	for _, name := range sc.fields {
+		f := Field{
+			Name:     name,
+			Kind:     sc.kinds[name],
+			Required: slices.Contains(required, name),
+			Value:    ps.Specs[name],
+		}
+		for _, r := range rows {
+			if r.Field != name {
+				continue
+			}
+			switch r.Source {
+			case SourceSupplier:
+				f.Supplier = r.Value
+			case SourceAdmin:
+				f.Admin = r.Value
+			}
+		}
+		fields = append(fields, f)
+	}
+	return ProductFields{ProductSpecs: ps, Fields: fields}
 }
 
 // Categories lists the categories with canonical specs: the PC builder's parts.
@@ -205,13 +292,30 @@ func resolve(category string, rows []FieldValue) (specs map[string]any, missing 
 	return specs, nil, StatusApproved
 }
 
-// jsonFields lists the JSON field names of a struct.
-func jsonFields(v any) []string {
+// jsonFields lists the JSON field names of a struct, with the kind of each. The struct may only
+// hold the types Kind covers.
+func jsonFields(v any) ([]string, map[string]Kind) {
 	t := reflect.TypeOf(v)
 	names := make([]string, 0, t.NumField())
+	kinds := make(map[string]Kind, t.NumField())
 	for f := range t.Fields() {
 		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 		names = append(names, name)
+		kinds[name] = kindOf(f.Type)
 	}
-	return names
+	return names, kinds
+}
+
+func kindOf(t reflect.Type) Kind {
+	switch {
+	case t == reflect.TypeFor[*int]():
+		return KindInteger
+	case t == reflect.TypeFor[*string]():
+		return KindString
+	case t == reflect.TypeFor[*bool]():
+		return KindBoolean
+	case t == reflect.TypeFor[[]string]():
+		return KindStringList
+	}
+	panic("specs: no Kind for field type " + t.String())
 }

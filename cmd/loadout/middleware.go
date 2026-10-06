@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gfotev/loadout/internal/auth"
@@ -101,6 +102,19 @@ func (app *application) requireAdmin(next http.Handler) http.Handler {
 		default:
 			next.ServeHTTP(w, r)
 		}
+	})
+}
+
+// adminOnly runs requireAdmin for every path under /api/admin, generated route or not, so no
+// admin endpoint can be added without it.
+func (app *application) adminOnly(next http.Handler) http.Handler {
+	admin := app.requireAdmin(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/admin" || strings.HasPrefix(r.URL.Path, "/api/admin/") {
+			admin.ServeHTTP(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 

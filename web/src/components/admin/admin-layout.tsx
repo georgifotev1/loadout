@@ -8,6 +8,9 @@ import { Button } from "#/components/ui/button";
 import { m } from "#/i18n";
 import { logout, type Me } from "#/lib/api/auth";
 
+const navLink =
+	"rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-muted data-[status=active]:font-medium data-[status=active]:text-foreground";
+
 // AdminLayout is the back office chrome: its own header with the admin's sections, the signed-in
 // email and log out. No shop search, categories or footer.
 export function AdminLayout({
@@ -32,9 +35,12 @@ export function AdminLayout({
 						<Link
 							to="/admin"
 							activeOptions={{ exact: true }}
-							className="rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-muted data-[status=active]:font-medium data-[status=active]:text-foreground"
+							className={navLink}
 						>
 							{m.admin.nav.dashboard}
+						</Link>
+						<Link to="/admin/specs" className={navLink}>
+							{m.admin.nav.specs}
 						</Link>
 					</nav>
 					<div className="ml-auto flex items-center gap-2">

@@ -13,7 +13,7 @@ var _ ServerInterface = (*application)(nil)
 // routes builds the router. Middleware reads outside-in: requestID, then per group logRequest,
 // then recoverPanic. logRequest sits outside recoverPanic so a request that panics still gets its
 // access log line, with status 500. Under /api, crossOrigin rejects cross-site writes before
-// authenticate looks up the session.
+// authenticate looks up the session, and adminOnly guards everything under /api/admin.
 func (app *application) routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(app.requestID)
@@ -27,7 +27,7 @@ func (app *application) routes() http.Handler {
 	})
 
 	r.Route("/api", func(r chi.Router) {
-		r.Use(app.logRequest(slog.LevelInfo), app.recoverPanic, app.crossOrigin, app.authenticate)
+		r.Use(app.logRequest(slog.LevelInfo), app.recoverPanic, app.crossOrigin, app.authenticate, app.adminOnly)
 		r.NotFound(app.notFound)
 
 		// The routes in api/openapi.yaml. The generated wrapper binds parameters and calls the
@@ -37,13 +37,9 @@ func (app *application) routes() http.Handler {
 			ErrorHandlerFunc: app.handleError,
 		})
 
-		// TODO(phase-6): move onto api/openapi.yaml with the admin UI that uses them.
-		r.Route("/admin", func(r chi.Router) {
-			r.Use(app.requireAdmin)
-			r.Get("/specs/review-queue", app.specsReviewQueue)
-			r.Post("/sync", app.triggerSync)
-			r.Get("/jobs/discarded", app.discardedJobs)
-		})
+		// TODO(phase-6): move onto api/openapi.yaml with the admin pages that use them (step 5).
+		r.Post("/admin/sync", app.triggerSync)
+		r.Get("/admin/jobs/discarded", app.discardedJobs)
 	})
 
 	return r

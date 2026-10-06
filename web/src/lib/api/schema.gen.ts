@@ -304,6 +304,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/specs/review-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Builder parts whose specs are incomplete, waiting longest first
+         * @description A product leaves the queue once every required field has a value. Saving its specs
+         *     without completing them moves it to the end.
+         */
+        get: operations["listSpecsReviewQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/specs/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A builder part's canonical fields with the supplier's, the admin's and the effective values
+         * @description Any builder part, complete or not, active or not. Peripherals have no specs (404).
+         */
+        get: operations["getProductSpecs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set or clear admin values
+         * @description Admin values win over the supplier's and survive syncs. `null` removes the admin's value,
+         *     so the supplier's counts again. Fields left out keep their values. Either every value is
+         *     stored or none: a wrong one is a 422 whose `fields` name the canonical field.
+         */
+        patch: operations["updateProductSpecs"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -544,6 +593,81 @@ export interface components {
         TotpConfirmed: {
             me: components["schemas"]["Me"];
             recovery_codes: string[];
+        };
+        ReviewItem: {
+            /** Format: uuid */
+            product_id: string;
+            product_name: string;
+            category: components["schemas"]["Category"];
+            /** @description Required fields without a value. */
+            missing: string[];
+            /**
+             * Format: date-time
+             * @description When the specs last changed, so how long it has waited.
+             */
+            updated_at: string;
+        };
+        ReviewQueue: {
+            items: components["schemas"]["ReviewItem"][];
+            page: number;
+            page_size: number;
+            /** @description Matching products over all pages. */
+            total: number;
+        };
+        /**
+         * @description `approved` once every required field has a value.
+         * @enum {string}
+         */
+        SpecStatus: "incomplete" | "approved";
+        /**
+         * @description The JSON type of a field's values. `string_list` is an array of strings.
+         * @enum {string}
+         */
+        SpecKind: "integer" | "string" | "boolean" | "string_list";
+        /** @description A number, string, boolean or array of strings, as the field's `kind` says. */
+        SpecValue: unknown;
+        /**
+         * @description One canonical field. `value` is the effective one: the admin's, else the supplier's,
+         *     else derived from other fields. `null` means none.
+         */
+        SpecField: {
+            /** @description Canonical field name: socket, tdp_w, ... */
+            name: string;
+            kind: components["schemas"]["SpecKind"];
+            /** @description The builder needs it, given the product's other values (an air cooler needs a height). */
+            required: boolean;
+            supplier: components["schemas"]["SpecValue"];
+            admin: components["schemas"]["SpecValue"];
+            value: components["schemas"]["SpecValue"];
+        };
+        ProductSpecs: {
+            /** Format: uuid */
+            product_id: string;
+            product_name: string;
+            slug: string;
+            sku: string;
+            brand: string;
+            category: components["schemas"]["Category"];
+            /** @description The first image. Absent if there's none. */
+            image?: string;
+            /** @description Still offered by the supplier. */
+            active: boolean;
+            /** @description The supplier's spec rows as it shows them, to read values from. */
+            attributes: {
+                [key: string]: string;
+            };
+            status: components["schemas"]["SpecStatus"];
+            missing: string[];
+            /** @description Every canonical field of the category, in a fixed order. */
+            fields: components["schemas"]["SpecField"][];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        SpecsUpdate: {
+            /** @description Canonical field → admin value; `null` clears it. */
+            values: {
+                [key: string]: components["schemas"]["SpecValue"];
+            };
         };
         Error: {
             error: components["schemas"]["ErrorDetail"];
@@ -1123,6 +1247,95 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["SecondFactorState"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listSpecsReviewQueue: {
+        parameters: {
+            query?: {
+                /** @description A builder category. Others have no canonical specs (422). */
+                category?: components["schemas"]["Category"];
+                /** @description 1-based page number. */
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of the queue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewQueue"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getProductSpecs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The product's specs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductSpecs"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateProductSpecs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpecsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The product's specs after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductSpecs"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
             default: components["responses"]["Error"];
         };
     };

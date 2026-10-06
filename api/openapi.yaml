@@ -372,6 +372,80 @@ paths:
         "409": { $ref: "#/components/responses/SecondFactorState" }
         default: { $ref: "#/components/responses/Error" }
 
+  /admin/specs/review-queue:
+    get:
+      operationId: listSpecsReviewQueue
+      summary: Builder parts whose specs are incomplete, waiting longest first
+      description: |
+        A product leaves the queue once every required field has a value. Saving its specs
+        without completing them moves it to the end.
+      tags: [admin]
+      parameters:
+        - name: category
+          in: query
+          description: A builder category. Others have no canonical specs (422).
+          schema: { $ref: "#/components/schemas/Category" }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: One page of the queue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewQueue" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /admin/specs/{product_id}:
+    parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getProductSpecs
+      summary: A builder part's canonical fields with the supplier's, the admin's and the effective values
+      description: Any builder part, complete or not, active or not. Peripherals have no specs (404).
+      tags: [admin]
+      responses:
+        "200":
+          description: The product's specs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductSpecs" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateProductSpecs
+      summary: Set or clear admin values
+      description: |
+        Admin values win over the supplier's and survive syncs. `null` removes the admin's value,
+        so the supplier's counts again. Fields left out keep their values. Either every value is
+        stored or none: a wrong one is a 422 whose `fields` name the canonical field.
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SpecsUpdate" }
+      responses:
+        "200":
+          description: The product's specs after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductSpecs" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
 components:
   parameters:
     Page:
@@ -871,6 +945,98 @@ components:
         recovery_codes:
           type: array
           items: { type: string }
+
+    ReviewItem:
+      type: object
+      required: [product_id, product_name, category, missing, updated_at]
+      properties:
+        product_id: { type: string, format: uuid }
+        product_name: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        missing:
+          type: array
+          description: Required fields without a value.
+          items: { type: string }
+        updated_at:
+          type: string
+          format: date-time
+          description: When the specs last changed, so how long it has waited.
+
+    ReviewQueue:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ReviewItem" }
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer, description: Matching products over all pages. }
+
+    SpecStatus:
+      type: string
+      description: "`approved` once every required field has a value."
+      enum: [incomplete, approved]
+
+    SpecKind:
+      type: string
+      description: The JSON type of a field's values. `string_list` is an array of strings.
+      enum: [integer, string, boolean, string_list]
+
+    SpecValue:
+      description: A number, string, boolean or array of strings, as the field's `kind` says.
+      nullable: true
+
+    SpecField:
+      type: object
+      description: |
+        One canonical field. `value` is the effective one: the admin's, else the supplier's,
+        else derived from other fields. `null` means none.
+      required: [name, kind, required, supplier, admin, value]
+      properties:
+        name: { type: string, description: "Canonical field name: socket, tdp_w, ..." }
+        kind: { $ref: "#/components/schemas/SpecKind" }
+        required:
+          type: boolean
+          description: The builder needs it, given the product's other values (an air cooler needs a height).
+        supplier: { $ref: "#/components/schemas/SpecValue" }
+        admin: { $ref: "#/components/schemas/SpecValue" }
+        value: { $ref: "#/components/schemas/SpecValue" }
+
+    ProductSpecs:
+      type: object
+      required: [product_id, product_name, slug, sku, brand, category, active, attributes, status, missing, fields, updated_at]
+      properties:
+        product_id: { type: string, format: uuid }
+        product_name: { type: string }
+        slug: { type: string }
+        sku: { type: string }
+        brand: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        image: { type: string, description: The first image. Absent if there's none. }
+        active: { type: boolean, description: Still offered by the supplier. }
+        attributes:
+          type: object
+          description: The supplier's spec rows as it shows them, to read values from.
+          additionalProperties: { type: string }
+        status: { $ref: "#/components/schemas/SpecStatus" }
+        missing:
+          type: array
+          items: { type: string }
+        fields:
+          type: array
+          description: Every canonical field of the category, in a fixed order.
+          items: { $ref: "#/components/schemas/SpecField" }
+        updated_at: { type: string, format: date-time }
+
+    SpecsUpdate:
+      type: object
+      required: [values]
+      properties:
+        values:
+          type: object
+          description: Canonical field → admin value; `null` clears it.
+          additionalProperties: { $ref: "#/components/schemas/SpecValue" }
 
     Error:
       type: object
