@@ -373,4 +373,20 @@ func TestSyncRuns(t *testing.T) {
 	if err := s.finishSyncRun(ctx, pool, SyncRun{ID: other, Status: SyncRunning}); err == nil {
 		t.Error("finishing with status running was accepted")
 	}
+
+	// Newest first: other, failed, id. A page past the end is empty.
+	runs, total, err := s.syncRuns(ctx, pool, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 3 || len(runs) != 2 || runs[0].ID != other || runs[1].ID != failed {
+		t.Errorf("page 1: total %d, runs %+v", total, runs)
+	}
+	runs, _, _ = s.syncRuns(ctx, pool, 2, 2)
+	if len(runs) != 1 || runs[0].ID != id {
+		t.Errorf("page 2: runs %+v", runs)
+	}
+	if runs, _, _ = s.syncRuns(ctx, pool, 2, 4); len(runs) != 0 {
+		t.Errorf("past the end: runs %+v", runs)
+	}
 }

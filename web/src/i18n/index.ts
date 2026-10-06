@@ -27,3 +27,37 @@ const shortDate = new Intl.DateTimeFormat(locale, {
 export function formatShortDate(d: Date): string {
 	return shortDate.format(d);
 }
+
+const dateTime = new Intl.DateTimeFormat(locale, {
+	day: "numeric",
+	month: "numeric",
+	year: "numeric",
+	hour: "2-digit",
+	minute: "2-digit",
+});
+
+// formatDateTime formats a moment like "6.10.2026 г., 14:02".
+export function formatDateTime(d: Date): string {
+	return dateTime.format(d);
+}
+
+const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
+const relativeUnits: [Intl.RelativeTimeFormatUnit, number][] = [
+	["day", 86_400],
+	["hour", 3_600],
+	["minute", 60],
+];
+
+// formatRelativeTime says how long ago d was, e.g. "преди 5 минути", "вчера". It depends on
+// the clock, so the server and the browser can disagree: render it with
+// suppressHydrationWarning.
+export function formatRelativeTime(d: Date, now = Date.now()): string {
+	const seconds = Math.round((d.getTime() - now) / 1000);
+	for (const [unit, size] of relativeUnits) {
+		if (Math.abs(seconds) >= size) {
+			return relative.format(Math.trunc(seconds / size), unit);
+		}
+	}
+	return relative.format(seconds, "second");
+}

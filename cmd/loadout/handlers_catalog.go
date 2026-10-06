@@ -2,12 +2,9 @@ package main
 
 import (
 	"net/http"
-	"net/url"
-	"strconv"
 
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/money"
-	"github.com/gfotev/loadout/internal/platform/validate"
 )
 
 const defaultPageSize = 24
@@ -138,20 +135,4 @@ func valueOr[T any](p *T, def T) T {
 		return def
 	}
 	return *p
-}
-
-// queryInt reads an optional integer query parameter. A value that isn't an integer is recorded
-// as an "invalid_integer" error on v; range checks are the service's job.
-// TODO(phase-6): drop once the admin endpoints move onto api/openapi.yaml.
-func queryInt(v *validate.Validator, q url.Values, key string, def int) int {
-	s := q.Get(key)
-	if s == "" {
-		return def
-	}
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		v.Add(key, "invalid_integer")
-		return def
-	}
-	return n
 }

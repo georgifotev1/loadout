@@ -18,6 +18,9 @@ import { Route as ShopBuilderRouteImport } from './routes/_shop/builder'
 import { Route as ShopLoginRouteImport } from './routes/_shop/login'
 import { Route as ShopSearchRouteImport } from './routes/_shop/search'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminAccountRouteImport } from './routes/admin/account'
+import { Route as AdminJobsRouteImport } from './routes/admin/jobs'
+import { Route as AdminSyncRouteImport } from './routes/admin/sync'
 import { Route as PreviewIndexRouteImport } from './routes/preview/index'
 import { Route as PreviewCartRouteImport } from './routes/preview/cart'
 import { Route as PreviewCheckoutRouteImport } from './routes/preview/checkout'
@@ -70,6 +73,21 @@ const ShopSearchRoute = ShopSearchRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAccountRoute = AdminAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminJobsRoute = AdminJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSyncRoute = AdminSyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const PreviewIndexRoute = PreviewIndexRouteImport.update({
@@ -126,6 +144,9 @@ export interface FileRoutesByFullPath {
   '/builder': typeof ShopBuilderRoute
   '/login': typeof ShopLoginRoute
   '/search': typeof ShopSearchRoute
+  '/admin/account': typeof AdminAccountRoute
+  '/admin/jobs': typeof AdminJobsRoute
+  '/admin/sync': typeof AdminSyncRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
@@ -142,6 +163,9 @@ export interface FileRoutesByTo {
   '/builder': typeof ShopBuilderRoute
   '/login': typeof ShopLoginRoute
   '/search': typeof ShopSearchRoute
+  '/admin/account': typeof AdminAccountRoute
+  '/admin/jobs': typeof AdminJobsRoute
+  '/admin/sync': typeof AdminSyncRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
@@ -163,6 +187,9 @@ export interface FileRoutesById {
   '/_shop/builder': typeof ShopBuilderRoute
   '/_shop/login': typeof ShopLoginRoute
   '/_shop/search': typeof ShopSearchRoute
+  '/admin/account': typeof AdminAccountRoute
+  '/admin/jobs': typeof AdminJobsRoute
+  '/admin/sync': typeof AdminSyncRoute
   '/preview/cart': typeof PreviewCartRoute
   '/preview/checkout': typeof PreviewCheckoutRoute
   '/preview/confirmation': typeof PreviewConfirmationRoute
@@ -185,6 +212,9 @@ export interface FileRouteTypes {
     | '/builder'
     | '/login'
     | '/search'
+    | '/admin/account'
+    | '/admin/jobs'
+    | '/admin/sync'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
@@ -201,6 +231,9 @@ export interface FileRouteTypes {
     | '/builder'
     | '/login'
     | '/search'
+    | '/admin/account'
+    | '/admin/jobs'
+    | '/admin/sync'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
@@ -221,6 +254,9 @@ export interface FileRouteTypes {
     | '/_shop/builder'
     | '/_shop/login'
     | '/_shop/search'
+    | '/admin/account'
+    | '/admin/jobs'
+    | '/admin/sync'
     | '/preview/cart'
     | '/preview/checkout'
     | '/preview/confirmation'
@@ -306,6 +342,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/account': {
+      id: '/admin/account'
+      path: '/account'
+      fullPath: '/admin/account'
+      preLoaderRoute: typeof AdminAccountRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/jobs': {
+      id: '/admin/jobs'
+      path: '/jobs'
+      fullPath: '/admin/jobs'
+      preLoaderRoute: typeof AdminJobsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/sync': {
+      id: '/admin/sync'
+      path: '/sync'
+      fullPath: '/admin/sync'
+      preLoaderRoute: typeof AdminSyncRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/preview/': {
       id: '/preview/'
       path: '/'
@@ -373,12 +430,18 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteRouteChildren {
+  AdminAccountRoute: typeof AdminAccountRoute
+  AdminJobsRoute: typeof AdminJobsRoute
+  AdminSyncRoute: typeof AdminSyncRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminSpecsProductIdRoute: typeof AdminSpecsProductIdRoute
   AdminSpecsIndexRoute: typeof AdminSpecsIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminAccountRoute: AdminAccountRoute,
+  AdminJobsRoute: AdminJobsRoute,
+  AdminSyncRoute: AdminSyncRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminSpecsProductIdRoute: AdminSpecsProductIdRoute,
   AdminSpecsIndexRoute: AdminSpecsIndexRoute,

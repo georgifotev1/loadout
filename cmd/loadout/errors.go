@@ -10,6 +10,7 @@ import (
 	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
+	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/platform/validate"
 	"github.com/gfotev/loadout/internal/specs"
 )
@@ -31,8 +32,11 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 		app.writeError(w, r, http.StatusBadRequest, ErrorCodeInvalidBody, bodyErr.Error())
 	case errors.As(err, &validationErr):
 		app.writeValidation(w, r, validationErr)
-	case errors.Is(err, catalog.ErrNotFound), errors.Is(err, specs.ErrNotFound), errors.Is(err, configurator.ErrNotFound):
+	case errors.Is(err, catalog.ErrNotFound), errors.Is(err, specs.ErrNotFound), errors.Is(err, configurator.ErrNotFound),
+		errors.Is(err, jobs.ErrNotDiscarded):
 		app.writeError(w, r, http.StatusNotFound, ErrorCodeNotFound, "resource not found")
+	case errors.Is(err, jobs.ErrAlreadyQueued):
+		app.writeError(w, r, http.StatusConflict, ErrorCodeAlreadyQueued, "an equal job is already waiting or running")
 	case errors.Is(err, auth.ErrUnauthenticated):
 		app.writeError(w, r, http.StatusUnauthorized, ErrorCodeUnauthenticated, "not logged in")
 	case errors.Is(err, auth.ErrInvalidCredentials):

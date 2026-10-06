@@ -58,3 +58,8 @@ export async function confirmTotp(code: string) {
 export async function verifyTotp(code: string) {
 	return unwrap(await api.POST("/auth/totp/verify", { body: { code } }));
 }
+
+/** Replaces the admin's recovery codes; the old ones stop working. Shown only this once. */
+export async function regenerateRecoveryCodes() {
+	return unwrap(await api.POST("/auth/totp/recovery-codes"));
+}

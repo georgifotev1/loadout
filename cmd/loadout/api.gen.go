@@ -70,6 +70,7 @@ func (e Category) Valid() bool {
 
 // Defines values for ErrorCode.
 const (
+	ErrorCodeAlreadyQueued        ErrorCode = "already_queued"
 	ErrorCodeForbidden            ErrorCode = "forbidden"
 	ErrorCodeInternal             ErrorCode = "internal"
 	ErrorCodeInvalidBody          ErrorCode = "invalid_body"
@@ -86,6 +87,8 @@ const (
 // Valid indicates whether the value is a known member of the ErrorCode enum.
 func (e ErrorCode) Valid() bool {
 	switch e {
+	case ErrorCodeAlreadyQueued:
+		return true
 	case ErrorCodeForbidden:
 		return true
 	case ErrorCodeInternal:
@@ -401,6 +404,39 @@ func (e SpecStatus) Valid() bool {
 	}
 }
 
+// Defines values for SyncStatus.
+const (
+	SyncStatusFailed    SyncStatus = "failed"
+	SyncStatusRunning   SyncStatus = "running"
+	SyncStatusSucceeded SyncStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the SyncStatus enum.
+func (e SyncStatus) Valid() bool {
+	switch e {
+	case SyncStatusFailed:
+		return true
+	case SyncStatusRunning:
+		return true
+	case SyncStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// AdminOverview defines model for AdminOverview.
+type AdminOverview struct {
+	DiscardedJobs int `json:"discarded_jobs"`
+
+	// LastSync The newest sync run; `null` before the first one.
+	LastSync *SyncRun      `json:"last_sync"`
+	Products ProductCounts `json:"products"`
+
+	// SpecsIncomplete Builder parts waiting in the specs review queue.
+	SpecsIncomplete int `json:"specs_incomplete"`
+}
+
 // BuildCheck defines model for BuildCheck.
 type BuildCheck struct {
 	Errors []Finding `json:"errors"`
@@ -484,6 +520,32 @@ type CodeRequest struct {
 	Code string `json:"code"`
 }
 
+// DiscardedJob defines model for DiscardedJob.
+type DiscardedJob struct {
+	// Args The job's arguments as stored.
+	Args      map[string]interface{} `json:"args"`
+	Attempt   int                    `json:"attempt"`
+	CreatedAt time.Time              `json:"created_at"`
+
+	// Errors One per failed attempt, oldest first.
+	Errors      []JobAttemptError `json:"errors"`
+	FinalizedAt *time.Time        `json:"finalized_at"`
+	Id          int64             `json:"id"`
+
+	// Kind The job's type: supplier_sync, send_email, ...
+	Kind        string `json:"kind"`
+	MaxAttempts int    `json:"max_attempts"`
+	Queue       string `json:"queue"`
+}
+
+// DiscardedJobList defines model for DiscardedJobList.
+type DiscardedJobList struct {
+	Items []DiscardedJob `json:"items"`
+
+	// Total All discarded jobs
+	Total int `json:"total"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error ErrorDetail `json:"error"`
@@ -560,6 +622,15 @@ type HealthDatabase string
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// JobAttemptError defines model for JobAttemptError.
+type JobAttemptError struct {
+	At      time.Time `json:"at"`
+	Attempt int       `json:"attempt"`
+
+	// Error For developers; shown to admins as is.
+	Error string `json:"error"`
+}
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Email    string `json:"email"`
@@ -610,6 +681,14 @@ type PriceChange struct {
 	// Slot A part of a PC build, named after its catalog category.
 	Slot Slot   `json:"slot"`
 	Slug string `json:"slug"`
+}
+
+// ProductCounts defines model for ProductCounts.
+type ProductCounts struct {
+	Active int `json:"active"`
+
+	// Inactive Products the supplier stopped listing.
+	Inactive int `json:"inactive"`
 }
 
 // ProductDetail defines model for ProductDetail.
@@ -797,6 +876,48 @@ type SpecsUpdate struct {
 	Values map[string]*SpecValue `json:"values"`
 }
 
+// SyncRun defines model for SyncRun.
+type SyncRun struct {
+	// Changed Products whose data, price or stock was written.
+	Changed int `json:"changed"`
+
+	// ErrorMessage Why a failed run failed. For developers; shown to admins as is.
+	ErrorMessage *string `json:"error_message"`
+
+	// Errors Products skipped because they couldn't be stored.
+	Errors int `json:"errors"`
+
+	// Fetched Products the supplier listed.
+	Fetched int `json:"fetched"`
+
+	// FinishedAt `null` while running.
+	FinishedAt *time.Time `json:"finished_at"`
+	Id         int64      `json:"id"`
+	StartedAt  time.Time  `json:"started_at"`
+	Status     SyncStatus `json:"status"`
+}
+
+// SyncRunList defines model for SyncRunList.
+type SyncRunList struct {
+	Items    []SyncRun `json:"items"`
+	Page     int       `json:"page"`
+	PageSize int       `json:"page_size"`
+
+	// Queued A sync job is waiting or running, so a new run is about to appear or finish.
+	Queued bool `json:"queued"`
+	Total  int  `json:"total"`
+}
+
+// SyncStatus defines model for SyncStatus.
+type SyncStatus string
+
+// SyncTriggered defines model for SyncTriggered.
+type SyncTriggered struct {
+	// AlreadyQueued A sync was already waiting or running; `job_id` is that one.
+	AlreadyQueued bool  `json:"already_queued"`
+	JobId         int64 `json:"job_id"`
+}
+
 // TotpConfirmed defines model for TotpConfirmed.
 type TotpConfirmed struct {
 	// Me The logged-in user, and where their session stands with the second factor.
@@ -850,6 +971,9 @@ type BuildRAM = []string
 // BuildStorage defines model for BuildStorage.
 type BuildStorage = []string
 
+// JobID defines model for JobID.
+type JobID = int64
+
 // Page defines model for Page.
 type Page = int
 
@@ -880,11 +1004,23 @@ type Unauthenticated = Error
 // ValidationFailed defines model for ValidationFailed.
 type ValidationFailed = Error
 
+// ListDiscardedJobsParams defines parameters for ListDiscardedJobs.
+type ListDiscardedJobsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListSpecsReviewQueueParams defines parameters for ListSpecsReviewQueue.
 type ListSpecsReviewQueueParams struct {
 	// Category A builder category. Others have no canonical specs (422).
 	Category Category `form:"category,omitempty" json:"category,omitempty"`
 
+	// Page 1-based page number.
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListSyncRunsParams defines parameters for ListSyncRuns.
+type ListSyncRunsParams struct {
 	// Page 1-based page number.
 	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
@@ -993,6 +1129,18 @@ type SaveBuildJSONRequestBody = BuildSelection
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListDiscardedJobs Background jobs that failed every attempt, newest first
+	// (GET /admin/jobs/discarded)
+	ListDiscardedJobs(w http.ResponseWriter, r *http.Request, params ListDiscardedJobsParams)
+	// DeleteDiscardedJob Delete a discarded job
+	// (DELETE /admin/jobs/discarded/{job_id})
+	DeleteDiscardedJob(w http.ResponseWriter, r *http.Request, jobId JobID)
+	// RetryDiscardedJob Run a discarded job again
+	// (POST /admin/jobs/discarded/{job_id}/retry)
+	RetryDiscardedJob(w http.ResponseWriter, r *http.Request, jobId JobID)
+	// GetAdminOverview The numbers on the admin dashboard
+	// (GET /admin/overview)
+	GetAdminOverview(w http.ResponseWriter, r *http.Request)
 	// ListSpecsReviewQueue Builder parts whose specs are incomplete, waiting longest first
 	// (GET /admin/specs/review-queue)
 	ListSpecsReviewQueue(w http.ResponseWriter, r *http.Request, params ListSpecsReviewQueueParams)
@@ -1002,6 +1150,12 @@ type ServerInterface interface {
 	// UpdateProductSpecs Set or clear admin values
 	// (PATCH /admin/specs/{product_id})
 	UpdateProductSpecs(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID)
+	// TriggerSync Sync the catalog with the supplier now
+	// (POST /admin/sync)
+	TriggerSync(w http.ResponseWriter, r *http.Request)
+	// ListSyncRuns Supplier sync runs, newest first
+	// (GET /admin/sync-runs)
+	ListSyncRuns(w http.ResponseWriter, r *http.Request, params ListSyncRunsParams)
 	// Login Log in with email and password
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -1053,6 +1207,30 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// ListDiscardedJobs Background jobs that failed every attempt, newest first
+// (GET /admin/jobs/discarded)
+func (_ Unimplemented) ListDiscardedJobs(w http.ResponseWriter, r *http.Request, params ListDiscardedJobsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteDiscardedJob Delete a discarded job
+// (DELETE /admin/jobs/discarded/{job_id})
+func (_ Unimplemented) DeleteDiscardedJob(w http.ResponseWriter, r *http.Request, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RetryDiscardedJob Run a discarded job again
+// (POST /admin/jobs/discarded/{job_id}/retry)
+func (_ Unimplemented) RetryDiscardedJob(w http.ResponseWriter, r *http.Request, jobId JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAdminOverview The numbers on the admin dashboard
+// (GET /admin/overview)
+func (_ Unimplemented) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListSpecsReviewQueue Builder parts whose specs are incomplete, waiting longest first
 // (GET /admin/specs/review-queue)
 func (_ Unimplemented) ListSpecsReviewQueue(w http.ResponseWriter, r *http.Request, params ListSpecsReviewQueueParams) {
@@ -1068,6 +1246,18 @@ func (_ Unimplemented) GetProductSpecs(w http.ResponseWriter, r *http.Request, p
 // UpdateProductSpecs Set or clear admin values
 // (PATCH /admin/specs/{product_id})
 func (_ Unimplemented) UpdateProductSpecs(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TriggerSync Sync the catalog with the supplier now
+// (POST /admin/sync)
+func (_ Unimplemented) TriggerSync(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListSyncRuns Supplier sync runs, newest first
+// (GET /admin/sync-runs)
+func (_ Unimplemented) ListSyncRuns(w http.ResponseWriter, r *http.Request, params ListSyncRunsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1169,6 +1359,105 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListDiscardedJobs operation middleware
+func (siw *ServerInterfaceWrapper) ListDiscardedJobs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDiscardedJobsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDiscardedJobs(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteDiscardedJob operation middleware
+func (siw *ServerInterfaceWrapper) DeleteDiscardedJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteDiscardedJob(w, r, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryDiscardedJob operation middleware
+func (siw *ServerInterfaceWrapper) RetryDiscardedJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "job_id" -------------
+	var jobId JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "job_id", chi.URLParam(r, "job_id"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "job_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryDiscardedJob(w, r, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListSpecsReviewQueue operation middleware
 func (siw *ServerInterfaceWrapper) ListSpecsReviewQueue(w http.ResponseWriter, r *http.Request) {
@@ -1272,6 +1561,66 @@ func (siw *ServerInterfaceWrapper) UpdateProductSpecs(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProductSpecs(w, r, productId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TriggerSync operation middleware
+func (siw *ServerInterfaceWrapper) TriggerSync(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TriggerSync(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSyncRuns operation middleware
+func (siw *ServerInterfaceWrapper) ListSyncRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSyncRunsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSyncRuns(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2069,6 +2418,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/admin/specs/{product_id}", wrapper.UpdateProductSpecs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/overview", wrapper.GetAdminOverview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/sync", wrapper.TriggerSync)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/sync-runs", wrapper.ListSyncRuns)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/jobs/discarded", wrapper.ListDiscardedJobs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/admin/jobs/discarded/{job_id}", wrapper.DeleteDiscardedJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/jobs/discarded/{job_id}/retry", wrapper.RetryDiscardedJob)
 	})
 
 	return r

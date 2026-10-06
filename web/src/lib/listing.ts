@@ -36,7 +36,8 @@ export function parseListingSearch(s: Record<string, unknown>): ListingSearch {
 	return out;
 }
 
-function wholeNumber(v: unknown, min: number): number | undefined {
+// wholeNumber reads an integer URL param of at least min; anything else is undefined.
+export function wholeNumber(v: unknown, min: number): number | undefined {
 	const n = typeof v === "string" ? Number(v) : v;
 	return typeof n === "number" && Number.isSafeInteger(n) && n >= min
 		? n

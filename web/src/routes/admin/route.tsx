@@ -7,6 +7,7 @@ import {
 import { AdminLayout } from "#/components/admin/admin-layout";
 import { m } from "#/i18n";
 import { meQuery, signedIn } from "#/lib/api/auth";
+import { sidebarOpen } from "#/lib/sidebar-state";
 
 // /admin: the back office. beforeLoad only spares the user an admin page that can't load: the Go
 // API checks the session, role and second factor on every /api/admin call (requireAdmin).
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/admin")({
 		}
 		// Not a page a customer can use; no need to tell them it's there.
 		if (me.role !== "admin") throw notFound();
-		return { me };
+		return { me, sidebarOpen: sidebarOpen() };
 	},
 	head: () => ({
 		meta: [
@@ -31,9 +32,9 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminShell() {
-	const { me } = Route.useRouteContext();
+	const { me, sidebarOpen } = Route.useRouteContext();
 	return (
-		<AdminLayout me={me}>
+		<AdminLayout me={me} sidebarOpen={sidebarOpen}>
 			<Outlet />
 		</AdminLayout>
 	);

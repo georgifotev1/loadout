@@ -132,6 +132,18 @@ type SyncRun struct {
 	ErrorMessage string
 }
 
+// SyncRunPage is one page of sync runs.
+type SyncRunPage struct {
+	Runs  []SyncRun
+	Total int // runs over all pages
+}
+
+// ProductCounts counts the catalog's products for the admin dashboard.
+type ProductCounts struct {
+	Active   int
+	Inactive int // no longer listed by the supplier
+}
+
 // ProductSummary is a product as the storefront lists it.
 type ProductSummary struct {
 	Slug        string

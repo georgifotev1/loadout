@@ -116,6 +116,27 @@ func (s *Service) ProductByID(ctx context.Context, id uuid.UUID) (Product, error
 	return s.store.productByID(ctx, s.pool, id)
 }
 
+// SyncRuns returns one page of sync runs, newest first.
+func (s *Service) SyncRuns(ctx context.Context, page, pageSize int) (SyncRunPage, error) {
+	var v validate.Validator
+	v.Check(page >= 1, "page", "out_of_range")
+	v.Check(pageSize >= 1 && pageSize <= MaxPageSize, "page_size", "out_of_range")
+	if err := v.Err(); err != nil {
+		return SyncRunPage{}, err
+	}
+
+	runs, total, err := s.store.syncRuns(ctx, s.pool, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return SyncRunPage{}, err
+	}
+	return SyncRunPage{Runs: runs, Total: total}, nil
+}
+
+// ProductCounts counts the active and inactive products.
+func (s *Service) ProductCounts(ctx context.Context) (ProductCounts, error) {
+	return s.store.productCounts(ctx, s.pool)
+}
+
 // Product returns the product page data for slug, with its canonical specs. Inactive or
 // unpriced products are ErrNotFound, the same as a slug that doesn't exist.
 func (s *Service) Product(ctx context.Context, slug string) (ProductDetail, error) {

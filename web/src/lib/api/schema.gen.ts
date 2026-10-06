@@ -353,6 +353,127 @@ export interface paths {
         patch: operations["updateProductSpecs"];
         trace?: never;
     };
+    "/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The numbers on the admin dashboard */
+        get: operations["getAdminOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync the catalog with the supplier now
+         * @description Queues a sync job. While one is already waiting or running, nothing new is queued and
+         *     `already_queued` is true. The run shows up in `/admin/sync-runs` once it starts.
+         */
+        post: operations["triggerSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/sync-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Supplier sync runs, newest first */
+        get: operations["listSyncRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/jobs/discarded": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Background jobs that failed every attempt, newest first
+         * @description River's dead-letter queue. A discarded job stays here until it's retried or deleted.
+         */
+        get: operations["listDiscardedJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/jobs/discarded/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a discarded job
+         * @description For a job that doesn't need to run again. Only discarded jobs; any other is a 404.
+         */
+        delete: operations["deleteDiscardedJob"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/jobs/discarded/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a discarded job again
+         * @description Queues the job to run now, with one more attempt. Only discarded jobs; any other is a 404.
+         *     A unique job (a supplier sync) can't be queued twice: while an equal one is waiting or
+         *     running, this is a 409.
+         */
+        post: operations["retryDiscardedJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -669,6 +790,86 @@ export interface components {
                 [key: string]: components["schemas"]["SpecValue"];
             };
         };
+        AdminOverview: {
+            /** @description Builder parts waiting in the specs review queue. */
+            specs_incomplete: number;
+            discarded_jobs: number;
+            products: components["schemas"]["ProductCounts"];
+            /** @description The newest sync run; `null` before the first one. */
+            last_sync: components["schemas"]["SyncRun"] | null;
+        };
+        ProductCounts: {
+            active: number;
+            /** @description Products the supplier stopped listing. */
+            inactive: number;
+        };
+        SyncTriggered: {
+            /** Format: int64 */
+            job_id: number;
+            /** @description A sync was already waiting or running; `job_id` is that one. */
+            already_queued: boolean;
+        };
+        /** @enum {string} */
+        SyncStatus: "running" | "succeeded" | "failed";
+        SyncRun: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * Format: date-time
+             * @description `null` while running.
+             */
+            finished_at: string | null;
+            status: components["schemas"]["SyncStatus"];
+            /** @description Products the supplier listed. */
+            fetched: number;
+            /** @description Products whose data, price or stock was written. */
+            changed: number;
+            /** @description Products skipped because they couldn't be stored. */
+            errors: number;
+            /** @description Why a failed run failed. For developers; shown to admins as is. */
+            error_message: string | null;
+        };
+        SyncRunList: {
+            items: components["schemas"]["SyncRun"][];
+            page: number;
+            page_size: number;
+            total: number;
+            /** @description A sync job is waiting or running, so a new run is about to appear or finish. */
+            queued: boolean;
+        };
+        DiscardedJob: {
+            /** Format: int64 */
+            id: number;
+            /** @description The job's type: supplier_sync, send_email, ... */
+            kind: string;
+            queue: string;
+            /** @description The job's arguments as stored. */
+            args: {
+                [key: string]: unknown;
+            };
+            attempt: number;
+            max_attempts: number;
+            /** @description One per failed attempt, oldest first. */
+            errors: components["schemas"]["JobAttemptError"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finalized_at: string | null;
+        };
+        JobAttemptError: {
+            attempt: number;
+            /** Format: date-time */
+            at: string;
+            /** @description For developers; shown to admins as is. */
+            error: string;
+        };
+        DiscardedJobList: {
+            items: components["schemas"]["DiscardedJob"][];
+            /** @description All discarded jobs */
+            total: number;
+        };
         Error: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -683,7 +884,7 @@ export interface components {
          * @description Stable reason the web app translates. Renaming one breaks translations.
          * @enum {string}
          */
-        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "internal";
+        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "already_queued" | "internal";
         FieldError: {
             field: string;
             /** @description Why the field is invalid, e.g. `required`, `out_of_range`, `unknown`, `invalid_format`. */
@@ -798,6 +999,7 @@ export interface components {
         BuildCase: string;
         /** @description Product slug. */
         BuildCooler: string;
+        JobID: number;
     };
     requestBodies: never;
     headers: never;
@@ -1335,6 +1537,165 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counts across the back office */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    triggerSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sync job that will run */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncTriggered"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listSyncRuns: {
+        parameters: {
+            query?: {
+                /** @description 1-based page number. */
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of runs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncRunList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listDiscardedJobs: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The newest discarded jobs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscardedJobList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteDiscardedJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    retryDiscardedJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `already_queued`: an equal job is already waiting or running. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             422: components["responses"]["ValidationFailed"];
             default: components["responses"]["Error"];
         };

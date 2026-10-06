@@ -14,9 +14,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 )
 
 // Schema holds River's tables. Like every module, River gets its own Postgres schema instead of
@@ -25,6 +27,19 @@ const Schema = "river"
 
 // QueueSync runs supplier syncs, one at a time.
 const QueueSync = "sync"
+
+var (
+	// ErrNotDiscarded is returned by RetryDiscarded and DeleteDiscarded for a job that doesn't
+	// exist or isn't discarded.
+	ErrNotDiscarded = errors.New("jobs: no discarded job with this id")
+
+	// ErrAlreadyQueued is returned by RetryDiscarded for a unique job (a supplier sync) while an
+	// equal one is already waiting or running.
+	ErrAlreadyQueued = errors.New("jobs: an equal job is already waiting or running")
+)
+
+// uniqueIndex is the index River enforces unique jobs with.
+const uniqueIndex = "river_job_unique_idx"
 
 // hardStopTimeout is how long jobs get to return after their context is cancelled at shutdown.
 const hardStopTimeout = time.Second
@@ -44,6 +59,7 @@ type Config struct {
 // Client is a River client bound to pgx. Services insert through it (InsertTx); serve runs it.
 type Client struct {
 	*river.Client[pgx.Tx]
+	pool        *pgxpool.Pool
 	logger      *slog.Logger
 	stopTimeout time.Duration
 	working     bool
@@ -63,6 +79,7 @@ func New(pool *pgxpool.Pool, cfg Config) (*Client, error) {
 	}
 	return &Client{
 		Client:      rc,
+		pool:        pool,
 		logger:      cfg.Logger,
 		stopTimeout: cfg.StopTimeout,
 		working:     len(cfg.Queues) > 0,
@@ -71,6 +88,57 @@ func New(pool *pgxpool.Pool, cfg Config) (*Client, error) {
 
 // Working reports whether the client works jobs (Run does something) or only inserts them.
 func (c *Client) Working() bool { return c.working }
+
+// DiscardedCount counts the jobs that failed every attempt. River's API lists jobs but doesn't
+// count them, so this reads its table.
+func (c *Client) DiscardedCount(ctx context.Context) (int, error) {
+	query := `SELECT count(*) FROM ` + Schema + `.river_job WHERE state = 'discarded'`
+
+	var n int
+	if err := c.pool.QueryRow(ctx, query).Scan(&n); err != nil {
+		return 0, fmt.Errorf("jobs: count discarded: %w", err)
+	}
+	return n, nil
+}
+
+// RetryDiscarded queues a discarded job to run now, with one more attempt. Only discarded jobs:
+// one that is waiting, running or done is ErrNotDiscarded.
+func (c *Client) RetryDiscarded(ctx context.Context, id int64) error {
+	if err := c.checkDiscarded(ctx, id); err != nil {
+		return err
+	}
+	_, err := c.JobRetry(ctx, id)
+	// River's insert skips a duplicate of a unique job, but a retry just moves the row back to
+	// "available", so the unique index rejects it.
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == uniqueIndex {
+		return ErrAlreadyQueued
+	}
+	return err
+}
+
+// DeleteDiscarded deletes a discarded job. Any other job is ErrNotDiscarded.
+func (c *Client) DeleteDiscarded(ctx context.Context, id int64) error {
+	if err := c.checkDiscarded(ctx, id); err != nil {
+		return err
+	}
+	_, err := c.JobDelete(ctx, id)
+	return err
+}
+
+func (c *Client) checkDiscarded(ctx context.Context, id int64) error {
+	j, err := c.JobGet(ctx, id)
+	if errors.Is(err, river.ErrNotFound) {
+		return ErrNotDiscarded
+	}
+	if err != nil {
+		return err
+	}
+	if j.State != rivertype.JobStateDiscarded {
+		return ErrNotDiscarded
+	}
+	return nil
+}
 
 // Run works jobs until ctx is cancelled, then stops in two steps:
 //

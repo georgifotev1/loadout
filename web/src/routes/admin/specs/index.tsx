@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { AdminPage } from "#/components/admin/admin-page";
 import { adminColumns, DataTable } from "#/components/admin/data-table";
 import { Pagination } from "#/components/site/pagination";
 import { Badge } from "#/components/ui/badge";
@@ -97,16 +98,10 @@ function ReviewQueuePage() {
 	const { data } = useSuspenseQuery(reviewQueueQuery(queueParams(search)));
 
 	return (
-		<>
-			<div className="flex flex-wrap items-end justify-between gap-4">
-				<div className="max-w-2xl">
-					<h1 className="font-semibold text-2xl tracking-[-0.02em]">
-						{m.admin.specs.title}
-					</h1>
-					<p className="mt-2 text-muted-foreground text-sm">
-						{m.admin.specs.lead}
-					</p>
-				</div>
+		<AdminPage
+			title={m.admin.specs.title}
+			lead={m.admin.specs.lead}
+			actions={
 				<Select
 					items={categoryItems}
 					value={search.category ?? ""}
@@ -132,9 +127,9 @@ function ReviewQueuePage() {
 						))}
 					</SelectContent>
 				</Select>
-			</div>
-
-			<p className="mt-6 mb-3 text-muted-foreground text-sm">
+			}
+		>
+			<p className="mb-3 text-muted-foreground text-sm">
 				{m.admin.specs.count(data.total)}
 			</p>
 			<DataTable
@@ -148,6 +143,6 @@ function ReviewQueuePage() {
 				last={Math.ceil(data.total / reviewPageSize)}
 				className="mt-6"
 			/>
-		</>
+		</AdminPage>
 	);
 }

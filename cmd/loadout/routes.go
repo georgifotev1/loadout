@@ -36,10 +36,6 @@ func (app *application) routes() http.Handler {
 			BaseRouter:       r,
 			ErrorHandlerFunc: app.handleError,
 		})
-
-		// TODO(phase-6): move onto api/openapi.yaml with the admin pages that use them (step 5).
-		r.Post("/admin/sync", app.triggerSync)
-		r.Get("/admin/jobs/discarded", app.discardedJobs)
 	})
 
 	return r

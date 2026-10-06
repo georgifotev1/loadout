@@ -80,3 +80,11 @@ export function unwrap<T>(result: {
 	}
 	return result.data;
 }
+
+/** Throws the error of an openapi-fetch result for an endpoint that answers 204, no body. */
+export function expectNoContent(result: {
+	error?: unknown;
+	response: Response;
+}): void {
+	if (!result.response.ok) throw toApiError(result.response, result.error);
+}

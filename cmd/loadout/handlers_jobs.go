@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -17,46 +17,72 @@ const (
 	maxDiscardedLimit     = 100
 )
 
-type syncTriggeredJSON struct {
-	JobID int64 `json:"job_id"`
-	// AlreadyQueued is true when a sync was already waiting or running; no new job was added.
-	AlreadyQueued bool `json:"already_queued"`
-}
-
-// POST /api/admin/sync
-func (app *application) triggerSync(w http.ResponseWriter, r *http.Request) {
+// TriggerSync handles POST /api/admin/sync.
+func (app *application) TriggerSync(w http.ResponseWriter, r *http.Request) {
 	res, err := app.jobs.Insert(r.Context(), catalog.SyncArgs{}, nil)
 	if err != nil {
 		app.handleError(w, r, err)
 		return
 	}
-	app.writeJSON(w, r, http.StatusAccepted, syncTriggeredJSON{
-		JobID:         res.Job.ID,
+	app.writeJSON(w, r, http.StatusAccepted, SyncTriggered{
+		JobId:         res.Job.ID,
 		AlreadyQueued: res.UniqueSkippedAsDuplicate,
 	})
 }
 
-type discardedJobJSON struct {
-	ID          int64           `json:"id"`
-	Kind        string          `json:"kind"`
-	Queue       string          `json:"queue"`
-	Args        json.RawMessage `json:"args"`
-	Attempt     int             `json:"attempt"`
-	MaxAttempts int             `json:"max_attempts"`
-	LastError   string          `json:"last_error"`
-	CreatedAt   time.Time       `json:"created_at"`
-	FinalizedAt *time.Time      `json:"finalized_at"`
+// ListSyncRuns handles GET /api/admin/sync-runs.
+func (app *application) ListSyncRuns(w http.ResponseWriter, r *http.Request, params ListSyncRunsParams) {
+	page := valueOr(params.Page, 1)
+	pageSize := valueOr(params.PageSize, defaultPageSize)
+
+	res, err := app.catalog.SyncRuns(r.Context(), page, pageSize)
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	// The states in which SyncArgs counts as a duplicate are exactly "waiting or running".
+	queued, err := app.jobs.JobList(r.Context(), river.NewJobListParams().
+		Kinds(catalog.SyncArgs{}.Kind()).
+		States(catalog.SyncArgs{}.InsertOpts().UniqueOpts.ByState...).
+		First(1))
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+
+	resp := SyncRunList{
+		Items:    make([]SyncRun, 0, len(res.Runs)),
+		Page:     page,
+		PageSize: pageSize,
+		Total:    res.Total,
+		Queued:   len(queued.Jobs) > 0,
+	}
+	for _, run := range res.Runs {
+		resp.Items = append(resp.Items, syncRunJSON(run))
+	}
+	app.writeJSON(w, r, http.StatusOK, resp)
 }
 
-type discardedJobsJSON struct {
-	Jobs []discardedJobJSON `json:"jobs"`
+func syncRunJSON(run catalog.SyncRun) SyncRun {
+	out := SyncRun{
+		Id:         run.ID,
+		StartedAt:  run.StartedAt,
+		FinishedAt: run.FinishedAt,
+		Status:     SyncStatus(run.Status),
+		Fetched:    run.Fetched,
+		Changed:    run.Changed,
+		Errors:     run.Errors,
+	}
+	if run.ErrorMessage != "" {
+		out.ErrorMessage = &run.ErrorMessage
+	}
+	return out
 }
 
-// GET /api/admin/jobs/discarded?limit=
-// Jobs that failed every attempt, newest first.
-func (app *application) discardedJobs(w http.ResponseWriter, r *http.Request) {
+// ListDiscardedJobs handles GET /api/admin/jobs/discarded.
+func (app *application) ListDiscardedJobs(w http.ResponseWriter, r *http.Request, params ListDiscardedJobsParams) {
+	limit := valueOr(params.Limit, defaultDiscardedLimit)
 	var v validate.Validator
-	limit := queryInt(&v, r.URL.Query(), "limit", defaultDiscardedLimit)
 	v.Check(limit >= 1 && limit <= maxDiscardedLimit, "limit", "out_of_range")
 	if err := v.Err(); err != nil {
 		app.handleError(w, r, err)
@@ -71,24 +97,55 @@ func (app *application) discardedJobs(w http.ResponseWriter, r *http.Request) {
 		app.handleError(w, r, err)
 		return
 	}
+	total, err := app.jobs.DiscardedCount(r.Context())
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
 
-	resp := discardedJobsJSON{Jobs: make([]discardedJobJSON, 0, len(res.Jobs))}
+	resp := DiscardedJobList{Items: make([]DiscardedJob, 0, len(res.Jobs)), Total: total}
 	for _, j := range res.Jobs {
-		var lastErr string
-		if len(j.Errors) > 0 {
-			lastErr = j.Errors[len(j.Errors)-1].Error
+		var args map[string]any
+		if err := json.Unmarshal(j.EncodedArgs, &args); err != nil {
+			app.handleError(w, r, fmt.Errorf("job %d args: %w", j.ID, err))
+			return
 		}
-		resp.Jobs = append(resp.Jobs, discardedJobJSON{
-			ID:          j.ID,
+		if args == nil {
+			args = map[string]any{}
+		}
+		errs := make([]JobAttemptError, 0, len(j.Errors))
+		for _, e := range j.Errors {
+			errs = append(errs, JobAttemptError{Attempt: e.Attempt, At: e.At, Error: e.Error})
+		}
+		resp.Items = append(resp.Items, DiscardedJob{
+			Id:          j.ID,
 			Kind:        j.Kind,
 			Queue:       j.Queue,
-			Args:        j.EncodedArgs,
+			Args:        args,
 			Attempt:     j.Attempt,
 			MaxAttempts: j.MaxAttempts,
-			LastError:   lastErr,
+			Errors:      errs,
 			CreatedAt:   j.CreatedAt,
 			FinalizedAt: j.FinalizedAt,
 		})
 	}
 	app.writeJSON(w, r, http.StatusOK, resp)
+}
+
+// RetryDiscardedJob handles POST /api/admin/jobs/discarded/{job_id}/retry.
+func (app *application) RetryDiscardedJob(w http.ResponseWriter, r *http.Request, jobID JobID) {
+	if err := app.jobs.RetryDiscarded(r.Context(), jobID); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DeleteDiscardedJob handles DELETE /api/admin/jobs/discarded/{job_id}.
+func (app *application) DeleteDiscardedJob(w http.ResponseWriter, r *http.Request, jobID JobID) {
+	if err := app.jobs.DeleteDiscarded(r.Context(), jobID); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -1,5 +1,5 @@
 import { Check, Copy, Download } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "#/components/ui/button";
 import { Checkbox } from "#/components/ui/checkbox";
 import { Label } from "#/components/ui/label";
@@ -15,8 +15,22 @@ export function RecoveryCodes({
 	codes: string[];
 	onContinue: () => void;
 }) {
+	return (
+		<AuthCard
+			title={m.auth.recovery.title}
+			lead={m.auth.recovery.lead}
+			className="max-w-md"
+		>
+			<RecoveryCodeList codes={codes} />
+			<SavedConfirm onContinue={onContinue} />
+		</AuthCard>
+	);
+}
+
+// RecoveryCodeList is the codes with copy and download: on the login page after setup, and on
+// the account page when an admin makes new ones.
+export function RecoveryCodeList({ codes }: { codes: string[] }) {
 	const [copied, setCopied] = useState(false);
-	const [saved, setSaved] = useState(false);
 	const text = `${codes.join("\n")}\n`;
 
 	function download() {
@@ -29,11 +43,7 @@ export function RecoveryCodes({
 	}
 
 	return (
-		<AuthCard
-			title={m.auth.recovery.title}
-			lead={m.auth.recovery.lead}
-			className="max-w-md"
-		>
+		<>
 			<ul
 				aria-label={m.auth.recovery.listLabel}
 				className="grid grid-cols-1 gap-x-4 gap-y-1.5 rounded-md border bg-muted px-4 py-3 font-mono text-sm sm:grid-cols-2"
@@ -64,13 +74,25 @@ export function RecoveryCodes({
 					{m.auth.recovery.download}
 				</Button>
 			</div>
+		</>
+	);
+}
+
+// SavedConfirm is "I saved the codes" and the button it unlocks.
+export function SavedConfirm({
+	onContinue,
+	label = m.auth.recovery.continue,
+}: {
+	onContinue: () => void;
+	label?: string;
+}) {
+	const [saved, setSaved] = useState(false);
+	const id = useId();
+	return (
+		<>
 			<div className="mt-6 flex items-center gap-2">
-				<Checkbox
-					id="recovery-saved"
-					checked={saved}
-					onCheckedChange={setSaved}
-				/>
-				<Label htmlFor="recovery-saved" className="font-normal">
+				<Checkbox id={id} checked={saved} onCheckedChange={setSaved} />
+				<Label htmlFor={id} className="font-normal">
 					{m.auth.recovery.saved}
 				</Label>
 			</div>
@@ -80,8 +102,8 @@ export function RecoveryCodes({
 				disabled={!saved}
 				onClick={onContinue}
 			>
-				{m.auth.recovery.continue}
+				{label}
 			</Button>
-		</AuthCard>
+		</>
 	);
 }

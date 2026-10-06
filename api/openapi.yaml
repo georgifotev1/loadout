@@ -446,6 +446,120 @@ paths:
         "422": { $ref: "#/components/responses/ValidationFailed" }
         default: { $ref: "#/components/responses/Error" }
 
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      summary: The numbers on the admin dashboard
+      tags: [admin]
+      responses:
+        "200":
+          description: Counts across the back office
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOverview" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /admin/sync:
+    post:
+      operationId: triggerSync
+      summary: Sync the catalog with the supplier now
+      description: |
+        Queues a sync job. While one is already waiting or running, nothing new is queued and
+        `already_queued` is true. The run shows up in `/admin/sync-runs` once it starts.
+      tags: [admin]
+      responses:
+        "202":
+          description: The sync job that will run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SyncTriggered" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /admin/sync-runs:
+    get:
+      operationId: listSyncRuns
+      summary: Supplier sync runs, newest first
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: One page of runs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SyncRunList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /admin/jobs/discarded:
+    get:
+      operationId: listDiscardedJobs
+      summary: Background jobs that failed every attempt, newest first
+      description: |
+        River's dead-letter queue. A discarded job stays here until it's retried or deleted.
+      tags: [admin]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50, x-go-type-skip-optional-pointer: false }
+      responses:
+        "200":
+          description: The newest discarded jobs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscardedJobList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /admin/jobs/discarded/{job_id}:
+    parameters:
+      - $ref: "#/components/parameters/JobID"
+    delete:
+      operationId: deleteDiscardedJob
+      summary: Delete a discarded job
+      description: For a job that doesn't need to run again. Only discarded jobs; any other is a 404.
+      tags: [admin]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /admin/jobs/discarded/{job_id}/retry:
+    parameters:
+      - $ref: "#/components/parameters/JobID"
+    post:
+      operationId: retryDiscardedJob
+      summary: Run a discarded job again
+      description: |
+        Queues the job to run now, with one more attempt. Only discarded jobs; any other is a 404.
+        A unique job (a supplier sync) can't be queued twice: while an equal one is waiting or
+        running, this is a 409.
+      tags: [admin]
+      responses:
+        "204": { description: Queued }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`already_queued`: an equal job is already waiting or running."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
 components:
   parameters:
     Page:
@@ -503,6 +617,12 @@ components:
       in: query
       description: Product slug.
       schema: { type: string }
+
+    JobID:
+      name: job_id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
 
   responses:
     ValidationFailed:
@@ -1038,6 +1158,109 @@ components:
           description: Canonical field → admin value; `null` clears it.
           additionalProperties: { $ref: "#/components/schemas/SpecValue" }
 
+    AdminOverview:
+      type: object
+      required: [specs_incomplete, discarded_jobs, products, last_sync]
+      properties:
+        specs_incomplete: { type: integer, description: Builder parts waiting in the specs review queue. }
+        discarded_jobs: { type: integer }
+        products: { $ref: "#/components/schemas/ProductCounts" }
+        last_sync:
+          description: The newest sync run; `null` before the first one.
+          nullable: true
+          x-go-type-skip-optional-pointer: false
+          allOf: [{ $ref: "#/components/schemas/SyncRun" }]
+
+    ProductCounts:
+      type: object
+      required: [active, inactive]
+      properties:
+        active: { type: integer }
+        inactive: { type: integer, description: Products the supplier stopped listing. }
+
+    SyncTriggered:
+      type: object
+      required: [job_id, already_queued]
+      properties:
+        job_id: { type: integer, format: int64 }
+        already_queued:
+          type: boolean
+          description: A sync was already waiting or running; `job_id` is that one.
+
+    SyncStatus:
+      type: string
+      enum: [running, succeeded, failed]
+
+    SyncRun:
+      type: object
+      required: [id, started_at, finished_at, status, fetched, changed, errors, error_message]
+      properties:
+        id: { type: integer, format: int64 }
+        started_at: { type: string, format: date-time }
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+          x-go-type-skip-optional-pointer: false
+          description: "`null` while running."
+        status: { $ref: "#/components/schemas/SyncStatus" }
+        fetched: { type: integer, description: Products the supplier listed. }
+        changed: { type: integer, description: "Products whose data, price or stock was written." }
+        errors: { type: integer, description: Products skipped because they couldn't be stored. }
+        error_message:
+          type: string
+          nullable: true
+          x-go-type-skip-optional-pointer: false
+          description: Why a failed run failed. For developers; shown to admins as is.
+
+    SyncRunList:
+      type: object
+      required: [items, page, page_size, total, queued]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SyncRun" }
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
+        queued:
+          type: boolean
+          description: A sync job is waiting or running, so a new run is about to appear or finish.
+
+    DiscardedJob:
+      type: object
+      required: [id, kind, queue, args, attempt, max_attempts, errors, created_at, finalized_at]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { type: string, description: "The job's type: supplier_sync, send_email, ..." }
+        queue: { type: string }
+        args: { type: object, additionalProperties: true, description: The job's arguments as stored. }
+        attempt: { type: integer }
+        max_attempts: { type: integer }
+        errors:
+          type: array
+          description: One per failed attempt, oldest first.
+          items: { $ref: "#/components/schemas/JobAttemptError" }
+        created_at: { type: string, format: date-time }
+        finalized_at: { type: string, format: date-time, nullable: true, x-go-type-skip-optional-pointer: false }
+
+    JobAttemptError:
+      type: object
+      required: [attempt, at, error]
+      properties:
+        attempt: { type: integer }
+        at: { type: string, format: date-time }
+        error: { type: string, description: For developers; shown to admins as is. }
+
+    DiscardedJobList:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DiscardedJob" }
+        total: { type: integer, description: All discarded jobs, not only the ones listed. }
+
     Error:
       type: object
       required: [error]
@@ -1071,6 +1294,7 @@ components:
         - second_factor_required
         - invalid_code
         - second_factor_state
+        - already_queued
         - internal
 
     FieldError:

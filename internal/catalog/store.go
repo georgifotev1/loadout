@@ -341,14 +341,11 @@ func (store) finishSyncRun(ctx context.Context, q db.DBTX, r SyncRun) error {
 	return nil
 }
 
-func (store) syncRun(ctx context.Context, q db.DBTX, id int64) (SyncRun, error) {
-	query := `
-		SELECT id, started_at, finished_at, fetched, changed, errors, status, coalesce(error_message, '')
-		FROM catalog.sync_runs
-		WHERE id = $1`
+const syncRunColumns = `id, started_at, finished_at, fetched, changed, errors, status, coalesce(error_message, '')`
 
+func scanSyncRun(row pgx.Row, extra ...any) (SyncRun, error) {
 	var r SyncRun
-	err := q.QueryRow(ctx, query, id).Scan(
+	dest := []any{
 		&r.ID,
 		&r.StartedAt,
 		&r.FinishedAt,
@@ -357,7 +354,15 @@ func (store) syncRun(ctx context.Context, q db.DBTX, id int64) (SyncRun, error) 
 		&r.Errors,
 		&r.Status,
 		&r.ErrorMessage,
-	)
+	}
+	err := row.Scan(append(dest, extra...)...)
+	return r, err
+}
+
+func (store) syncRun(ctx context.Context, q db.DBTX, id int64) (SyncRun, error) {
+	query := `SELECT ` + syncRunColumns + ` FROM catalog.sync_runs WHERE id = $1`
+
+	r, err := scanSyncRun(q.QueryRow(ctx, query, id))
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return SyncRun{}, ErrNotFound
@@ -365,6 +370,42 @@ func (store) syncRun(ctx context.Context, q db.DBTX, id int64) (SyncRun, error) 
 		return SyncRun{}, fmt.Errorf("catalog: sync run %d: %w", id, err)
 	}
 	return r, nil
+}
+
+// syncRuns returns one page of sync runs, newest first, and the number of runs. A page past
+// the end has no rows, so its total is 0.
+func (store) syncRuns(ctx context.Context, q db.DBTX, limit, offset int) ([]SyncRun, int, error) {
+	query := `
+		SELECT ` + syncRunColumns + `, count(*) OVER ()
+		FROM catalog.sync_runs
+		ORDER BY started_at DESC, id DESC
+		LIMIT $1 OFFSET $2`
+
+	rows, err := q.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("catalog: sync runs: %w", err)
+	}
+	var total int
+	runs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (SyncRun, error) {
+		return scanSyncRun(row, &total)
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("catalog: sync runs: %w", err)
+	}
+	return runs, total, nil
+}
+
+// productCounts counts every product, active or not.
+func (store) productCounts(ctx context.Context, q db.DBTX) (ProductCounts, error) {
+	query := `
+		SELECT count(*) FILTER (WHERE active), count(*) FILTER (WHERE NOT active)
+		FROM catalog.products`
+
+	var c ProductCounts
+	if err := q.QueryRow(ctx, query).Scan(&c.Active, &c.Inactive); err != nil {
+		return ProductCounts{}, fmt.Errorf("catalog: product counts: %w", err)
+	}
+	return c, nil
 }
 
 // productState is what the sync needs to know about a stored product to tell whether a fetched
