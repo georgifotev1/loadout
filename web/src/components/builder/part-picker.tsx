@@ -73,7 +73,7 @@ export function PartPicker({
 			<DrawerPopup
 				side={side}
 				className={cn(
-					side === "right" && "w-[38rem]",
+					side === "right" && "w-152",
 					side === "bottom" && "h-[calc(88dvh+3rem)]",
 				)}
 			>

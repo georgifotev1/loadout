@@ -148,7 +148,7 @@ export function SiteSearch({
 					align="start"
 					className="z-50 outline-none"
 				>
-					<Autocomplete.Popup className="w-[max(var(--anchor-width),34rem)] max-w-[var(--available-width)] origin-[var(--transform-origin)] overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-popover transition-[opacity,transform] duration-150 ease-out data-ending-style:scale-[0.98] data-starting-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:opacity-0">
+					<Autocomplete.Popup className="w-[max(var(--anchor-width),34rem)] max-w-(--available-width) origin-(--transform-origin) overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-popover transition-[opacity,transform] duration-150 ease-out data-ending-style:scale-[0.98] data-starting-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:opacity-0">
 						<Autocomplete.List className="max-h-[min(30rem,var(--available-height))] overflow-y-auto overscroll-contain p-1.5 outline-none">
 							{(group: Group) => (
 								<Autocomplete.Group

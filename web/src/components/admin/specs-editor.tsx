@@ -230,7 +230,7 @@ function Attributes({ attributes }: { attributes: Record<string, string> }) {
 					className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 px-4 py-2"
 				>
 					<dt className="text-muted-foreground">{k}</dt>
-					<dd className="select-all break-words">{v}</dd>
+					<dd className="select-all wrap-break-word">{v}</dd>
 				</div>
 			))}
 		</dl>

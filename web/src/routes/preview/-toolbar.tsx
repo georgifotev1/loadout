@@ -10,7 +10,7 @@ const pages = [
 // translated.
 export function PreviewToolbar() {
 	return (
-		<nav className="-translate-x-1/2 fixed bottom-4 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] items-center gap-0.5 overflow-x-auto rounded-full bg-primary px-2 py-1.5 text-primary-foreground text-xs shadow-popover [scrollbar-width:none]">
+		<nav className="-translate-x-1/2 fixed bottom-4 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] items-center gap-0.5 overflow-x-auto rounded-full bg-primary px-2 py-1.5 text-primary-foreground text-xs shadow-popover scrollbar-none">
 			{pages.map((p) => (
 				<Link
 					key={p.to}

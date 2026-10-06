@@ -71,7 +71,7 @@ export function ShareBar({
 	if (!state.open) return null;
 	if (state.failed) {
 		return (
-			<div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/[0.03] px-4 py-3 text-destructive text-meta">
+			<div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/3 px-4 py-3 text-destructive text-meta">
 				{m.builder.shareFailed}
 				<DismissButton onClick={state.dismiss} />
 			</div>
@@ -87,7 +87,7 @@ export function ShareBar({
 			<Link
 				to="/build/$slug"
 				params={{ slug: state.link }}
-				className="order-last min-w-0 basis-full truncate font-mono text-meta hover:underline sm:order-none sm:basis-0 sm:flex-1"
+				className="order-last min-w-0 basis-full truncate font-mono text-meta hover:underline sm:order-0 sm:basis-0 sm:flex-1"
 			>
 				{url}
 			</Link>

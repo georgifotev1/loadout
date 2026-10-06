@@ -312,7 +312,7 @@ function EmptySlot({
 			onFocus={() => actions.onPrefetch(slot)}
 			className={cn(
 				"group flex items-center justify-between gap-4 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:border-border-strong hover:bg-card",
-				next && "border-brand/50 bg-brand/[0.03] hover:border-brand",
+				next && "border-brand/50 bg-brand/3 hover:border-brand",
 			)}
 		>
 			<span className="text-meta text-muted-foreground">{hint}</span>
@@ -434,7 +434,7 @@ function UnavailableLine({
 	actions?: SlotActions;
 }) {
 	return (
-		<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/[0.03] p-3 pl-4">
+		<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/3 p-3 pl-4">
 			<div className="min-w-0">
 				<p className="font-medium text-destructive text-meta">
 					{m.builder.unavailable}

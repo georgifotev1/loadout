@@ -182,7 +182,7 @@ function Banner({
 			className={cn(
 				"flex items-center gap-2 border-b px-5 py-2.5 text-meta",
 				error
-					? "bg-destructive/[0.04] text-destructive"
+					? "bg-destructive/4 text-destructive"
 					: "bg-success/8 text-success",
 			)}
 		>

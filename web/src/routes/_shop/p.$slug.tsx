@@ -138,7 +138,7 @@ function ProductPage() {
 					<p className="font-medium text-subtle-foreground text-xs uppercase tracking-wider">
 						{p.brand}
 					</p>
-					<h1 className="mt-2 text-balance font-semibold text-2xl tracking-[-0.02em] sm:text-3xl sm:tracking-[-0.025em]">
+					<h1 className="mt-2 text-balance font-semibold text-2xl tracking-[-0.02em] sm:text-3xl sm:tracking-tight">
 						{p.name}
 					</h1>
 					<div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta">

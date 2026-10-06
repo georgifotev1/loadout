@@ -74,7 +74,7 @@ function CartPage() {
 			{error ? (
 				<p
 					role="alert"
-					className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/[0.03] px-4 py-3 text-destructive text-meta"
+					className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/3 px-4 py-3 text-destructive text-meta"
 				>
 					<TriangleAlert className="size-4 shrink-0" /> {error}
 				</p>

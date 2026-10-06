@@ -79,7 +79,7 @@ function SavedBuildPage() {
 			<div className="mt-4 flex flex-col gap-2 empty:hidden">
 				{saved.price_changes.length ? <PriceChanges saved={saved} /> : null}
 				{check.unavailable.length ? (
-					<p className="flex gap-2 rounded-xl border border-destructive/40 bg-destructive/[0.03] px-4 py-3 text-destructive text-meta">
+					<p className="flex gap-2 rounded-xl border border-destructive/40 bg-destructive/3 px-4 py-3 text-destructive text-meta">
 						<TriangleAlert className="mt-0.5 size-4 shrink-0" />
 						{m.builder.saved.unavailable(check.unavailable.length)}
 					</p>
@@ -103,7 +103,7 @@ function PriceChanges({ saved }: { saved: Schemas["SavedBuild"] }) {
 		saved.check.parts.find((p) => p.product.slug === slug)?.product.name ??
 		slug;
 	return (
-		<div className="rounded-xl border border-warning/60 bg-warning/[0.06] px-4 py-3">
+		<div className="rounded-xl border border-warning/60 bg-warning/6 px-4 py-3">
 			<p className="flex items-center gap-2 font-medium text-sm">
 				<TriangleAlert className="size-4 text-warning" />
 				{m.builder.saved.pricesChanged(saved.price_changes.length)}
