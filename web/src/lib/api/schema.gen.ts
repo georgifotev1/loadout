@@ -585,6 +585,13 @@ export interface components {
             image?: string;
             price: components["schemas"]["Price"];
             in_stock: boolean;
+            /**
+             * @description Canonical spec values (socket, vram_gb, ...), for the card's key specs. Absent for
+             *     peripherals, and where the response has them elsewhere (builder options).
+             */
+            specs?: {
+                [key: string]: unknown;
+            };
         };
         ProductList: {
             products: components["schemas"]["ProductSummary"][];
@@ -612,6 +619,17 @@ export interface components {
             brands: components["schemas"]["ValueCount"][];
             /** @description Fixed price ranges, cheapest first. */
             prices: components["schemas"]["PriceBucket"][];
+            /** @description The category's spec fields, in display order. Empty without `category`. */
+            specs: components["schemas"]["SpecFacet"][];
+        };
+        SpecFacet: {
+            /** @description A canonical spec field, e.g. `socket`. */
+            field: string;
+            /**
+             * @description Canonical values as text ("AM5", "16", "nvme"): smallest number first for number
+             *     fields, else alphabetical.
+             */
+            values: components["schemas"]["ValueCount"][];
         };
         CategoryCount: {
             value: components["schemas"]["Category"];
@@ -1266,6 +1284,12 @@ export interface operations {
                 price_min?: number;
                 /** @description Price limit in euro cents, exclusive, so it pairs with a bucket's `max_cents`. */
                 price_max?: number;
+                /**
+                 * @description A spec value as `field:value`, e.g. `socket:AM5`, spelled as the `specs` facet spells
+                 *     it. Only with `category`, and only its facet fields. Values of one field match any of
+                 *     them; separate fields must all match. Repeat for several.
+                 */
+                spec?: string[];
                 sort?: components["schemas"]["SearchSort"];
                 /** @description 1-based page number. */
                 page?: components["parameters"]["Page"];

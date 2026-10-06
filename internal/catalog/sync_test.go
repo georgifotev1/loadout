@@ -483,15 +483,23 @@ func TestSyncRefusesToOverlap(t *testing.T) {
 	env.mustSync(t)
 }
 
-// failingSpecs fails every save.
+// failingSpecs fails every save. The sync calls nothing else.
 type failingSpecs struct{}
-
-func (failingSpecs) SaveTx(context.Context, pgx.Tx, specs.Input) (specs.Status, error) {
-	return "", errors.New("specs failed")
-}
 
 func (failingSpecs) Specs(context.Context, uuid.UUID) (specs.ProductSpecs, error) {
 	return specs.ProductSpecs{}, specs.ErrNotFound
+}
+
+func (failingSpecs) SpecsByIDs(context.Context, []uuid.UUID) (map[uuid.UUID]specs.ProductSpecs, error) {
+	return nil, nil
+}
+
+func (failingSpecs) FacetIndex(context.Context, string) (*specs.FacetIndex, error) {
+	return nil, errors.New("not used")
+}
+
+func (failingSpecs) SaveTx(context.Context, pgx.Tx, specs.Input) (specs.Status, error) {
+	return "", errors.New("specs failed")
 }
 
 // Saving specs is the last step of a product's sync transaction: when it fails, the product,

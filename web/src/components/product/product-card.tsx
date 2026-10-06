@@ -3,6 +3,8 @@ import { ShoppingCart } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import { m } from "#/i18n";
 import type { components } from "#/lib/api/schema.gen";
+import { keySpecs } from "#/lib/builder";
+import { isSlot } from "#/lib/spec-facets";
 import { cn } from "#/lib/utils";
 import { Price } from "./price";
 import { ProductImage } from "./product-image";
@@ -12,13 +14,13 @@ type ProductSummary = components["schemas"]["ProductSummary"];
 
 export function ProductCard({
 	product,
-	highlights,
+	highlights = defaultHighlights(product),
 	onAddToCart,
 	className,
 }: {
 	product: ProductSummary;
-	// Key specs shown under the name, e.g. ["12 GB", "GDDR6"].
-	// TODO(phase-6): from the canonical specs, once products have them.
+	// Key specs shown under the name, e.g. ["GeForce RTX 5070", "12 GB"]. By default the
+	// builder's key specs for the product's category, from its canonical specs.
 	highlights?: string[];
 	// Without it there's no add to cart button.
 	onAddToCart?: () => void;
@@ -75,4 +77,8 @@ export function ProductCard({
 			</div>
 		</article>
 	);
+}
+
+function defaultHighlights(p: ProductSummary): string[] {
+	return isSlot(p.category) && p.specs ? keySpecs(p.category, p.specs) : [];
 }

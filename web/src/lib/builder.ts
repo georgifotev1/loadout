@@ -338,6 +338,8 @@ export function keySpecs(slot: Slot, s: Specs): string[] {
 			}
 			case "gpu":
 				return [
+					str("chipset"),
+					n("vram_gb") !== undefined && `${n("vram_gb")} GB`,
 					n("tdp_w") !== undefined && `${n("tdp_w")} W`,
 					n("length_mm") !== undefined && `${n("length_mm")} mm`,
 				];

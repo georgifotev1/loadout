@@ -687,9 +687,9 @@ const stockQty = `coalesce((SELECT s.qty FROM catalog.stock s WHERE s.product_id
 // listProducts returns one page of visible products by name, and the
 // number of matching products over all pages. A page past the end has no rows, so its total
 // is 0.
-func (store) listProducts(ctx context.Context, q db.DBTX, category string, limit, offset int) ([]ProductSummary, int, error) {
+func (store) listProducts(ctx context.Context, q db.DBTX, category string, limit, offset int) ([]Part, int, error) {
 	query := `
-		SELECT p.slug, p.name, p.brand, p.category, coalesce(p.images ->> 0, ''), pr.retail_cents,
+		SELECT p.id, p.slug, p.name, p.brand, p.category, coalesce(p.images ->> 0, ''), pr.retail_cents,
 		       ` + stockQty + `, count(*) OVER ()
 		` + visibleProducts + ` AND ($1 = '' OR p.category = $1)
 		ORDER BY p.name, p.id
@@ -706,9 +706,10 @@ func (store) listProducts(ctx context.Context, q db.DBTX, category string, limit
 		return nil, 0, fmt.Errorf("catalog: list products: %w", err)
 	}
 	var total int
-	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ProductSummary, error) {
-		var p ProductSummary
+	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Part, error) {
+		var p Part
 		err := row.Scan(
+			&p.ID,
 			&p.Slug,
 			&p.Name,
 			&p.Brand,
@@ -803,7 +804,7 @@ func (store) visibleProductBySlug(ctx context.Context, q db.DBTX, slug string) (
 
 // searchBase starts both search queries: the visible products that match the text, with one
 // flag per filter. The page wants every flag; each facet ignores its own, so it can count the
-// values the shopper could switch to. searchArgs supplies $1–$5.
+// values the shopper could switch to. searchArgs supplies $1–$7.
 //
 // The text matches the search vector (whole words in name, brand and SKU) or, for typos and
 // half-typed words, a trigram word similarity against the name ("rizen" finds "Ryzen"). Both
@@ -817,15 +818,21 @@ const searchBase = `
 		       END AS rank,
 		       ($2 = '' OR p.category = $2)                                          AS in_category,
 		       (cardinality($3::text[]) = 0 OR p.brand = ANY ($3))                   AS in_brand,
-		       (pr.retail_cents >= $4::bigint AND ($5::bigint = 0 OR pr.retail_cents < $5)) AS in_price
+		       (pr.retail_cents >= $4::bigint AND ($5::bigint = 0 OR pr.retail_cents < $5)) AS in_price,
+		       (NOT $6::boolean OR p.id = ANY ($7::uuid[]))                          AS in_specs
 		` + visibleProducts + `
 		  AND ($1 = '' OR p.search @@ websearch_to_tsquery('simple', $1) OR $1 <% p.name)
 	)`
 
-func searchArgs(q SearchQuery) []any {
+// specIDs are the products that match q.Specs (the specs module filters on those); without
+// spec filters they're ignored.
+func searchArgs(q SearchQuery, specIDs []uuid.UUID) []any {
 	brands := q.Brands
 	if brands == nil {
 		brands = []string{} // nil would be NULL, and cardinality(NULL) isn't 0
+	}
+	if specIDs == nil {
+		specIDs = []uuid.UUID{}
 	}
 	return []any{
 		q.Text,
@@ -833,6 +840,8 @@ func searchArgs(q SearchQuery) []any {
 		brands,
 		q.MinCents,
 		q.MaxCents,
+		len(q.Specs) > 0,
+		specIDs,
 	}
 }
 
@@ -845,19 +854,19 @@ var searchOrder = map[Sort]string{
 
 // searchProducts returns one page of matches and the number of matches over all pages. Like
 // listProducts, a page past the end has no rows, so its total is 0.
-func (store) searchProducts(ctx context.Context, q db.DBTX, sq SearchQuery) ([]ProductSummary, int, error) {
+func (store) searchProducts(ctx context.Context, q db.DBTX, sq SearchQuery, specIDs []uuid.UUID) ([]Part, int, error) {
 	order, ok := searchOrder[sq.Sort]
 	if !ok {
 		return nil, 0, fmt.Errorf("catalog: search: unknown sort %q", sq.Sort)
 	}
 	query := searchBase + `
-		SELECT slug, name, brand, category, image, retail_cents, stock_qty, count(*) OVER ()
+		SELECT id, slug, name, brand, category, image, retail_cents, stock_qty, count(*) OVER ()
 		FROM base
-		WHERE in_category AND in_brand AND in_price
+		WHERE in_category AND in_brand AND in_price AND in_specs
 		ORDER BY ` + order + `
-		LIMIT $6 OFFSET $7`
+		LIMIT $8 OFFSET $9`
 
-	args := append(searchArgs(sq),
+	args := append(searchArgs(sq, specIDs),
 		sq.PageSize,
 		(sq.Page-1)*sq.PageSize,
 	)
@@ -867,9 +876,10 @@ func (store) searchProducts(ctx context.Context, q db.DBTX, sq SearchQuery) ([]P
 		return nil, 0, fmt.Errorf("catalog: search: %w", err)
 	}
 	var total int
-	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ProductSummary, error) {
-		var p ProductSummary
+	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Part, error) {
+		var p Part
 		err := row.Scan(
+			&p.ID,
 			&p.Slug,
 			&p.Name,
 			&p.Brand,
@@ -889,21 +899,21 @@ func (store) searchProducts(ctx context.Context, q db.DBTX, sq SearchQuery) ([]P
 
 // searchFacets counts the matches per category, brand and price bucket in one query. Each
 // facet's WHERE leaves out its own flag.
-func (store) searchFacets(ctx context.Context, q db.DBTX, sq SearchQuery) (Facets, error) {
+func (store) searchFacets(ctx context.Context, q db.DBTX, sq SearchQuery, specIDs []uuid.UUID) (Facets, error) {
 	query := searchBase + `
-		SELECT 'category', category, 0, count(*) FROM base WHERE in_brand AND in_price GROUP BY category
+		SELECT 'category', category, 0, count(*) FROM base WHERE in_brand AND in_price AND in_specs GROUP BY category
 		UNION ALL
-		SELECT 'brand', brand, 0, count(*) FROM base WHERE in_category AND in_price GROUP BY brand
+		SELECT 'brand', brand, 0, count(*) FROM base WHERE in_category AND in_price AND in_specs GROUP BY brand
 		UNION ALL
-		SELECT 'price', '', width_bucket(retail_cents, $6::bigint[]), count(*) FROM base
-		WHERE in_category AND in_brand GROUP BY 3
+		SELECT 'price', '', width_bucket(retail_cents, $8::bigint[]), count(*) FROM base
+		WHERE in_category AND in_brand AND in_specs GROUP BY 3
 		ORDER BY 1, 3, 4 DESC, 2`
 
 	edges := make([]int64, len(priceEdges))
 	for i, e := range priceEdges {
 		edges[i] = int64(e)
 	}
-	args := append(searchArgs(sq), edges)
+	args := append(searchArgs(sq, specIDs), edges)
 
 	rows, err := q.Query(ctx, query, args...)
 	if err != nil {
@@ -939,4 +949,20 @@ func (store) searchFacets(ctx context.Context, q db.DBTX, sq SearchQuery) (Facet
 		return Facets{}, fmt.Errorf("catalog: search facets: %w", err)
 	}
 	return f, nil
+}
+
+// searchIDs returns every product that matches sq's text, category, brand and price, ignoring
+// its spec filters: the products the spec facets count over.
+func (store) searchIDs(ctx context.Context, q db.DBTX, sq SearchQuery) ([]uuid.UUID, error) {
+	query := searchBase + `SELECT id FROM base WHERE in_category AND in_brand AND in_price`
+
+	rows, err := q.Query(ctx, query, searchArgs(sq, nil)...)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: search ids: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, fmt.Errorf("catalog: search ids: %w", err)
+	}
+	return ids, nil
 }

@@ -1,5 +1,6 @@
 import type { SearchParams } from "#/lib/api/products";
 import { type Category, isCategory } from "#/lib/categories";
+import { isSlot, specFacetFields } from "#/lib/spec-facets";
 
 export const pageSize = 24;
 
@@ -11,6 +12,7 @@ export type ListingSearch = {
 	brand?: string[];
 	price_min?: number;
 	price_max?: number;
+	spec?: string[]; // field:value, e.g. socket:AM5, as GET /api/search takes them
 	sort?: "price_asc" | "price_desc"; // absent: relevance
 	page?: number;
 };
@@ -29,6 +31,10 @@ export function parseListingSearch(s: Record<string, unknown>): ListingSearch {
 	const max = wholeNumber(s.price_max, 1);
 	if (min !== undefined) out.price_min = min;
 	if (max !== undefined && max > (min ?? 0)) out.price_max = max;
+	const specs = (Array.isArray(s.spec) ? s.spec : [s.spec]).filter(
+		(v): v is string => typeof v === "string" && /^[a-z0-9_]+:.+$/.test(v),
+	);
+	if (specs.length) out.spec = [...new Set(specs)].slice(0, 20);
 	if (s.sort === "price_asc" || s.sort === "price_desc") out.sort = s.sort;
 	const page = wholeNumber(s.page, 2); // page 1 is the default
 
@@ -44,14 +50,29 @@ export function wholeNumber(v: unknown, min: number): number | undefined {
 		: undefined;
 }
 
+// specFilter splits a spec param ("socket:AM5") into its field and value.
+export function specFilter(spec: string): { field: string; value: string } {
+	const i = spec.indexOf(":");
+	return { field: spec.slice(0, i), value: spec.slice(i + 1) };
+}
+
+// activeSpecs are the spec filters that apply: only within a category, on its facet fields.
+// Others are dropped rather than failing the page.
+export function activeSpecs(s: ListingSearch): string[] {
+	const fields = isSlot(s.category) ? specFacetFields[s.category] : [];
+	return (s.spec ?? []).filter((v) => fields.includes(specFilter(v).field));
+}
+
 // toSearchParams is the GET /api/search query for a listing.
 export function toSearchParams(s: ListingSearch): SearchParams {
+	const spec = activeSpecs(s);
 	return {
 		q: s.q,
 		category: s.category,
 		brand: s.brand,
 		price_min: s.price_min,
 		price_max: s.price_max,
+		spec: spec.length ? spec : undefined,
 		sort: s.sort,
 		page: s.page,
 		page_size: pageSize,

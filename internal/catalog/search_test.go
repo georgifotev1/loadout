@@ -3,11 +3,14 @@ package catalog
 import (
 	"context"
 	"errors"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/platform/validate"
+	"github.com/gfotev/loadout/internal/specs"
 )
 
 func TestSearch(t *testing.T) {
@@ -153,6 +156,7 @@ func TestSearch(t *testing.T) {
 			"price_min": {MinCents: -1},
 			"price_max": {MinCents: 5000, MaxCents: 5000},
 			"sort":      {Sort: "random"},
+			"spec":      {Category: "cpu", Specs: specs.Filter{"cores": {"8"}}},
 		} {
 			q.Page, q.PageSize = 1, 10
 			_, err := env.svc.Search(ctx, q)
@@ -160,6 +164,101 @@ func TestSearch(t *testing.T) {
 			if !errors.As(err, &verr) || verr.Fields[0].Field != name {
 				t.Errorf("%s: err = %v", name, err)
 			}
+		}
+	})
+}
+
+func TestSearchSpecs(t *testing.T) {
+	env := newSyncEnv(t)
+	env.mustSync(t)
+	ctx := context.Background()
+
+	sockets := map[string]string{
+		"AMD-AM4-R3-RYZ-4100-BOX": "AM4",
+		"AMD-AM4-R5-RYZEN-5600G":  "AM4",
+		"AMD-AM5-R5-7600-BOX":     "AM5",
+		"AMD-AM5-R7-7800X3D-BOX":  "AM5",
+		"INTEL-I5-12400F-BOX":     "LGA1700",
+		"INTEL-I5-14600K-TRAY":    "LGA1700",
+		"INTEL-ULTRA-5-245K-BOX":  "LGA1851",
+	}
+	ids, err := env.svc.ProductIDsBySKU(ctx, env.src.Name(), slices.Collect(maps.Keys(sockets)))
+	if err != nil || len(ids) != len(sockets) {
+		t.Fatalf("ids %v, err %v", ids, err)
+	}
+	sp := specs.NewService(env.pool)
+	for sku, socket := range sockets {
+		if _, err := sp.SetFields(ctx, ids[sku], map[string]any{"socket": socket}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	search := func(t *testing.T, q SearchQuery) SearchResult {
+		t.Helper()
+		q.Page, q.PageSize = 1, MaxPageSize
+		res, err := env.svc.Search(ctx, q)
+		if err != nil {
+			t.Fatalf("search %+v: %v", q, err)
+		}
+		return res
+	}
+	socketFacet := func(t *testing.T, res SearchResult) []specs.FacetValue {
+		t.Helper()
+		if len(res.Facets.Specs) != 1 || res.Facets.Specs[0].Field != "socket" {
+			t.Fatalf("spec facets %+v, want socket only", res.Facets.Specs)
+		}
+		return res.Facets.Specs[0].Values
+	}
+
+	t.Run("a category counts its spec values", func(t *testing.T) {
+		res := search(t, SearchQuery{Category: "cpu"})
+		want := []specs.FacetValue{{Value: "AM4", Count: 2}, {Value: "AM5", Count: 2}, {Value: "LGA1700", Count: 2}, {Value: "LGA1851", Count: 1}}
+		if got := socketFacet(t, res); !slices.Equal(got, want) {
+			t.Errorf("sockets %+v", got)
+		}
+		for _, p := range res.Products {
+			if p.Specs["socket"] == nil {
+				t.Errorf("%s has no socket in its specs: %v", p.Slug, p.Specs)
+			}
+		}
+	})
+
+	t.Run("filtering on a spec value", func(t *testing.T) {
+		res := search(t, SearchQuery{Category: "cpu", Specs: specs.Filter{"socket": {"AM5", "LGA1851"}}})
+		if res.Total != 3 {
+			t.Fatalf("total=%d, want 3", res.Total)
+		}
+		// The socket facet ignores the socket filter; the others apply it.
+		if got := socketFacet(t, res); len(got) != 4 {
+			t.Errorf("sockets %+v, want all four", got)
+		}
+		if b := res.Facets.Brands; len(b) != 2 || b[0] != (FacetCount{Value: "AMD", Count: 2}) || b[1] != (FacetCount{Value: "INTEL", Count: 1}) {
+			t.Errorf("brands %+v", b)
+		}
+	})
+
+	t.Run("other filters narrow the spec counts", func(t *testing.T) {
+		res := search(t, SearchQuery{Category: "cpu", Brands: []string{"INTEL"}})
+		want := []specs.FacetValue{{Value: "LGA1700", Count: 2}, {Value: "LGA1851", Count: 1}}
+		if got := socketFacet(t, res); !slices.Equal(got, want) {
+			t.Errorf("sockets %+v", got)
+		}
+	})
+
+	t.Run("a value nothing has", func(t *testing.T) {
+		res := search(t, SearchQuery{Category: "cpu", Specs: specs.Filter{"socket": {"AM3"}}})
+		if res.Total != 0 || len(res.Facets.Brands) != 0 {
+			t.Errorf("total=%d brands=%+v, want nothing", res.Total, res.Facets.Brands)
+		}
+	})
+
+	t.Run("no spec facets without a category", func(t *testing.T) {
+		res := search(t, SearchQuery{Text: "ryzen"})
+		if len(res.Facets.Specs) != 0 {
+			t.Errorf("spec facets %+v", res.Facets.Specs)
+		}
+		if _, err := env.svc.Search(ctx, SearchQuery{Specs: specs.Filter{"socket": {"AM5"}}, Page: 1, PageSize: 10}); err == nil {
+			t.Error("a spec filter without a category was accepted")
 		}
 	})
 }

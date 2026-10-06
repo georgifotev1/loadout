@@ -1,6 +1,13 @@
 import { m } from "#/i18n";
 import type { Schemas } from "#/lib/api/client";
-import { capacityLabel, type Slot } from "#/lib/builder";
+import type { Slot } from "#/lib/builder";
+import {
+	byRank,
+	type SpecValue,
+	specFacetLabel,
+	specValue,
+	specValues,
+} from "#/lib/spec-facets";
 
 type Option = Schemas["BuilderOption"];
 
@@ -8,13 +15,10 @@ type Option = Schemas["BuilderOption"];
 // usually do it: a few spec facets per part type (socket, memory type, capacity, ...) where
 // values in one facet widen the list and separate facets narrow it, yes/no toggles, and a sort.
 
-// A facet value: the label shown and the number it sorts by (so 512 GB comes before 1 TB).
-type Value = { label: string; rank: number };
-
 export type Facet = {
 	id: string;
 	label: string;
-	values: (o: Option) => Value[];
+	values: (o: Option) => SpecValue[];
 };
 
 export type Toggle = {
@@ -49,34 +53,15 @@ export const emptyFilters: FilterState = {
 
 const num = (o: Option, k: string) =>
 	typeof o.specs[k] === "number" ? (o.specs[k] as number) : undefined;
-const str = (o: Option, k: string) =>
-	typeof o.specs[k] === "string" && o.specs[k] !== ""
-		? (o.specs[k] as string)
-		: undefined;
 const price = (o: Option) => o.product.price.amount_cents;
 
-// one turns a spec into a single facet value, or none when it's unknown.
-function one(label: string | undefined, rank = 0): Value[] {
-	return label === undefined ? [] : [{ label, rank }];
-}
-
-function spec(id: string, label: string, key: string): Facet {
-	return { id, label, values: (o) => one(str(o, key)) };
-}
-
-function amount(
-	id: string,
-	label: string,
-	key: string,
-	format: (n: number) => string,
-): Facet {
+// spec is a facet over one spec field, read the same way as the shop listings' spec facets.
+function spec(slot: Slot, id: string, field: string): Facet {
 	return {
 		id,
-		label,
-		values: (o) => {
-			const n = num(o, key);
-			return n === undefined ? [] : one(format(n), n);
-		},
+		label: specFacetLabel(slot, field),
+		values: (o) =>
+			specValues(o.specs[field]).map((v) => specValue(slot, field, v)),
 	};
 }
 
@@ -106,9 +91,9 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 	const brand: Facet = {
 		id: "brand",
 		label: t.brand,
-		values: (o) => one(o.product.brand),
+		values: (o) => [{ label: o.product.brand, rank: 0 }],
 	};
-	const watts = (n: number) => `${n} W`;
+	const facet = (id: string, field: string) => spec(slot, id, field);
 	const priceAsc: Sort = {
 		id: "price",
 		label: t.sortPriceAsc,
@@ -124,7 +109,7 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 	switch (slot) {
 		case "cpu":
 			return {
-				facets: [brand, spec("socket", t.socket, "socket")],
+				facets: [brand, facet("socket", "socket")],
 				toggles: [
 					{ id: "igpu", label: t.igpu, test: (o) => o.specs.igpu === true },
 					{
@@ -139,9 +124,9 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 			return {
 				facets: [
 					brand,
-					spec("form", t.formFactor, "form_factor"),
-					spec("memory", t.memoryType, "memory_type"),
-					spec("chipset", t.chipset, "chipset"),
+					facet("form", "form_factor"),
+					facet("memory", "memory_type"),
+					facet("chipset", "chipset"),
 				],
 				toggles: [],
 				sorts: [...base, byDesc("m2", t.sortM2, "m2_slots")],
@@ -149,10 +134,10 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 		case "ram":
 			return {
 				facets: [
-					spec("type", t.memoryType, "type"),
-					amount("capacity", t.capacity, "capacity_gb_total", capacityLabel),
-					amount("modules", t.modules, "modules", (n) => t.moduleCount(n)),
-					amount("speed", t.speed, "speed_mhz", (n) => `${n} MHz`),
+					facet("type", "type"),
+					facet("capacity", "capacity_gb_total"),
+					facet("modules", "modules"),
+					facet("speed", "speed_mhz"),
 					brand,
 				],
 				toggles: [],
@@ -165,17 +150,8 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 		case "cooler":
 			return {
 				facets: [
-					{
-						id: "type",
-						label: t.coolerType,
-						values: (o) =>
-							o.specs.type === "aio"
-								? one(t.aio, 2)
-								: o.specs.type === "air"
-									? one(t.air, 1)
-									: [],
-					},
-					amount("radiator", t.radiator, "radiator_mm", (n) => `${n} mm`),
+					facet("type", "type"),
+					facet("radiator", "radiator_mm"),
 					brand,
 				],
 				toggles: [],
@@ -183,7 +159,7 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 			};
 		case "gpu":
 			return {
-				facets: [brand],
+				facets: [facet("chipset", "chipset"), facet("vram", "vram_gb"), brand],
 				toggles: [],
 				sorts: [
 					...base,
@@ -194,23 +170,9 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 		case "storage":
 			return {
 				facets: [
-					{
-						id: "interface",
-						label: t.interface,
-						values: (o) =>
-							({ nvme: one("NVMe", 1), sata: one("SATA", 2) })[
-								str(o, "interface") ?? ""
-							] ?? [],
-					},
-					amount("capacity", t.capacity, "capacity_gb", capacityLabel),
-					{
-						id: "form",
-						label: t.formFactor,
-						values: (o) =>
-							({ m2_2280: one("M.2", 1), "2.5": one("2,5″", 2) })[
-								str(o, "form_factor") ?? ""
-							] ?? [],
-					},
+					facet("interface", "interface"),
+					facet("capacity", "capacity_gb"),
+					facet("form", "form_factor"),
 					brand,
 				],
 				toggles: [],
@@ -229,8 +191,8 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 		case "psu":
 			return {
 				facets: [
-					amount("wattage", t.wattage, "wattage_w", watts),
-					spec("form", t.formFactor, "form_factor"),
+					facet("wattage", "wattage_w"),
+					facet("form", "form_factor"),
 					brand,
 				],
 				toggles:
@@ -248,18 +210,8 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 		case "case":
 			return {
 				facets: [
-					{
-						id: "board",
-						label: t.boardSize,
-						values: (o) =>
-							Array.isArray(o.specs.form_factors_supported)
-								? (o.specs.form_factors_supported as string[]).map((f) => ({
-										label: f,
-										rank: boardRank[f] ?? 9,
-									}))
-								: [],
-					},
-					spec("psu", t.psuSize, "psu_form_factor"),
+					facet("board", "form_factors_supported"),
+					facet("psu", "psu_form_factor"),
 					brand,
 				],
 				toggles: [],
@@ -267,13 +219,6 @@ export function pickerFilters(slot: Slot, recommendedPsuW = 0): PickerFilters {
 			};
 	}
 }
-
-const boardRank: Record<string, number> = {
-	ITX: 1,
-	mATX: 2,
-	ATX: 3,
-	"E-ATX": 4,
-};
 
 // Toggles every picker has: shown only when they'd change the list.
 export function commonToggles(): Toggle[] {
@@ -331,11 +276,9 @@ export function facetValues(
 		}
 	}
 	return [...ranks]
-		.sort(
-			([a, ra], [b, rb]) =>
-				ra - rb || a.localeCompare(b, undefined, { numeric: true }),
-		)
-		.map(([label]) => ({ label, count: counts.get(label) ?? 0 }));
+		.map(([label, rank]) => ({ label, rank }))
+		.sort(byRank)
+		.map(({ label }) => ({ label, count: counts.get(label) ?? 0 }));
 }
 
 // narrowing drops the facets and toggles that wouldn't narrow the list: a facet whose options all

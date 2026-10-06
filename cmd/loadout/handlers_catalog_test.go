@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -152,7 +153,7 @@ func TestSearchAPI(t *testing.T) {
 
 	t.Run("no matches still has facet arrays", func(t *testing.T) {
 		rec := get(t, app, "/api/search?q=spaceship")
-		if !strings.Contains(rec.Body.String(), `"facets":{"brands":[],"categories":[],"prices":[]}`) {
+		if !strings.Contains(rec.Body.String(), `"facets":{"brands":[],"categories":[],"prices":[],"specs":[]}`) {
 			t.Errorf("body %s", rec.Body)
 		}
 	})
@@ -165,6 +166,9 @@ func TestSearchAPI(t *testing.T) {
 			"/api/search?price_min=5000&price_max=100",
 			"/api/search?price_max=abc",
 			"/api/search?q=" + strings.Repeat("a", 201),
+			"/api/search?category=gpu&spec=vram_gb",
+			"/api/search?category=gpu&spec=cores:8",
+			"/api/search?spec=vram_gb:8",
 		} {
 			if rec := get(t, app, target); rec.Code != http.StatusUnprocessableEntity {
 				t.Errorf("%s: status %d, want 422", target, rec.Code)
@@ -180,6 +184,45 @@ func TestSearchAPI(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestSearchSpecsAPI(t *testing.T) {
+	app := newBuilderApp(t)
+
+	rec := get(t, app, "/api/search?category=gpu&spec=vram_gb:12&spec=vram_gb:16")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var body SearchResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Total != 4 {
+		t.Errorf("total=%d, want the 12 and 16 GB cards", body.Total)
+	}
+	for _, p := range body.Products {
+		if vram := p.Specs["vram_gb"]; vram != 12.0 && vram != 16.0 {
+			t.Errorf("%s: vram_gb %v", p.Slug, vram)
+		}
+	}
+	want := []SpecFacet{
+		{Field: "chipset", Values: []ValueCount{
+			{Value: "Arc B580", Count: 1},
+			{Value: "GeForce RTX 5070", Count: 1},
+			{Value: "Radeon RX 9060 XT", Count: 1},
+			{Value: "Radeon RX 9070 GRE", Count: 1},
+		}},
+		// Ignores its own filter: the 8 GB cards are still counted.
+		{Field: "vram_gb", Values: []ValueCount{{Value: "8", Count: 2}, {Value: "12", Count: 3}, {Value: "16", Count: 1}}},
+	}
+	if !reflect.DeepEqual(body.Facets.Specs, want) {
+		t.Errorf("spec facets\n got %+v\nwant %+v", body.Facets.Specs, want)
+	}
+
+	// Peripherals have no specs: the key is left out.
+	if rec := get(t, app, "/api/search?category=peripheral.mouse"); strings.Contains(rec.Body.String(), `"specs":{`) {
+		t.Errorf("a peripheral has specs: %s", rec.Body)
+	}
 }
 
 // Every catalog category must be in the Category enum in api/openapi.yaml, or the web app's

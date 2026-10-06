@@ -2,9 +2,12 @@ package main
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/money"
+	"github.com/gfotev/loadout/internal/platform/validate"
+	"github.com/gfotev/loadout/internal/specs"
 )
 
 const defaultPageSize = 24
@@ -51,12 +54,29 @@ func (app *application) SearchProducts(w http.ResponseWriter, r *http.Request, p
 	page := valueOr(params.Page, 1)
 	pageSize := valueOr(params.PageSize, defaultPageSize)
 
+	// spec=socket:AM5 → {"socket": ["AM5"]}
+	var filter specs.Filter
+	var v validate.Validator
+	for _, s := range params.Spec {
+		field, value, ok := strings.Cut(s, ":")
+		v.Check(ok && field != "" && value != "", "spec", "invalid_format")
+		if filter == nil {
+			filter = specs.Filter{}
+		}
+		filter[field] = append(filter[field], value)
+	}
+	if err := v.Err(); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+
 	res, err := app.catalog.Search(r.Context(), catalog.SearchQuery{
 		Text:     params.Q,
 		Category: string(params.Category),
 		Brands:   params.Brand,
 		MinCents: money.Cents(params.PriceMin),
 		MaxCents: money.Cents(params.PriceMax),
+		Specs:    filter,
 		Sort:     catalog.Sort(params.Sort),
 		Page:     page,
 		PageSize: pageSize,
@@ -75,6 +95,7 @@ func (app *application) SearchProducts(w http.ResponseWriter, r *http.Request, p
 			Categories: make([]CategoryCount, 0, len(res.Facets.Categories)),
 			Brands:     make([]ValueCount, 0, len(res.Facets.Brands)),
 			Prices:     make([]PriceBucket, 0, len(res.Facets.Prices)),
+			Specs:      make([]SpecFacet, 0, len(res.Facets.Specs)),
 		},
 	}
 	for _, p := range res.Products {
@@ -93,6 +114,13 @@ func (app *application) SearchProducts(w http.ResponseWriter, r *http.Request, p
 			Count:    b.Count,
 		})
 	}
+	for _, f := range res.Facets.Specs {
+		values := make([]ValueCount, 0, len(f.Values))
+		for _, fv := range f.Values {
+			values = append(values, ValueCount{Value: fv.Value, Count: fv.Count})
+		}
+		resp.Facets.Specs = append(resp.Facets.Specs, SpecFacet{Field: f.Field, Values: values})
+	}
 	app.writeJSON(w, r, http.StatusOK, resp)
 }
 
@@ -105,6 +133,7 @@ func summary(p catalog.ProductSummary) ProductSummary {
 		Image:    p.Image,
 		Price:    eur(p.RetailCents),
 		InStock:  p.StockQty > 0,
+		Specs:    p.Specs,
 	}
 }
 

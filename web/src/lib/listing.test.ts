@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageNumbers, parseListingSearch } from "./listing";
+import { pageNumbers, parseListingSearch, toSearchParams } from "./listing";
 
 describe("parseListingSearch", () => {
 	it("keeps valid filters", () => {
@@ -49,6 +49,30 @@ describe("parseListingSearch", () => {
 		expect(parseListingSearch({ price_min: 5000, price_max: 5000 })).toEqual({
 			price_min: 5000,
 		});
+	});
+});
+
+describe("spec filters", () => {
+	it("keeps well-formed field:value pairs", () => {
+		expect(
+			parseListingSearch({
+				spec: ["socket:AM5", "socket:AM5", "vram_gb:12", "nope", "Bad:1", 7],
+			}),
+		).toEqual({ spec: ["socket:AM5", "vram_gb:12"] });
+		expect(parseListingSearch({ spec: "chipset:GeForce RTX 5070" })).toEqual({
+			spec: ["chipset:GeForce RTX 5070"],
+		});
+	});
+
+	it("sends only the category's facet fields", () => {
+		const spec = ["chipset:GeForce RTX 5070", "socket:AM5"];
+		expect(toSearchParams({ category: "gpu", spec }).spec).toEqual([
+			"chipset:GeForce RTX 5070",
+		]);
+		expect(toSearchParams({ spec }).spec).toBeUndefined();
+		expect(
+			toSearchParams({ category: "peripheral.mouse", spec }).spec,
+		).toBeUndefined();
 	});
 });
 

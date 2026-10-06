@@ -1,6 +1,9 @@
 package catalog
 
-import "github.com/gfotev/loadout/internal/money"
+import (
+	"github.com/gfotev/loadout/internal/money"
+	"github.com/gfotev/loadout/internal/specs"
+)
 
 // Sort orders search results.
 type Sort string
@@ -13,17 +16,15 @@ const (
 
 // SearchQuery is a storefront search: optional text plus optional filters. Without text it's a
 // faceted listing (the category page).
-//
-// TODO(phase-6): filters and facets on canonical spec fields (socket, memory type, form factor)
-// through the specs service, once admins can fill spec values. No supplier fills them yet.
 type SearchQuery struct {
-	Text     string      // what the shopper typed; "" = no text filter
-	Category string      // "" = all categories
-	Brands   []string    // any of these; empty = all brands
-	MinCents money.Cents // inclusive
-	MaxCents money.Cents // exclusive, so it pairs with PriceBucket.MaxCents; 0 = no limit
-	Sort     Sort        // "" = SortRelevance
-	Page     int         // 1-based
+	Text     string       // what the shopper typed; "" = no text filter
+	Category string       // "" = all categories
+	Brands   []string     // any of these; empty = all brands
+	MinCents money.Cents  // inclusive
+	MaxCents money.Cents  // exclusive, so it pairs with PriceBucket.MaxCents; 0 = no limit
+	Specs    specs.Filter // spec field → any of these values; only the Category's facet fields
+	Sort     Sort         // "" = SortRelevance
+	Page     int          // 1-based
 	PageSize int
 }
 
@@ -31,6 +32,7 @@ type SearchQuery struct {
 const (
 	MaxSearchTextLen = 200 // runes
 	MaxSearchBrands  = 20
+	MaxSearchSpecs   = 20 // values over all spec fields
 )
 
 // SearchResult is one page of matches and the facets over all of them.
@@ -46,6 +48,7 @@ type Facets struct {
 	Categories []FacetCount // most matches first
 	Brands     []FacetCount // most matches first
 	Prices     []PriceBucket
+	Specs      []specs.Facet // the category's spec fields; none without a category
 }
 
 // FacetCount is how many matches have one filter value.

@@ -83,6 +83,18 @@ paths:
           in: query
           description: Price limit in euro cents, exclusive, so it pairs with a bucket's `max_cents`.
           schema: { type: integer, format: int64, minimum: 1 }
+        - name: spec
+          in: query
+          description: |
+            A spec value as `field:value`, e.g. `socket:AM5`, spelled as the `specs` facet spells
+            it. Only with `category`, and only its facet fields. Values of one field match any of
+            them; separate fields must all match. Repeat for several.
+          schema:
+            type: array
+            maxItems: 20
+            items: { type: string, pattern: "^[a-z0-9_]+:.+$" }
+          style: form
+          explode: true
         - name: sort
           in: query
           schema: { $ref: "#/components/schemas/SearchSort" }
@@ -864,6 +876,12 @@ components:
           description: The first image URL. Absent when the product has none.
         price: { $ref: "#/components/schemas/Price" }
         in_stock: { type: boolean }
+        specs:
+          type: object
+          description: |
+            Canonical spec values (socket, vram_gb, ...), for the card's key specs. Absent for
+            peripherals, and where the response has them elsewhere (builder options).
+          additionalProperties: true
 
     ProductList:
       type: object
@@ -900,7 +918,7 @@ components:
     Facets:
       type: object
       description: Match counts per filter value, most matches first. Values with no matches are left out.
-      required: [categories, brands, prices]
+      required: [categories, brands, prices, specs]
       properties:
         categories:
           type: array
@@ -912,6 +930,24 @@ components:
           type: array
           description: Fixed price ranges, cheapest first.
           items: { $ref: "#/components/schemas/PriceBucket" }
+        specs:
+          type: array
+          description: The category's spec fields, in display order. Empty without `category`.
+          items: { $ref: "#/components/schemas/SpecFacet" }
+
+    SpecFacet:
+      type: object
+      required: [field, values]
+      properties:
+        field:
+          type: string
+          description: A canonical spec field, e.g. `socket`.
+        values:
+          type: array
+          description: |
+            Canonical values as text ("AM5", "16", "nvme"): smallest number first for number
+            fields, else alphabetical.
+          items: { $ref: "#/components/schemas/ValueCount" }
 
     CategoryCount:
       type: object

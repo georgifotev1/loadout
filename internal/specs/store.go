@@ -281,3 +281,29 @@ func (store) eligible(ctx context.Context, q db.DBTX, category string) ([]Produc
 	}
 	return items, nil
 }
+
+// categorySpecs returns the effective specs of every product in a category, by product ID.
+func (store) categorySpecs(ctx context.Context, q db.DBTX, category string) (map[uuid.UUID]map[string]any, error) {
+	rows, err := q.Query(ctx, `SELECT product_id, specs FROM specs.product_specs WHERE category = $1`, category)
+	if err != nil {
+		return nil, fmt.Errorf("specs: specs of %s: %w", category, err)
+	}
+	out := map[uuid.UUID]map[string]any{}
+	var (
+		id    uuid.UUID
+		specs map[string]any
+	)
+	scan := []any{
+		&id,
+		&specs,
+	}
+	_, err = pgx.ForEachRow(rows, scan, func() error {
+		out[id] = specs
+		specs = nil // a fresh map for the next row
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("specs: specs of %s: %w", category, err)
+	}
+	return out, nil
+}

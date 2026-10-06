@@ -210,6 +210,7 @@ type ProductSummary struct {
 	Image       string // the first image, "" if there is none
 	RetailCents money.Cents
 	StockQty    int
+	Specs       map[string]any // canonical specs, for the card's key specs; nil for builder parts
 }
 
 // Part is a visible product as the PC builder uses it: the listing fields plus its ID, so the

@@ -726,6 +726,9 @@ type Facets struct {
 
 	// Prices Fixed price ranges, cheapest first.
 	Prices []PriceBucket `json:"prices"`
+
+	// Specs The category's spec fields, in display order. Empty without `category`.
+	Specs []SpecFacet `json:"specs"`
 }
 
 // FieldError defines model for FieldError.
@@ -1032,6 +1035,10 @@ type ProductSummary struct {
 	// Price A retail price. The web app formats it; it never does price math.
 	Price Price  `json:"price"`
 	Slug  string `json:"slug"`
+
+	// Specs Canonical spec values (socket, vram_gb, ...), for the card's key specs. Absent for
+	// peripherals, and where the response has them elsewhere (builder options).
+	Specs map[string]interface{} `json:"specs,omitempty"`
 }
 
 // RecoveryCodes defines model for RecoveryCodes.
@@ -1109,6 +1116,16 @@ type SecondFactor string
 
 // Slot A part of a PC build, named after its catalog category.
 type Slot string
+
+// SpecFacet defines model for SpecFacet.
+type SpecFacet struct {
+	// Field A canonical spec field, e.g. `socket`.
+	Field string `json:"field"`
+
+	// Values Canonical values as text ("AM5", "16", "nvme"): smallest number first for number
+	// fields, else alphabetical.
+	Values []ValueCount `json:"values"`
+}
 
 // SpecField One canonical field. `value` is the effective one: the admin's, else the supplier's,
 // else derived from other fields. `null` means none.
@@ -1392,8 +1409,13 @@ type SearchProductsParams struct {
 	PriceMin int64 `form:"price_min,omitempty" json:"price_min,omitempty"`
 
 	// PriceMax Price limit in euro cents, exclusive, so it pairs with a bucket's `max_cents`.
-	PriceMax int64      `form:"price_max,omitempty" json:"price_max,omitempty"`
-	Sort     SearchSort `form:"sort,omitempty" json:"sort,omitempty"`
+	PriceMax int64 `form:"price_max,omitempty" json:"price_max,omitempty"`
+
+	// Spec A spec value as `field:value`, e.g. `socket:AM5`, spelled as the `specs` facet spells
+	// it. Only with `category`, and only its facet fields. Values of one field match any of
+	// them; separate fields must all match. Repeat for several.
+	Spec []string   `form:"spec,omitempty" json:"spec,omitempty"`
+	Sort SearchSort `form:"sort,omitempty" json:"sort,omitempty"`
 
 	// Page 1-based page number.
 	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
@@ -2702,6 +2724,19 @@ func (siw *ServerInterfaceWrapper) SearchProducts(w http.ResponseWriter, r *http
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "price_max"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "price_max", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "spec" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "spec", r.URL.Query(), &params.Spec, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "spec"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "spec", Err: err})
 		}
 		return
 	}

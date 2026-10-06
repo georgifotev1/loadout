@@ -29,7 +29,8 @@ import { cn } from "#/lib/utils";
 type ProductSummary = Schemas["ProductSummary"];
 
 // The bento shows the priciest product of each of these categories, and the rows below list
-// a few of these. TODO(phase-6): admin-curated picks instead.
+// a few of these. TODO: admin-curated picks instead, once products can be featured (deferred
+// from Phase 6).
 const featuredCategories: Category[] = ["gpu", "cpu", "peripheral.monitor"];
 const rowCategories: Category[] = ["gpu", "peripheral.monitor"];
 

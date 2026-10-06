@@ -49,6 +49,8 @@ type RAM struct {
 }
 
 type GPU struct {
+	Chipset         *string  `json:"chipset"` // the graphics processor: GeForce RTX 5070, Radeon RX 9070 GRE
+	VRAMGB          *int     `json:"vram_gb"`
 	LengthMM        *int     `json:"length_mm"`
 	TDPW            *int     `json:"tdp_w"`
 	PowerConnectors []string `json:"power_connectors"` // one entry per plug: [8-pin 8-pin]

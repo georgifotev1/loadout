@@ -1,5 +1,5 @@
 {
-  "_note": "Admin spec values for the builder parts in vali/, for development until admins enter them in the Phase 6 UI. Mostly read off each fixture's spec rows. Not from the fixtures: GPU tdp_w (the manufacturers' board power), the B550 GAMING X V2 form factor (missing) and the B860M DS3H form factor (the fixture says ATX; it's mATX). Lengths round towards the safe side: GPUs up, case limits down. Cooler TDP ratings are left out: these vendors don't publish one.",
+  "_note": "Admin spec values for the builder parts in vali/, for development until admins enter them in the Phase 6 UI. Mostly read off each fixture's spec rows. Not from the fixtures: GPU tdp_w (the manufacturers' board power), the chipset of the RX 9060 XT and RX 9070 GRE (their pages name the 9070 XT and 9070), the B550 GAMING X V2 form factor (missing) and the B860M DS3H form factor (the fixture says ATX; it's mATX). Lengths round towards the safe side: GPUs up, case limits down. Cooler TDP ratings are left out: these vendors don't publish one.",
   "provider": "vali",
   "products": {
     "AMD-AM4-R3-RYZ-4100-BOX": { "socket": "AM4", "tdp_w": 65, "igpu": false, "cooler_included": true, "generation": "ryzen-4000" },
@@ -25,12 +25,12 @@
     "KIN-RAM-KF552C36BBE-16": { "type": "DDR5", "capacity_gb_total": 16, "modules": 1, "speed_mhz": 5200 },
     "KIN-RAM-KF560C40BBK2-32": { "type": "DDR5", "capacity_gb_total": 32, "modules": 2, "speed_mhz": 6000 },
 
-    "ASR-VC-B580-CL-12G": { "length_mm": 249, "tdp_w": 190, "power_connectors": ["8-pin", "8-pin"] },
-    "GA-VC-N5050-OC-8GL": { "length_mm": 182, "tdp_w": 130, "power_connectors": ["8-pin"] },
-    "GA-VC-N5070WF3-12GD": { "length_mm": 282, "tdp_w": 250, "power_connectors": ["12V-2x6"] },
-    "GA-VC-R9060XT-GAM-OC-16GB": { "length_mm": 281, "tdp_w": 160, "power_connectors": ["8-pin"] },
-    "PC-VC-RX9070GRE-12G-E": { "length_mm": 340, "tdp_w": 220, "power_connectors": ["8-pin", "8-pin"] },
-    "ZOTAC-VC-N5060-8GB-TW": { "length_mm": 221, "tdp_w": 145, "power_connectors": ["8-pin"] },
+    "ASR-VC-B580-CL-12G": { "chipset": "Arc B580", "vram_gb": 12, "length_mm": 249, "tdp_w": 190, "power_connectors": ["8-pin", "8-pin"] },
+    "GA-VC-N5050-OC-8GL": { "chipset": "GeForce RTX 5050", "vram_gb": 8, "length_mm": 182, "tdp_w": 130, "power_connectors": ["8-pin"] },
+    "GA-VC-N5070WF3-12GD": { "chipset": "GeForce RTX 5070", "vram_gb": 12, "length_mm": 282, "tdp_w": 250, "power_connectors": ["12V-2x6"] },
+    "GA-VC-R9060XT-GAM-OC-16GB": { "chipset": "Radeon RX 9060 XT", "vram_gb": 16, "length_mm": 281, "tdp_w": 160, "power_connectors": ["8-pin"] },
+    "PC-VC-RX9070GRE-12G-E": { "chipset": "Radeon RX 9070 GRE", "vram_gb": 12, "length_mm": 340, "tdp_w": 220, "power_connectors": ["8-pin", "8-pin"] },
+    "ZOTAC-VC-N5060-8GB-TW": { "chipset": "GeForce RTX 5060", "vram_gb": 8, "length_mm": 221, "tdp_w": 145, "power_connectors": ["8-pin"] },
 
     "CRS-PSU-9020278-EU": { "wattage_w": 650, "form_factor": "ATX", "pcie_12v2x6_count": 0 },
     "CRS-PSU-9020296-EU": { "wattage_w": 850, "form_factor": "ATX", "pcie_12v2x6_count": 1 },

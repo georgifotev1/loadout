@@ -23,7 +23,13 @@ import {
 import { useRefreshing } from "#/hooks/use-refreshing";
 import { formatPrice, m } from "#/i18n";
 import type { Schemas } from "#/lib/api/client";
-import { type ListingSearch, pageSize } from "#/lib/listing";
+import {
+	activeSpecs,
+	type ListingSearch,
+	pageSize,
+	specFilter,
+} from "#/lib/listing";
+import { byRank, isSlot, specFacetLabel, specValue } from "#/lib/spec-facets";
 import { cn } from "#/lib/utils";
 
 type SearchResult = Schemas["SearchResult"];
@@ -76,6 +82,25 @@ export function Listing({
 				? brands.filter((x) => x !== b)
 				: [...brands, b],
 		});
+	// Spec facets come back only for a builder category (socket, VRAM, ...).
+	const slot = isSlot(search.category) ? search.category : undefined;
+	const specs = activeSpecs(search);
+	const toggleSpec = (field: string, value: string) => {
+		const v = `${field}:${value}`;
+		update({
+			spec: specs.includes(v) ? specs.filter((x) => x !== v) : [...specs, v],
+		});
+	};
+	const specFacets = slot
+		? facets.specs.map((f) => ({
+				field: f.field,
+				label: specFacetLabel(slot, f.field),
+				values: f.values
+					.map((v) => ({ ...v, ...specValue(slot, f.field, v.value) }))
+					.sort(byRank),
+			}))
+		: [];
+
 	const priceSelected = (b: PriceBucket) =>
 		search.price_min === b.min_cents && search.price_max === b.max_cents;
 	const togglePrice = (b: PriceBucket) =>
@@ -95,6 +120,15 @@ export function Listing({
 				]
 			: []),
 		...brands.map((b) => ({ label: b, remove: () => toggleBrand(b) })),
+		...(slot
+			? specs.map((v) => {
+					const { field, value } = specFilter(v);
+					return {
+						label: specValue(slot, field, value).label,
+						remove: () => toggleSpec(field, value),
+					};
+				})
+			: []),
 		...(search.price_min !== undefined || search.price_max !== undefined
 			? [
 					{
@@ -111,6 +145,7 @@ export function Listing({
 			brand: undefined,
 			price_min: undefined,
 			price_max: undefined,
+			spec: undefined,
 		});
 
 	// Rendered in the sidebar on desktop and in the filter sheet on phones.
@@ -128,6 +163,7 @@ export function Listing({
 							onChange={() =>
 								update({
 									category: search.category === c.value ? undefined : c.value,
+									spec: undefined, // spec fields differ per category
 								})
 							}
 						/>
@@ -148,6 +184,20 @@ export function Listing({
 					))}
 				</FacetGroup>
 			) : null}
+			{specFacets.map((f) => (
+				<FacetGroup key={f.field} title={f.label}>
+					{f.values.map((v) => (
+						<FacetCheckbox
+							key={v.value}
+							id={`${prefix}-${f.field}-${v.value}`}
+							label={v.label}
+							count={v.count}
+							checked={specs.includes(`${f.field}:${v.value}`)}
+							onChange={() => toggleSpec(f.field, v.value)}
+						/>
+					))}
+				</FacetGroup>
+			))}
 			{facets.prices.length > 0 ? (
 				<FacetGroup title={m.listing.price}>
 					{facets.prices.map((b) => (
@@ -214,7 +264,7 @@ export function Listing({
 
 			<div className="grid gap-8 pt-6 lg:grid-cols-[15rem_1fr]">
 				<aside className="hidden lg:block">
-					<div className="sticky top-[calc(var(--spacing-header)+2.5rem+1.5rem)] flex flex-col gap-8">
+					<div className="sticky top-[calc(var(--spacing-header)+2.5rem+1.5rem)] flex max-h-[calc(100dvh-var(--spacing-header)-2.5rem-1.5rem)] flex-col gap-8 overflow-y-auto overscroll-contain pb-6">
 						{facetGroups("side")}
 					</div>
 				</aside>
