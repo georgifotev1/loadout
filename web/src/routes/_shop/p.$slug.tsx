@@ -1,6 +1,6 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { RotateCcw, ShieldCheck, Truck } from "lucide-react";
+import { RotateCcw, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
 import { useState } from "react";
 import { Price } from "#/components/product/price";
 import { ProductCard } from "#/components/product/product-card";
@@ -8,6 +8,7 @@ import { ProductImage } from "#/components/product/product-image";
 import { Stock } from "#/components/product/stock";
 import { Container } from "#/components/site/container";
 import { PageBreadcrumb } from "#/components/site/page-breadcrumb";
+import { Button } from "#/components/ui/button";
 import { formatPrice, m } from "#/i18n";
 import { ApiError, type Schemas } from "#/lib/api/client";
 import { productQuery, searchQuery } from "#/lib/api/products";
@@ -150,7 +151,13 @@ function ProductPage() {
 						</span>
 					</div>
 
-					{/* TODO(phase-7): quantity and add to cart, once there's a cart. */}
+					<Button size="lg" className="mt-6 h-11 w-full sm:w-auto" disabled>
+						<ShoppingCart /> {m.product.addToCart}
+					</Button>
+					<p className="mt-2 text-subtle-foreground text-xs">
+						{/* TODO(phase-7): quantity and add to cart, once there's a cart. */}
+						{m.product.cartSoon}
+					</p>
 
 					<ul className="mt-6 divide-y rounded-lg border bg-card text-sm">
 						{[

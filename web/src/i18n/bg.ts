@@ -346,6 +346,7 @@ export const bg = {
 		inStock: "В наличност",
 		outOfStock: "Изчерпан",
 		addToCart: "Добави в количката",
+		cartSoon: "Онлайн поръчките идват скоро.",
 		quantity: "Количество",
 		sku: "Код",
 		vatIncluded: "С включено ДДС",
