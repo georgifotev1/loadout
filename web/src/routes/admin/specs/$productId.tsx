@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
+import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import { SpecsEditor } from "#/components/admin/specs-editor";
 import { m } from "#/i18n";
 import { parseSpecsSearch } from "#/lib/admin-specs";
@@ -30,6 +31,8 @@ export const Route = createFileRoute("/admin/specs/$productId")({
 			{ title: m.site.title(loaderData?.product_name ?? m.admin.specs.title) },
 		],
 	}),
+	errorComponent: AdminError,
+	notFoundComponent: AdminNotFound,
 	component: SpecsPage,
 });
 

@@ -6,6 +6,7 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { NavProgress } from "#/components/site/nav-progress";
 import { ShopLayout } from "#/components/site/shop-layout";
 import { NotFound } from "#/components/site/status-page";
 import { locale, m } from "#/i18n";
@@ -53,6 +54,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
+				<NavProgress />
 				{children}
 				<TanStackDevtools
 					config={{

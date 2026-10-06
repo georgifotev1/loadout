@@ -21,12 +21,21 @@ export function ShopSearch() {
 	const navigate = useNavigate();
 	const q = useDebouncedValue(query.trim(), 200);
 
-	const { data } = useQuery({
+	const { data, isFetching, isError } = useQuery({
 		...searchQuery({ q, page_size: 5 }),
 		enabled: q !== "",
 		placeholderData: keepPreviousData,
 	});
-	const results = query.trim() && data ? data : undefined;
+	const typed = query.trim();
+	const results = typed && data ? data : undefined;
+	// The previous results stay up while the next ones load (or the typing settles).
+	const status = !typed
+		? undefined
+		: isError && !data
+			? "error"
+			: typed !== q || isFetching
+				? "searching"
+				: undefined;
 
 	const onSelect = (item: SearchItem) => {
 		switch (item.kind) {
@@ -67,8 +76,11 @@ export function ShopSearch() {
 							category: c.value,
 							count: c.count,
 						}))
-					: suggestedCategories.map((category) => ({ category }))
+					: typed
+						? []
+						: suggestedCategories.map((category) => ({ category }))
 			}
+			status={status}
 			onSelect={onSelect}
 		/>
 	);

@@ -8,6 +8,7 @@ import { ProductImage } from "#/components/product/product-image";
 import { Stock } from "#/components/product/stock";
 import { Container } from "#/components/site/container";
 import { PageBreadcrumb } from "#/components/site/page-breadcrumb";
+import { ProductSkeleton } from "#/components/site/page-skeletons";
 import { Button } from "#/components/ui/button";
 import { formatPrice, m } from "#/i18n";
 import { ApiError, type Schemas } from "#/lib/api/client";
@@ -60,6 +61,7 @@ export const Route = createFileRoute("/_shop/p/$slug")({
 	headers: () => ({
 		"Cache-Control": "public, max-age=60, stale-while-revalidate=300",
 	}),
+	pendingComponent: ProductSkeleton,
 	component: ProductPage,
 });
 
@@ -102,6 +104,7 @@ function ProductPage() {
 							src={p.images[image]}
 							alt={p.name}
 							loading="eager"
+							fetchPriority="high"
 							className="p-[10%]"
 						/>
 					</div>

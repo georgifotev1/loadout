@@ -1,9 +1,5 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import {
-	createFileRoute,
-	redirect,
-	useRouterState,
-} from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { RotateCcw, Share2, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BuildSummary } from "#/components/builder/build-summary";
@@ -22,6 +18,7 @@ import { Price } from "#/components/product/price";
 import { Container } from "#/components/site/container";
 import { PageBreadcrumb } from "#/components/site/page-breadcrumb";
 import { Button } from "#/components/ui/button";
+import { useRefreshing } from "#/hooks/use-refreshing";
 import { m } from "#/i18n";
 import { buildCheckQuery, builderOptionsQuery } from "#/lib/api/builder";
 import { ApiError } from "#/lib/api/client";
@@ -74,7 +71,7 @@ function BuilderPage() {
 	const queryClient = useQueryClient();
 	const { data: check } = useSuspenseQuery(buildCheckQuery(build));
 	const status = buildStatus(check);
-	const loading = useRouterState({ select: (s) => s.isLoading });
+	const loading = useRefreshing();
 	const share = useShareBuild(build);
 
 	const [target, setTarget] = useState<PickerTarget>();
@@ -184,6 +181,7 @@ function BuilderPage() {
 
 			<div className="mt-6 grid gap-8 lg:grid-cols-[1fr_22rem] lg:gap-10">
 				<div
+					aria-busy={loading}
 					className={cn(
 						"transition-opacity",
 						loading && "opacity-60 delay-150",

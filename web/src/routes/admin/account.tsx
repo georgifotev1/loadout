@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { AdminPage, StatusDot } from "#/components/admin/admin-page";
+import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import {
 	RecoveryCodeList,
 	SavedConfirm,
@@ -26,6 +27,8 @@ import { regenerateRecoveryCodes } from "#/lib/api/auth";
 // with customer accounts (Phase 7), which build password changes and resets for everyone.
 export const Route = createFileRoute("/admin/account")({
 	head: () => ({ meta: [{ title: m.site.title(m.admin.account.title) }] }),
+	errorComponent: AdminError,
+	notFoundComponent: AdminNotFound,
 	component: AccountPage,
 });
 

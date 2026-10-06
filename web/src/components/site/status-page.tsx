@@ -1,4 +1,9 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import {
+	type ErrorComponentProps,
+	Link,
+	useRouter,
+} from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Button } from "#/components/ui/button";
 import { m } from "#/i18n";
 import { Container } from "./container";
@@ -16,15 +21,30 @@ export function NotFound() {
 
 // PageError is shown when a page's data couldn't load, usually because the API is down.
 // Retrying reruns the loaders, which also clears the error.
-export function PageError() {
-	const router = useRouter();
+export function PageError({ error }: ErrorComponentProps) {
+	useLogError(error);
 	return (
 		<StatusPage title={m.error.title} detail={m.error.detail}>
-			<Button size="lg" onClick={() => router.invalidate()}>
-				{m.error.retry}
-			</Button>
+			<RetryButton />
 		</StatusPage>
 	);
+}
+
+export function RetryButton() {
+	const router = useRouter();
+	return (
+		<Button size="lg" onClick={() => router.invalidate()}>
+			{m.error.retry}
+		</Button>
+	);
+}
+
+// useLogError puts the error the page hides behind "something went wrong" in the browser
+// console, for whoever is debugging it.
+export function useLogError(error: unknown) {
+	useEffect(() => {
+		console.error(error);
+	}, [error]);
 }
 
 export function StatusPage({

@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, type LinkProps } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { AdminPage } from "#/components/admin/admin-page";
+import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import { SyncStatus } from "#/components/admin/sync-status";
 import { formatRelativeTime, m } from "#/i18n";
 import { overviewQuery } from "#/lib/api/admin";
@@ -12,6 +13,8 @@ import { cn } from "#/lib/utils";
 export const Route = createFileRoute("/admin/")({
 	loader: ({ context }) => context.queryClient.query(overviewQuery),
 	head: () => ({ meta: [{ title: m.site.title(m.admin.dashboard.title) }] }),
+	errorComponent: AdminError,
+	notFoundComponent: AdminNotFound,
 	component: Dashboard,
 });
 

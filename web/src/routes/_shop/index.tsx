@@ -183,6 +183,7 @@ function BentoTile({
 				src={p.image}
 				alt={p.name}
 				loading="eager"
+				fetchPriority={size === "lg" ? "high" : undefined}
 				className={cn(
 					"aspect-auto min-h-0 flex-1 transition-transform duration-500 ease-out group-hover:scale-[1.04]",
 					size === "lg" ? "p-[8%]" : "p-[10%]",

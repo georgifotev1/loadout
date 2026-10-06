@@ -6,6 +6,7 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { RefreshCw } from "lucide-react";
 import { AdminPage } from "#/components/admin/admin-page";
+import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import { adminColumns, DataTable } from "#/components/admin/data-table";
 import { SyncStatus } from "#/components/admin/sync-status";
 import { Pagination } from "#/components/site/pagination";
@@ -36,6 +37,8 @@ export const Route = createFileRoute("/admin/sync")({
 	loader: ({ context, deps }) =>
 		context.queryClient.query(syncRunsQuery(runsParams(deps.page))),
 	head: () => ({ meta: [{ title: m.site.title(m.admin.sync.title) }] }),
+	errorComponent: AdminError,
+	notFoundComponent: AdminNotFound,
 	component: SyncPage,
 });
 

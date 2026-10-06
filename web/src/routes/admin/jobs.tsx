@@ -7,6 +7,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { AdminPage } from "#/components/admin/admin-page";
+import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import { adminColumns, DataTable } from "#/components/admin/data-table";
 import {
 	AlertDialog,
@@ -42,6 +43,8 @@ import { ApiError } from "#/lib/api/client";
 export const Route = createFileRoute("/admin/jobs")({
 	loader: ({ context }) => context.queryClient.query(discardedJobsQuery),
 	head: () => ({ meta: [{ title: m.site.title(m.admin.jobs.title) }] }),
+	errorComponent: AdminError,
+	notFoundComponent: AdminNotFound,
 	component: JobsPage,
 });
 

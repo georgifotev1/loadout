@@ -13,6 +13,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "#/components/ui/table";
+import { useRefreshing } from "#/hooks/use-refreshing";
 import { cn } from "#/lib/utils";
 
 // The admin's tables share one feature set. Sorting, filtering and paging happen in the API
@@ -35,7 +36,7 @@ export function adminColumns<T extends RowData>() {
 export type AdminColumns<T extends RowData> = ColumnDef<Features, T, any>[];
 
 // DataTable renders rows the API already filtered and paged. `empty` shows in place of the body
-// when there are none.
+// when there are none. The rows dim while the page loads another filter or page of them.
 export function DataTable<T extends RowData>({
 	columns,
 	data,
@@ -51,9 +52,17 @@ export function DataTable<T extends RowData>({
 	className?: string;
 }) {
 	const table = useTable({ features, columns, data, getRowId });
+	const refreshing = useRefreshing();
 
 	return (
-		<div className={cn("rounded-lg border bg-card", className)}>
+		<div
+			aria-busy={refreshing}
+			className={cn(
+				"rounded-lg border bg-card transition-opacity",
+				refreshing && "opacity-60 delay-150",
+				className,
+			)}
+		>
 			<Table>
 				<TableHeader>
 					{table.getHeaderGroups().map((group) => (

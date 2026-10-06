@@ -5,6 +5,7 @@ import { BuildSummary } from "#/components/builder/build-summary";
 import { BuildSlots } from "#/components/builder/slot-row";
 import { Container } from "#/components/site/container";
 import { PageBreadcrumb } from "#/components/site/page-breadcrumb";
+import { PageSkeleton } from "#/components/site/page-skeletons";
 import { StatusPage } from "#/components/site/status-page";
 import { Button } from "#/components/ui/button";
 import { formatPrice, formatShortDate, m } from "#/i18n";
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/_shop/build/$slug")({
 			</Button>
 		</StatusPage>
 	),
+	pendingComponent: PageSkeleton,
 	component: SavedBuildPage,
 });
 

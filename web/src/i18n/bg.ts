@@ -29,6 +29,8 @@ export const bg = {
 		products: "Продукти",
 		categories: "Категории",
 		noResults: (q: string) => `Няма резултати за „${q}“`,
+		searching: "Търсене…",
+		error: "Търсенето не работи в момента. Опитайте отново след малко.",
 		viewAll: (q: string) => `Всички резултати за „${q}“`,
 		navigate: "навигация",
 		select: "избор",
@@ -323,6 +325,7 @@ export const bg = {
 			`${n} ${plural(n, { one: "продукт", other: "продукта" })}`,
 		filters: "Филтри",
 		clearFilters: "Изчисти",
+		clearAllFilters: "Изчисти филтрите",
 		brand: "Марка",
 		price: "Цена",
 		category: "Категория",
@@ -502,6 +505,11 @@ export const bg = {
 	admin: {
 		title: "Администрация",
 		badge: "Админ",
+		notFound: {
+			title: "Няма такава страница",
+			detail: "Връзката може да е грешна или записът вече да не съществува.",
+		},
+		backToDashboard: "Към началото",
 		nav: {
 			label: "Администрация",
 			catalog: "Каталог",
@@ -732,6 +740,7 @@ export const bg = {
 	},
 	// Shared UI components' own words (screen-reader labels and the like).
 	ui: {
+		loading: "Зареждане…",
 		sidebar: "Странична лента",
 		sidebarDescription: "Разделите на администрацията.",
 		toggleSidebar: "Скрий или покажи страничната лента",

@@ -1,5 +1,11 @@
 import { Autocomplete } from "@base-ui/react/autocomplete";
-import { ArrowRight, CornerDownLeft, Search, TrendingUp } from "lucide-react";
+import {
+	ArrowRight,
+	CornerDownLeft,
+	LoaderCircle,
+	Search,
+	TrendingUp,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Price } from "#/components/product/price";
 import { ProductImage } from "#/components/product/product-image";
@@ -27,6 +33,7 @@ export function SiteSearch({
 	products,
 	categories,
 	popular = [],
+	status,
 	onSelect,
 	className,
 }: {
@@ -35,6 +42,8 @@ export function SiteSearch({
 	products: ProductSummary[];
 	categories: { category: Category; count?: number }[];
 	popular?: string[];
+	// "searching" while results for the query are on their way; "error" if they couldn't load.
+	status?: "searching" | "error";
 	onSelect: (item: SearchItem) => void;
 	className?: string;
 }) {
@@ -114,7 +123,11 @@ export function SiteSearch({
 						if (q) onSelect({ kind: "all", label: q });
 					}}
 				>
-					<Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3.5 size-4 text-subtle-foreground" />
+					{status === "searching" ? (
+						<LoaderCircle className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3.5 size-4 text-subtle-foreground motion-safe:animate-spin" />
+					) : (
+						<Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3.5 size-4 text-subtle-foreground" />
+					)}
 					<Autocomplete.Input
 						ref={input}
 						type="search"
@@ -165,8 +178,15 @@ export function SiteSearch({
 							)}
 						</Autocomplete.List>
 						{q && products.length === 0 && categories.length === 0 ? (
-							<p className="px-4 pb-4 text-muted-foreground text-sm">
-								{m.search.noResults(q)}
+							<p
+								role={status === "error" ? "alert" : undefined}
+								className="px-4 pb-4 text-muted-foreground text-sm"
+							>
+								{status === "error"
+									? m.search.error
+									: status === "searching"
+										? m.search.searching
+										: m.search.noResults(q)}
 							</p>
 						) : null}
 						<div className="hidden items-center gap-4 border-t bg-background px-4 py-2 text-[11px] text-subtle-foreground md:flex">

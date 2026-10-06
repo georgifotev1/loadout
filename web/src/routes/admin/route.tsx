@@ -3,8 +3,12 @@ import {
 	notFound,
 	Outlet,
 	redirect,
+	rootRouteId,
 } from "@tanstack/react-router";
 import { AdminLayout } from "#/components/admin/admin-layout";
+import { AdminNotFound } from "#/components/admin/admin-status";
+import { ShopLayout } from "#/components/site/shop-layout";
+import { PageError } from "#/components/site/status-page";
 import { m } from "#/i18n";
 import { meQuery, signedIn } from "#/lib/api/auth";
 import { sidebarOpen } from "#/lib/sidebar-state";
@@ -18,8 +22,9 @@ export const Route = createFileRoute("/admin")({
 		if (!signedIn(me)) {
 			throw redirect({ to: "/login", search: { redirect: location.href } });
 		}
-		// Not a page a customer can use; no need to tell them it's there.
-		if (me.role !== "admin") throw notFound();
+		// Not a page a customer can use; no need to tell them it's there. The root's not-found
+		// page is the shop's, where this route's own would show the admin's.
+		if (me.role !== "admin") throw notFound({ routeId: rootRouteId });
 		return { me, sidebarOpen: sidebarOpen() };
 	},
 	head: () => ({
@@ -28,6 +33,14 @@ export const Route = createFileRoute("/admin")({
 			{ name: "robots", content: "noindex" },
 		],
 	}),
+	// The session check failed (the API is down): there's no admin layout to show it in.
+	errorComponent: (props) => (
+		<ShopLayout>
+			<PageError {...props} />
+		</ShopLayout>
+	),
+	// An unknown /admin URL.
+	notFoundComponent: AdminNotFound,
 	component: AdminShell,
 });
 

@@ -1,5 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
-import { SlidersHorizontal, X } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { SearchX, SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
 import { ProductCard } from "#/components/product/product-card";
 import { Pagination } from "#/components/site/pagination";
@@ -20,9 +20,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
+import { useRefreshing } from "#/hooks/use-refreshing";
 import { formatPrice, m } from "#/i18n";
 import type { Schemas } from "#/lib/api/client";
 import { type ListingSearch, pageSize } from "#/lib/listing";
+import { cn } from "#/lib/utils";
 
 type SearchResult = Schemas["SearchResult"];
 type PriceBucket = Schemas["PriceBucket"];
@@ -52,6 +54,7 @@ export function Listing({
 }) {
 	const navigate = useNavigate();
 	const [filtersOpen, setFiltersOpen] = useState(false);
+	const refreshing = useRefreshing();
 	const { facets } = result;
 
 	// Any filter change starts over at page 1.
@@ -216,7 +219,13 @@ export function Listing({
 					</div>
 				</aside>
 
-				<div>
+				<div
+					aria-busy={refreshing}
+					className={cn(
+						"transition-opacity",
+						refreshing && "opacity-60 delay-150",
+					)}
+				>
 					{chips.length > 0 ? (
 						<div className="mb-4 flex flex-wrap items-center gap-2">
 							{chips.map((c) => (
@@ -239,11 +248,27 @@ export function Listing({
 							))}
 						</div>
 					) : (
-						<p className="rounded-lg border bg-card px-5 py-10 text-center text-muted-foreground text-sm">
-							{search.q && chips.length === 0
-								? m.listing.emptySearch(search.q)
-								: m.listing.empty}
-						</p>
+						<div className="flex flex-col items-center gap-4 rounded-lg border bg-card px-5 py-14 text-center">
+							<SearchX
+								aria-hidden
+								className="size-8 text-subtle-foreground"
+								strokeWidth={1.5}
+							/>
+							<p className="max-w-sm text-muted-foreground text-sm">
+								{search.q && chips.length === 0
+									? m.listing.emptySearch(search.q)
+									: m.listing.empty}
+							</p>
+							{chips.length > 0 ? (
+								<Button variant="outline" onClick={clearAll}>
+									{m.listing.clearAllFilters}
+								</Button>
+							) : search.q ? (
+								<Button variant="outline" render={<Link to="/search" />}>
+									{m.listing.allProducts}
+								</Button>
+							) : null}
+						</div>
 					)}
 
 					<Pagination

@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AdminPage } from "#/components/admin/admin-page";
+import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import { adminColumns, DataTable } from "#/components/admin/data-table";
 import { Pagination } from "#/components/site/pagination";
 import { Badge } from "#/components/ui/badge";
@@ -38,6 +39,8 @@ export const Route = createFileRoute("/admin/specs/")({
 	loader: ({ context, deps }) =>
 		context.queryClient.query(reviewQueueQuery(queueParams(deps))),
 	head: () => ({ meta: [{ title: m.site.title(m.admin.specs.title) }] }),
+	errorComponent: AdminError,
+	notFoundComponent: AdminNotFound,
 	component: ReviewQueuePage,
 });
 
