@@ -25,23 +25,31 @@ type Service struct {
 	store   store
 	params  params
 	hashing chan struct{}
+	sealer  sealer
 	now     func() time.Time
 	// dummyHash is checked against when the email is unknown, so that answer takes as long as a
 	// wrong password and the timing doesn't tell who has an account.
 	dummyHash func() string
 }
 
-func NewService(pool *pgxpool.Pool) *Service {
+// NewService returns the auth service. totpKey encrypts the admins' TOTP secrets: TOTPKeyLen
+// random bytes, kept out of the database.
+func NewService(pool *pgxpool.Pool, totpKey []byte) (*Service, error) {
+	sealer, err := newSealer(totpKey)
+	if err != nil {
+		return nil, err
+	}
 	s := &Service{
 		pool:    pool,
 		params:  defaultParams,
 		hashing: make(chan struct{}, maxConcurrentHashes),
+		sealer:  sealer,
 		now:     time.Now,
 	}
 	s.dummyHash = sync.OnceValue(func() string {
 		return hashPassword(rand.Text(), s.params)
 	})
-	return s
+	return s, nil
 }
 
 // CreateAdmin adds an admin. Admins are only created this way (from the CLI); there's no
@@ -107,7 +115,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 		return Session{}, &LockedError{RetryAfter: until.Sub(now)}
 	}
 
-	u, hash, err := s.store.userByEmail(ctx, s.pool, email)
+	u, hash, enrolled, err := s.store.userByEmail(ctx, s.pool, email)
 	known := err == nil
 	if errors.Is(err, ErrInvalidCredentials) {
 		hash = s.dummyHash()
@@ -135,7 +143,12 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 	}
 
 	token, idHash := newToken()
-	sess := Session{Token: token, User: u, ExpiresAt: now.Add(sessionTTL(u.Role))}
+	sess := Session{
+		Token:        token,
+		User:         u,
+		ExpiresAt:    now.Add(sessionTTL(u.Role)),
+		SecondFactor: secondFactor(u.Role, enrolled, nil),
+	}
 	err = db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
 		// Only the email's failures: logging into one account mustn't reset the limit on an IP
 		// that's guessing others.

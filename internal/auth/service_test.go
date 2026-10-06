@@ -15,7 +15,10 @@ const password = "correct horse battery"
 // newTestService returns a service with cheap hashing and a clock the test moves by hand.
 func newTestService(t *testing.T) (*Service, *time.Time) {
 	t.Helper()
-	s := NewService(dbtest.New(t))
+	s, err := NewService(dbtest.New(t), make([]byte, TOTPKeyLen))
+	if err != nil {
+		t.Fatal(err)
+	}
 	s.params = cheap
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 	s.now = func() time.Time { return now }
@@ -154,7 +157,7 @@ func TestLogin(t *testing.T) {
 		if _, err := login("admin@loadout.bg", password, "10.0.0.1"); err != nil {
 			t.Fatal(err)
 		}
-		_, hash, err := s.store.userByEmail(ctx, s.pool, "admin@loadout.bg")
+		_, hash, _, err := s.store.userByEmail(ctx, s.pool, "admin@loadout.bg")
 		if err != nil {
 			t.Fatal(err)
 		}

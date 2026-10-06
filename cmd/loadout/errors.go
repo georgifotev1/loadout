@@ -37,9 +37,15 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 		app.writeError(w, r, http.StatusUnauthorized, ErrorCodeUnauthenticated, "not logged in")
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		app.writeError(w, r, http.StatusUnauthorized, ErrorCodeInvalidCredentials, "wrong email or password")
+	case errors.Is(err, auth.ErrAdminsOnly):
+		app.writeError(w, r, http.StatusForbidden, ErrorCodeForbidden, "admins only")
+	case errors.Is(err, auth.ErrInvalidCode):
+		app.writeError(w, r, http.StatusUnauthorized, ErrorCodeInvalidCode, "wrong code")
+	case errors.Is(err, auth.ErrSecondFactorState):
+		app.writeError(w, r, http.StatusConflict, ErrorCodeSecondFactorState, "not possible in this second-factor state")
 	case errors.As(err, &lockedErr):
 		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(lockedErr.RetryAfter.Seconds()))))
-		app.writeError(w, r, http.StatusTooManyRequests, ErrorCodeTooManyAttempts, "too many failed logins")
+		app.writeError(w, r, http.StatusTooManyRequests, ErrorCodeTooManyAttempts, "too many failed attempts")
 	case errors.Is(err, context.Canceled) && r.Context().Err() != nil:
 		w.WriteHeader(statusClientClosedRequest)
 	default:

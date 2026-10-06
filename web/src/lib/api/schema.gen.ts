@@ -219,6 +219,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/totp/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start setting up TOTP
+         * @description For an admin whose `second_factor` is `enroll`. Returns a new secret for the
+         *     authenticator app; it's active once `/auth/totp/confirm` gets a code from it. Calling
+         *     this again replaces the unconfirmed secret. An admin who already has TOTP gets 409: only
+         *     `loadout admin reset-totp` replaces it.
+         */
+        post: operations["enrollTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish setting up TOTP with a first code
+         * @description Turns TOTP on and verifies the session, which gets a new cookie. The recovery codes in
+         *     the response are shown only this once.
+         */
+        post: operations["confirmTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pass the second factor with a TOTP or recovery code
+         * @description For an admin whose `second_factor` is `verify`. `code` is the app's 6 digits or one of
+         *     the recovery codes; each works once. The session gets a new cookie.
+         */
+        post: operations["verifyTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the recovery codes
+         * @description For a verified admin. The old codes stop working; the new ones are shown only this once.
+         */
+        post: operations["regenerateRecoveryCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -429,11 +514,36 @@ export interface components {
         };
         /** @enum {string} */
         Role: "customer" | "admin";
-        User: {
+        /** @description The logged-in user, and where their session stands with the second factor. */
+        Me: {
             /** Format: uuid */
             id: string;
             email: string;
             role: components["schemas"]["Role"];
+            second_factor: components["schemas"]["SecondFactor"];
+        };
+        /**
+         * @description `not_required`: a customer, or an admin when the second factor is off (development only).
+         *     `enroll`: an admin who must set up TOTP. `verify`: an admin who must enter a code.
+         *     `verified`: done; the admin API is open.
+         * @enum {string}
+         */
+        SecondFactor: "not_required" | "enroll" | "verify" | "verified";
+        CodeRequest: {
+            code: string;
+        };
+        TotpSetup: {
+            /** @description Base32, for typing into the app by hand. */
+            secret: string;
+            /** @description The `otpauth://totp/...` URI, for a QR code. */
+            uri: string;
+        };
+        RecoveryCodes: {
+            recovery_codes: string[];
+        };
+        TotpConfirmed: {
+            me: components["schemas"]["Me"];
+            recovery_codes: string[];
         };
         Error: {
             error: components["schemas"]["ErrorDetail"];
@@ -449,7 +559,7 @@ export interface components {
          * @description Stable reason the web app translates. Renaming one breaks translations.
          * @enum {string}
          */
-        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "internal";
+        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "internal";
         FieldError: {
             field: string;
             /** @description Why the field is invalid, e.g. `required`, `out_of_range`, `unknown`, `invalid_format`. */
@@ -487,6 +597,47 @@ export interface components {
         /** @description `unauthenticated`: no valid session. */
         Unauthenticated: {
             headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description `forbidden`: not allowed for this user, or `second_factor_required`: an admin whose
+         *     session hasn't passed the second factor yet.
+         */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `unauthenticated`: no valid session, or `invalid_code`: a wrong, expired or used code. */
+        InvalidCode: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `second_factor_state`: not possible at this session's `second_factor`. */
+        SecondFactorState: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `too_many_attempts`: locked for now. */
+        TooManyAttempts: {
+            headers: {
+                /** @description Seconds until the next try is allowed. */
+                "Retry-After"?: number;
                 [name: string]: unknown;
             };
             content: {
@@ -789,13 +940,16 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Logged in. `Set-Cookie` holds the session. */
+            /**
+             * @description Logged in. `Set-Cookie` holds the session. An admin still needs the second factor
+             *     (`second_factor` is `enroll` or `verify`) before the admin API lets them in.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
             400: components["responses"]["InvalidBody"];
@@ -857,10 +1011,118 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
             401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["Error"];
+        };
+    };
+    enrollTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The secret, to show as a QR code (`uri`) or to type in (`secret`) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpSetup"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["SecondFactorState"];
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeRequest"];
+            };
+        };
+        responses: {
+            /** @description TOTP is on. `Set-Cookie` holds the new session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpConfirmed"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            401: components["responses"]["InvalidCode"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["SecondFactorState"];
+            429: components["responses"]["TooManyAttempts"];
+            default: components["responses"]["Error"];
+        };
+    };
+    verifyTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Verified. `Set-Cookie` holds the new session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            401: components["responses"]["InvalidCode"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["SecondFactorState"];
+            429: components["responses"]["TooManyAttempts"];
+            default: components["responses"]["Error"];
+        };
+    };
+    regenerateRecoveryCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new codes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodes"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["SecondFactorState"];
             default: components["responses"]["Error"];
         };
     };

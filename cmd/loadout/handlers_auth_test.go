@@ -2,7 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base32"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/platform/config"
@@ -23,12 +29,22 @@ func newAuthApp(t *testing.T) *application {
 	t.Helper()
 	app := newTestApp()
 	app.db = dbtest.New(t)
-	app.auth = auth.NewService(app.db)
+	app.auth = newAuthService(t, app.db)
 	app.specs = specs.NewService(app.db)
 	return app
 }
 
-// adminCookie creates an admin with a new email and returns a session cookie for them.
+func newAuthService(t *testing.T, pool *pgxpool.Pool) *auth.Service {
+	t.Helper()
+	svc, err := auth.NewService(pool, make([]byte, auth.TOTPKeyLen))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return svc
+}
+
+// adminCookie creates an admin with a new email, sets up their TOTP and returns a verified
+// session cookie for them.
 func adminCookie(t *testing.T, app *application) *http.Cookie {
 	t.Helper()
 	ctx := context.Background()
@@ -40,7 +56,32 @@ func adminCookie(t *testing.T, app *application) *http.Cookie {
 	if err != nil {
 		t.Fatal(err)
 	}
+	setup, err := app.auth.EnrollTOTP(ctx, sess.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, _, err = app.auth.ConfirmTOTP(ctx, sess.Token, totpCode(t, setup.Secret, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
 	return &http.Cookie{Name: app.sessionCookieName(), Value: sess.Token}
+}
+
+// totpCode is what an authenticator app shows for the base32 secret, steps 30-second steps from
+// now (RFC 6238; internal/auth tests it against the RFC's vectors).
+func totpCode(t *testing.T, secret string, steps int64) string {
+	t.Helper()
+	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var msg [8]byte
+	binary.BigEndian.PutUint64(msg[:], uint64(time.Now().Unix()/30+steps))
+	mac := hmac.New(sha1.New, key)
+	mac.Write(msg[:])
+	sum := mac.Sum(nil)
+	off := sum[len(sum)-1] & 0x0f
+	return fmt.Sprintf("%06d", (binary.BigEndian.Uint32(sum[off:off+4])&0x7fffffff)%1_000_000)
 }
 
 func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
@@ -67,12 +108,12 @@ func TestAuthAPI(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body)
 		}
-		var u User
-		if err := json.Unmarshal(rec.Body.Bytes(), &u); err != nil {
+		var me Me
+		if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
 			t.Fatal(err)
 		}
-		if u.Email != "admin@loadout.bg" || u.Role != RoleAdmin {
-			t.Errorf("user %+v", u)
+		if me.Email != "admin@loadout.bg" || me.Role != RoleAdmin || me.SecondFactor != SecondFactorEnroll {
+			t.Errorf("me %+v", me)
 		}
 		session = sessionCookie(t, rec)
 		// Max-Age counts from when the cookie is written, a moment after the session started.
@@ -156,6 +197,14 @@ func TestAdminRoutesNeedAnAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	customer := &http.Cookie{Name: "session", Value: sess.Token}
+	if _, err := app.auth.CreateAdmin(ctx, "new-admin@loadout.bg", testPassword); err != nil {
+		t.Fatal(err)
+	}
+	sess, err = app.auth.Login(ctx, auth.LoginInput{Email: "new-admin@loadout.bg", Password: testPassword})
+	if err != nil {
+		t.Fatal(err)
+	}
+	passwordOnly := &http.Cookie{Name: "session", Value: sess.Token}
 
 	const target = "/api/admin/specs/review-queue?category=cpu"
 	tests := []struct {
@@ -165,7 +214,8 @@ func TestAdminRoutesNeedAnAdmin(t *testing.T) {
 		code    string
 	}{
 		{"no session", nil, http.StatusUnauthorized, "unauthenticated"},
-		{"customer", []*http.Cookie{customer}, http.StatusForbidden, "forbidden"},
+		{"customer", []*http.Cookie{customer}, http.StatusForbidden, `"forbidden"`},
+		{"admin without the second factor", []*http.Cookie{passwordOnly}, http.StatusForbidden, "second_factor_required"},
 		{"admin", []*http.Cookie{admin}, http.StatusOK, ""},
 	}
 	for _, tt := range tests {
@@ -176,6 +226,94 @@ func TestAdminRoutesNeedAnAdmin(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSecondFactorAPI(t *testing.T) {
+	app := newAuthApp(t)
+	ctx := context.Background()
+	if _, err := app.auth.CreateAdmin(ctx, "admin@loadout.bg", testPassword); err != nil {
+		t.Fatal(err)
+	}
+	const adminRoute = "/api/admin/specs/review-queue?category=cpu"
+	login := func() *http.Cookie {
+		t.Helper()
+		rec := postJSON(t, app, "/api/auth/login", `{"email": "admin@loadout.bg", "password": "`+testPassword+`"}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("login: status %d: %s", rec.Code, rec.Body)
+		}
+		return sessionCookie(t, rec)
+	}
+	send := func(target, body string, c *http.Cookie) *httptest.ResponseRecorder {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(c)
+		app.routes().ServeHTTP(rec, req)
+		return rec
+	}
+	expect := func(rec *httptest.ResponseRecorder, status int, body string) {
+		t.Helper()
+		if rec.Code != status || !strings.Contains(rec.Body.String(), body) {
+			t.Errorf("status %d, want %d with %s: %s", rec.Code, status, body, rec.Body)
+		}
+	}
+
+	var recovery []string
+	t.Run("enrol", func(t *testing.T) {
+		c := login()
+		expect(get(t, app, "/api/auth/me", c), http.StatusOK, `"second_factor":"enroll"`)
+		expect(get(t, app, adminRoute, c), http.StatusForbidden, `"second_factor_required"`)
+
+		rec := post(t, app, "/api/auth/totp/enroll", c)
+		var setup TotpSetup
+		if err := json.Unmarshal(rec.Body.Bytes(), &setup); rec.Code != http.StatusOK || err != nil {
+			t.Fatalf("enroll: status %d: %s", rec.Code, rec.Body)
+		}
+		if !strings.HasPrefix(setup.Uri, "otpauth://totp/Loadout:admin@loadout.bg?") {
+			t.Errorf("uri %s", setup.Uri)
+		}
+
+		expect(send("/api/auth/totp/confirm", `{"code": "abc"}`, c), http.StatusUnauthorized, `"invalid_code"`)
+		rec = send("/api/auth/totp/confirm", `{"code": "`+totpCode(t, setup.Secret, 0)+`"}`, c)
+		var confirmed TotpConfirmed
+		if err := json.Unmarshal(rec.Body.Bytes(), &confirmed); rec.Code != http.StatusOK || err != nil {
+			t.Fatalf("confirm: status %d: %s", rec.Code, rec.Body)
+		}
+		if confirmed.Me.SecondFactor != SecondFactorVerified || len(confirmed.RecoveryCodes) != 10 {
+			t.Errorf("confirmed %+v", confirmed)
+		}
+		verified := sessionCookie(t, rec)
+		expect(get(t, app, adminRoute, verified), http.StatusOK, "")
+		expect(get(t, app, "/api/auth/me", c), http.StatusUnauthorized, `"unauthenticated"`)
+		expect(post(t, app, "/api/auth/totp/enroll", verified), http.StatusConflict, `"second_factor_state"`)
+		recovery = confirmed.RecoveryCodes
+
+		rec = post(t, app, "/api/auth/totp/recovery-codes", verified)
+		var codes RecoveryCodes
+		if err := json.Unmarshal(rec.Body.Bytes(), &codes); rec.Code != http.StatusOK || err != nil || len(codes.RecoveryCodes) != 10 {
+			t.Fatalf("regenerate: status %d: %s", rec.Code, rec.Body)
+		}
+		recovery = codes.RecoveryCodes
+	})
+
+	t.Run("verify with a recovery code", func(t *testing.T) {
+		c := login()
+		expect(get(t, app, "/api/auth/me", c), http.StatusOK, `"second_factor":"verify"`)
+		expect(post(t, app, "/api/auth/totp/enroll", c), http.StatusConflict, `"second_factor_state"`)
+		expect(send("/api/auth/totp/verify", `{"code": "000000"}`, c), http.StatusUnauthorized, `"invalid_code"`)
+		rec := send("/api/auth/totp/verify", `{"code": "`+recovery[0]+`"}`, c)
+		expect(rec, http.StatusOK, `"second_factor":"verified"`)
+		expect(get(t, app, adminRoute, sessionCookie(t, rec)), http.StatusOK, "")
+	})
+
+	t.Run("development bypass", func(t *testing.T) {
+		app.cfg.Auth.SkipTOTP = true
+		defer func() { app.cfg.Auth.SkipTOTP = false }()
+		c := login()
+		expect(get(t, app, "/api/auth/me", c), http.StatusOK, `"second_factor":"not_required"`)
+		expect(get(t, app, adminRoute, c), http.StatusOK, "")
+	})
 }
 
 func TestCrossOriginWritesAreRejected(t *testing.T) {

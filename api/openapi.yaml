@@ -233,10 +233,12 @@ paths:
             schema: { $ref: "#/components/schemas/LoginRequest" }
       responses:
         "200":
-          description: Logged in. `Set-Cookie` holds the session.
+          description: |
+            Logged in. `Set-Cookie` holds the session. An admin still needs the second factor
+            (`second_factor` is `enroll` or `verify`) before the admin API lets them in.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/User" }
+              schema: { $ref: "#/components/schemas/Me" }
         "400": { $ref: "#/components/responses/InvalidBody" }
         "401":
           description: "`invalid_credentials`: wrong email or password."
@@ -276,8 +278,98 @@ paths:
           description: The user of the session cookie
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/User" }
+              schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/totp/enroll:
+    post:
+      operationId: enrollTotp
+      summary: Start setting up TOTP
+      description: |
+        For an admin whose `second_factor` is `enroll`. Returns a new secret for the
+        authenticator app; it's active once `/auth/totp/confirm` gets a code from it. Calling
+        this again replaces the unconfirmed secret. An admin who already has TOTP gets 409: only
+        `loadout admin reset-totp` replaces it.
+      tags: [auth]
+      responses:
+        "200":
+          description: The secret, to show as a QR code (`uri`) or to type in (`secret`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TotpSetup" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/SecondFactorState" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/totp/confirm:
+    post:
+      operationId: confirmTotp
+      summary: Finish setting up TOTP with a first code
+      description: |
+        Turns TOTP on and verifies the session, which gets a new cookie. The recovery codes in
+        the response are shown only this once.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CodeRequest" }
+      responses:
+        "200":
+          description: TOTP is on. `Set-Cookie` holds the new session.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TotpConfirmed" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/InvalidCode" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/SecondFactorState" }
+        "429": { $ref: "#/components/responses/TooManyAttempts" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/totp/verify:
+    post:
+      operationId: verifyTotp
+      summary: Pass the second factor with a TOTP or recovery code
+      description: |
+        For an admin whose `second_factor` is `verify`. `code` is the app's 6 digits or one of
+        the recovery codes; each works once. The session gets a new cookie.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CodeRequest" }
+      responses:
+        "200":
+          description: Verified. `Set-Cookie` holds the new session.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/InvalidCode" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/SecondFactorState" }
+        "429": { $ref: "#/components/responses/TooManyAttempts" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/totp/recovery-codes:
+    post:
+      operationId: regenerateRecoveryCodes
+      summary: Replace the recovery codes
+      description: For a verified admin. The old codes stop working; the new ones are shown only this once.
+      tags: [auth]
+      responses:
+        "200":
+          description: The new codes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodes" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/SecondFactorState" }
         default: { $ref: "#/components/responses/Error" }
 
 components:
@@ -356,6 +448,32 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     Unauthenticated:
       description: "`unauthenticated`: no valid session."
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: |
+        `forbidden`: not allowed for this user, or `second_factor_required`: an admin whose
+        session hasn't passed the second factor yet.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    InvalidCode:
+      description: "`unauthenticated`: no valid session, or `invalid_code`: a wrong, expired or used code."
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    SecondFactorState:
+      description: "`second_factor_state`: not possible at this session's `second_factor`."
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyAttempts:
+      description: "`too_many_attempts`: locked for now."
+      headers:
+        Retry-After:
+          description: Seconds until the next try is allowed.
+          schema: { type: integer }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -702,13 +820,57 @@ components:
       type: string
       enum: [customer, admin]
 
-    User:
+    Me:
       type: object
-      required: [id, email, role]
+      description: The logged-in user, and where their session stands with the second factor.
+      required: [id, email, role, second_factor]
       properties:
         id: { type: string, format: uuid }
         email: { type: string }
         role: { $ref: "#/components/schemas/Role" }
+        second_factor: { $ref: "#/components/schemas/SecondFactor" }
+
+    SecondFactor:
+      type: string
+      description: |
+        `not_required`: a customer, or an admin when the second factor is off (development only).
+        `enroll`: an admin who must set up TOTP. `verify`: an admin who must enter a code.
+        `verified`: done; the admin API is open.
+      enum: [not_required, enroll, verify, verified]
+
+    CodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string }
+
+    TotpSetup:
+      type: object
+      required: [secret, uri]
+      properties:
+        secret:
+          type: string
+          description: Base32, for typing into the app by hand.
+        uri:
+          type: string
+          description: The `otpauth://totp/...` URI, for a QR code.
+
+    RecoveryCodes:
+      type: object
+      required: [recovery_codes]
+      properties:
+        recovery_codes:
+          type: array
+          items: { type: string }
+
+    TotpConfirmed:
+      type: object
+      required: [me, recovery_codes]
+      properties:
+        me: { $ref: "#/components/schemas/Me" }
+        recovery_codes:
+          type: array
+          items: { type: string }
 
     Error:
       type: object
@@ -740,6 +902,9 @@ components:
         - forbidden
         - invalid_credentials
         - too_many_attempts
+        - second_factor_required
+        - invalid_code
+        - second_factor_state
         - internal
 
     FieldError:

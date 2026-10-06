@@ -42,26 +42,33 @@ func (store) insertUser(ctx context.Context, q db.DBTX, email, passwordHash stri
 	return u, true, nil
 }
 
-// userByEmail returns the user and their password hash, or ErrInvalidCredentials.
-func (store) userByEmail(ctx context.Context, q db.DBTX, email string) (User, string, error) {
-	query := `SELECT id, email, role, created_at, password_hash FROM auth.users WHERE email = $1`
+// userByEmail returns the user, their password hash and whether they have confirmed TOTP, or
+// ErrInvalidCredentials.
+func (store) userByEmail(ctx context.Context, q db.DBTX, email string) (User, string, bool, error) {
+	query := `
+		SELECT u.id, u.email, u.role, u.created_at, u.password_hash, t.confirmed_at IS NOT NULL
+		FROM auth.users u
+		LEFT JOIN auth.totp t ON t.user_id = u.id
+		WHERE u.email = $1`
 
 	var u User
 	var hash string
+	var enrolled bool
 	err := q.QueryRow(ctx, query, email).Scan(
 		&u.ID,
 		&u.Email,
 		&u.Role,
 		&u.CreatedAt,
 		&hash,
+		&enrolled,
 	)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		return User{}, "", ErrInvalidCredentials
+		return User{}, "", false, ErrInvalidCredentials
 	case err != nil:
-		return User{}, "", fmt.Errorf("auth: user by email: %w", err)
+		return User{}, "", false, fmt.Errorf("auth: user by email: %w", err)
 	}
-	return u, hash, nil
+	return u, hash, enrolled, nil
 }
 
 func (store) setPasswordHash(ctx context.Context, q db.DBTX, userID uuid.UUID, hash string) error {
@@ -74,10 +81,10 @@ func (store) setPasswordHash(ctx context.Context, q db.DBTX, userID uuid.UUID, h
 
 func (store) insertSession(ctx context.Context, q db.DBTX, idHash []byte, s Session, now time.Time) error {
 	query := `
-		INSERT INTO auth.sessions (id_hash, user_id, created_at, expires_at)
-		VALUES ($1, $2, $3, $4)`
+		INSERT INTO auth.sessions (id_hash, user_id, created_at, expires_at, second_factor_at)
+		VALUES ($1, $2, $3, $4, $5)`
 
-	if _, err := q.Exec(ctx, query, idHash, s.User.ID, now, s.ExpiresAt); err != nil {
+	if _, err := q.Exec(ctx, query, idHash, s.User.ID, now, s.ExpiresAt, s.secondFactorAt); err != nil {
 		return fmt.Errorf("auth: insert session: %w", err)
 	}
 	return nil
@@ -86,18 +93,23 @@ func (store) insertSession(ctx context.Context, q db.DBTX, idHash []byte, s Sess
 // session returns the unexpired session with this hash, or ErrUnauthenticated.
 func (store) session(ctx context.Context, q db.DBTX, idHash []byte, now time.Time) (Session, error) {
 	query := `
-		SELECT u.id, u.email, u.role, u.created_at, s.expires_at
+		SELECT u.id, u.email, u.role, u.created_at, s.expires_at, s.second_factor_at,
+			t.confirmed_at IS NOT NULL
 		FROM auth.sessions s
 		JOIN auth.users u ON u.id = s.user_id
+		LEFT JOIN auth.totp t ON t.user_id = u.id
 		WHERE s.id_hash = $1 AND s.expires_at > $2`
 
 	var s Session
+	var enrolled bool
 	err := q.QueryRow(ctx, query, idHash, now).Scan(
 		&s.User.ID,
 		&s.User.Email,
 		&s.User.Role,
 		&s.User.CreatedAt,
 		&s.ExpiresAt,
+		&s.secondFactorAt,
+		&enrolled,
 	)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -105,6 +117,7 @@ func (store) session(ctx context.Context, q db.DBTX, idHash []byte, now time.Tim
 	case err != nil:
 		return Session{}, fmt.Errorf("auth: session: %w", err)
 	}
+	s.SecondFactor = secondFactor(s.User.Role, enrolled, s.secondFactorAt)
 	return s, nil
 }
 
@@ -163,4 +176,125 @@ func (store) clearFailures(ctx context.Context, q db.DBTX, key string) error {
 		return fmt.Errorf("auth: clear failed logins: %w", err)
 	}
 	return nil
+}
+
+// deleteUserSessions logs the user out everywhere.
+func (store) deleteUserSessions(ctx context.Context, q db.DBTX, userID uuid.UUID) error {
+	if _, err := q.Exec(ctx, `DELETE FROM auth.sessions WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("auth: delete user sessions: %w", err)
+	}
+	return nil
+}
+
+func (store) userIDByEmail(ctx context.Context, q db.DBTX, email string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := q.QueryRow(ctx, `SELECT id FROM auth.users WHERE email = $1`, email).Scan(&id)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return uuid.Nil, ErrNoSuchUser
+	case err != nil:
+		return uuid.Nil, fmt.Errorf("auth: user by email: %w", err)
+	}
+	return id, nil
+}
+
+// setPendingTOTP stores a new, unconfirmed TOTP secret, replacing an unconfirmed one. It reports
+// false, and changes nothing, if the user already has confirmed TOTP.
+func (store) setPendingTOTP(ctx context.Context, q db.DBTX, userID uuid.UUID, sealed []byte) (bool, error) {
+	query := `
+		INSERT INTO auth.totp AS t (user_id, secret)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE SET secret = EXCLUDED.secret, last_step = 0
+		WHERE t.confirmed_at IS NULL`
+
+	tag, err := q.Exec(ctx, query, userID, sealed)
+	if err != nil {
+		return false, fmt.Errorf("auth: set pending totp: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// totp returns the user's sealed secret, whether it's confirmed, and the last used step. ok is
+// false if there's none.
+func (store) totp(ctx context.Context, q db.DBTX, userID uuid.UUID) (sealed []byte, confirmed bool, lastStep int64, ok bool, err error) {
+	query := `SELECT secret, confirmed_at IS NOT NULL, last_step FROM auth.totp WHERE user_id = $1`
+
+	err = q.QueryRow(ctx, query, userID).Scan(
+		&sealed,
+		&confirmed,
+		&lastStep,
+	)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return nil, false, 0, false, nil
+	case err != nil:
+		return nil, false, 0, false, fmt.Errorf("auth: totp: %w", err)
+	}
+	return sealed, confirmed, lastStep, true, nil
+}
+
+// confirmTOTP marks the pending secret confirmed, with step as its first used step. It reports
+// false if there's no pending secret any more (another request confirmed it first).
+func (store) confirmTOTP(ctx context.Context, q db.DBTX, userID uuid.UUID, step int64, now time.Time) (bool, error) {
+	query := `
+		UPDATE auth.totp SET confirmed_at = $3, last_step = $2
+		WHERE user_id = $1 AND confirmed_at IS NULL`
+
+	tag, err := q.Exec(ctx, query, userID, step, now)
+	if err != nil {
+		return false, fmt.Errorf("auth: confirm totp: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// useTOTPStep records step as used. It reports false if it, or a later one, already was: the
+// code is a replay.
+func (store) useTOTPStep(ctx context.Context, q db.DBTX, userID uuid.UUID, step int64) (bool, error) {
+	query := `
+		UPDATE auth.totp SET last_step = $2
+		WHERE user_id = $1 AND confirmed_at IS NOT NULL AND last_step < $2`
+
+	tag, err := q.Exec(ctx, query, userID, step)
+	if err != nil {
+		return false, fmt.Errorf("auth: use totp step: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+func (store) deleteTOTP(ctx context.Context, q db.DBTX, userID uuid.UUID) error {
+	if _, err := q.Exec(ctx, `DELETE FROM auth.totp WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("auth: delete totp: %w", err)
+	}
+	return nil
+}
+
+// replaceRecoveryCodes deletes the user's recovery codes, used or not, and stores these hashes.
+func (store) replaceRecoveryCodes(ctx context.Context, q db.DBTX, userID uuid.UUID, hashes [][]byte) error {
+	if _, err := q.Exec(ctx, `DELETE FROM auth.recovery_codes WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("auth: delete recovery codes: %w", err)
+	}
+	if len(hashes) == 0 {
+		return nil
+	}
+	query := `
+		INSERT INTO auth.recovery_codes (code_hash, user_id)
+		SELECT h, $2 FROM unnest($1::bytea[]) AS h`
+
+	if _, err := q.Exec(ctx, query, hashes, userID); err != nil {
+		return fmt.Errorf("auth: insert recovery codes: %w", err)
+	}
+	return nil
+}
+
+// useRecoveryCode marks the code used. It reports false if the user has no such unused code.
+func (store) useRecoveryCode(ctx context.Context, q db.DBTX, userID uuid.UUID, hash []byte, now time.Time) (bool, error) {
+	query := `
+		UPDATE auth.recovery_codes SET used_at = $3
+		WHERE code_hash = $2 AND user_id = $1 AND used_at IS NULL`
+
+	tag, err := q.Exec(ctx, query, userID, hash, now)
+	if err != nil {
+		return false, fmt.Errorf("auth: use recovery code: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
 }

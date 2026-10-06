@@ -38,6 +38,9 @@ commands:
   specs seed                store the development spec values (fixtures/specs.json) as admin
                             values, so the PC builder has parts; run after sync
   admin create --email <a>  create an admin; asks for the password (or reads it from stdin)
+  admin reset-totp --email <a>
+                            remove an admin's TOTP and recovery codes and log them out; their
+                            next login sets TOTP up again
   version                   print the version
 `
 
@@ -89,13 +92,19 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	}
 	defer pool.Close()
 
-	authSvc := auth.NewService(pool)
+	authSvc, err := auth.NewService(pool, cfg.Auth.TOTPKey)
+	if err != nil {
+		return err
+	}
 	specsSvc := specs.NewService(pool)
 	// TODO(vali-api): mock-vali until the dealership is signed; the real client replaces it here.
 	catalogSvc := catalog.NewService(pool, vali.NewMockClient(cfg.Vali.URL, nil), specsSvc, logger)
 
 	switch cmd {
 	case "serve":
+		if cfg.Auth.SkipTOTP {
+			logger.Warn("AUTH_SKIP_TOTP is on: the admin API doesn't ask for the second factor")
+		}
 		workers := river.NewWorkers()
 		river.AddWorker(workers, catalog.NewSyncWorker(catalogSvc))
 		jobsClient, err := jobs.New(pool, jobs.Config{
@@ -136,10 +145,16 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		}
 		return seedSpecs(ctx, fixtures.Specs, catalogSvc, specsSvc, stdout)
 	case "admin":
-		if len(args) == 0 || args[0] != "create" {
-			return fmt.Errorf("%w: admin needs: create --email <address>", errUsage)
+		if len(args) == 0 {
+			return fmt.Errorf("%w: admin needs: create or reset-totp --email <address>", errUsage)
 		}
-		return createAdmin(ctx, authSvc, args[1:], stdin, stdout, stderr)
+		switch args[0] {
+		case "create":
+			return createAdmin(ctx, authSvc, args[1:], stdin, stdout, stderr)
+		case "reset-totp":
+			return resetTOTP(ctx, authSvc, args[1:], stdout, stderr)
+		}
+		return fmt.Errorf("%w: admin needs: create or reset-totp --email <address>", errUsage)
 	}
 	return nil
 }

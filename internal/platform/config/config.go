@@ -5,6 +5,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -53,6 +54,15 @@ type Config struct {
 		// URL is the supplier API that `loadout sync` pulls products from. Until the dealership
 		// is signed it's cmd/mock-vali (http://localhost:8081 by default in development).
 		URL string
+	}
+
+	Auth struct {
+		// TOTPKey encrypts admins' TOTP secrets in the database (AES-256, 32 bytes, base64 in
+		// TOTP_KEY). Losing it means every admin enrols again (`loadout admin reset-totp`).
+		TOTPKey []byte
+		// SkipTOTP lets admins use the admin API without the second factor, for local
+		// development. Refused in production.
+		SkipTOTP bool
 	}
 
 	Log struct {
@@ -105,6 +115,26 @@ func load(getenv func(string) string) (Config, error) {
 		errs = append(errs, fmt.Errorf("VALI_URL: must be an http(s) URL, got %q", cfg.Vali.URL))
 	}
 
+	// A fixed key in development, so local admins keep working across restarts. Production
+	// must set its own: this one is in the repository.
+	defaultTOTPKey := ""
+	if cfg.Env == EnvDevelopment {
+		defaultTOTPKey = devTOTPKey
+	}
+	if v := str(getenv, "TOTP_KEY", defaultTOTPKey); v == "" {
+		errs = append(errs, errors.New("TOTP_KEY: required in production"))
+	} else if key, err := base64.StdEncoding.DecodeString(v); err != nil || len(key) != 32 {
+		errs = append(errs, errors.New("TOTP_KEY: must be 32 bytes in base64 (openssl rand -base64 32)"))
+	} else if cfg.Env == EnvProduction && v == devTOTPKey {
+		errs = append(errs, errors.New("TOTP_KEY: the development key can't be used in production"))
+	} else {
+		cfg.Auth.TOTPKey = key
+	}
+	cfg.Auth.SkipTOTP = boolean(getenv, "AUTH_SKIP_TOTP", &errs)
+	if cfg.Auth.SkipTOTP && cfg.Env == EnvProduction {
+		errs = append(errs, errors.New("AUTH_SKIP_TOTP: not allowed in production"))
+	}
+
 	cfg.Log.Level = strings.ToLower(str(getenv, "LOG_LEVEL", "info"))
 	switch cfg.Log.Level {
 	case "debug", "info", "warn", "error":
@@ -127,6 +157,9 @@ func load(getenv func(string) string) (Config, error) {
 	return cfg, nil
 }
 
+// devTOTPKey is TOTP_KEY's development default.
+const devTOTPKey = "bG9hZG91dC1kZXYtdG90cC1rZXktbm90LXNlY3JldCE=" // "loadout-dev-totp-key-not-secret!"
+
 func str(getenv func(string) string, key, def string) string {
 	if v := strings.TrimSpace(getenv(key)); v != "" {
 		return v
@@ -145,6 +178,18 @@ func duration(getenv func(string) string, key string, def time.Duration, errs *[
 		return def
 	}
 	return d
+}
+
+func boolean(getenv func(string) string, key string, errs *[]error) bool {
+	v := strings.TrimSpace(getenv(key))
+	if v == "" {
+		return false
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		*errs = append(*errs, fmt.Errorf("%s: must be true or false, got %q", key, v))
+	}
+	return b
 }
 
 func integer(getenv func(string) string, key string, def int, errs *[]error) int {

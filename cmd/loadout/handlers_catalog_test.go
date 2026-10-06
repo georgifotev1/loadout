@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/gfotev/loadout/fixtures"
-	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/db/dbtest"
 	"github.com/gfotev/loadout/internal/specs"
@@ -27,7 +26,7 @@ func newCatalogApp(t *testing.T) *application {
 	}
 	app := newTestApp()
 	app.db = pool
-	app.auth = auth.NewService(pool)
+	app.auth = newAuthService(t, pool)
 	app.specs = specs.NewService(pool)
 	app.catalog = catalog.NewService(pool, &supplier.Fake{Provider: "vali", Items: products}, app.specs, app.logger)
 	if _, err := app.catalog.Sync(context.Background()); err != nil {

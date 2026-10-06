@@ -41,6 +41,25 @@ func createAdmin(ctx context.Context, svc *auth.Service, args []string, stdin io
 	return nil
 }
 
+// resetTOTP handles `loadout admin reset-totp --email <address>`, for an admin who lost both
+// their phone and their recovery codes.
+func resetTOTP(ctx context.Context, svc *auth.Service, args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("admin reset-totp", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	email := fs.String("email", "", "the admin's email address")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("%w: %v", errUsage, err)
+	}
+	if *email == "" || fs.NArg() != 0 {
+		return fmt.Errorf("%w: admin reset-totp --email <address>", errUsage)
+	}
+	if err := svc.ResetTOTP(ctx, *email); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "reset TOTP for %s: they're logged out and set it up again at the next login\n", *email)
+	return nil
+}
+
 func readPassword(stdin io.Reader, stderr io.Writer) (string, error) {
 	f, ok := stdin.(*os.File)
 	if !ok || !term.IsTerminal(int(f.Fd())) {

@@ -17,7 +17,7 @@ type ctxKey int
 
 const (
 	requestIDKey ctxKey = iota
-	userKey
+	sessionKey
 )
 
 const requestIDHeader = "X-Request-Id"
@@ -64,7 +64,7 @@ func (app *application) logRequest(level slog.Level) func(http.Handler) http.Han
 	}
 }
 
-// authenticate puts the user of the session cookie, if there is a valid one, in the request
+// authenticate puts the session of the cookie, if there is a valid one, in the request
 // context. It doesn't reject anything: handlers and requireAdmin decide what needs a user.
 func (app *application) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -80,21 +80,24 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 		case err != nil:
 			app.handleError(w, r, err)
 		default:
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, sess.User)))
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionKey, sess)))
 		}
 	})
 }
 
-// requireAdmin lets only admins through: 401 without a session, 403 for anyone else.
-// TODO(phase-6): require the TOTP second factor too.
+// requireAdmin lets only admins who passed the second factor through: 401 without a session,
+// 403 forbidden for anyone else, and 403 second_factor_required for an admin who still has to
+// enter a TOTP code (or set TOTP up). AUTH_SKIP_TOTP turns the last check off in development.
 func (app *application) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u, ok := userFrom(r.Context())
+		sess, ok := sessionFrom(r.Context())
 		switch {
 		case !ok:
 			app.handleError(w, r, auth.ErrUnauthenticated)
-		case u.Role != auth.RoleAdmin:
-			app.writeError(w, r, http.StatusForbidden, ErrorCodeForbidden, "admins only")
+		case sess.User.Role != auth.RoleAdmin:
+			app.handleError(w, r, auth.ErrAdminsOnly)
+		case sess.SecondFactor != auth.SecondFactorVerified && !app.cfg.Auth.SkipTOTP:
+			app.writeError(w, r, http.StatusForbidden, ErrorCodeSecondFactorRequired, "enter the second factor first")
 		default:
 			next.ServeHTTP(w, r)
 		}

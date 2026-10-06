@@ -70,14 +70,17 @@ func (e Category) Valid() bool {
 
 // Defines values for ErrorCode.
 const (
-	ErrorCodeForbidden          ErrorCode = "forbidden"
-	ErrorCodeInternal           ErrorCode = "internal"
-	ErrorCodeInvalidBody        ErrorCode = "invalid_body"
-	ErrorCodeInvalidCredentials ErrorCode = "invalid_credentials"
-	ErrorCodeNotFound           ErrorCode = "not_found"
-	ErrorCodeTooManyAttempts    ErrorCode = "too_many_attempts"
-	ErrorCodeUnauthenticated    ErrorCode = "unauthenticated"
-	ErrorCodeValidationFailed   ErrorCode = "validation_failed"
+	ErrorCodeForbidden            ErrorCode = "forbidden"
+	ErrorCodeInternal             ErrorCode = "internal"
+	ErrorCodeInvalidBody          ErrorCode = "invalid_body"
+	ErrorCodeInvalidCode          ErrorCode = "invalid_code"
+	ErrorCodeInvalidCredentials   ErrorCode = "invalid_credentials"
+	ErrorCodeNotFound             ErrorCode = "not_found"
+	ErrorCodeSecondFactorRequired ErrorCode = "second_factor_required"
+	ErrorCodeSecondFactorState    ErrorCode = "second_factor_state"
+	ErrorCodeTooManyAttempts      ErrorCode = "too_many_attempts"
+	ErrorCodeUnauthenticated      ErrorCode = "unauthenticated"
+	ErrorCodeValidationFailed     ErrorCode = "validation_failed"
 )
 
 // Valid indicates whether the value is a known member of the ErrorCode enum.
@@ -89,9 +92,15 @@ func (e ErrorCode) Valid() bool {
 		return true
 	case ErrorCodeInvalidBody:
 		return true
+	case ErrorCodeInvalidCode:
+		return true
 	case ErrorCodeInvalidCredentials:
 		return true
 	case ErrorCodeNotFound:
+		return true
+	case ErrorCodeSecondFactorRequired:
+		return true
+	case ErrorCodeSecondFactorState:
 		return true
 	case ErrorCodeTooManyAttempts:
 		return true
@@ -290,6 +299,30 @@ func (e SearchSort) Valid() bool {
 	}
 }
 
+// Defines values for SecondFactor.
+const (
+	SecondFactorEnroll      SecondFactor = "enroll"
+	SecondFactorNotRequired SecondFactor = "not_required"
+	SecondFactorVerified    SecondFactor = "verified"
+	SecondFactorVerify      SecondFactor = "verify"
+)
+
+// Valid indicates whether the value is a known member of the SecondFactor enum.
+func (e SecondFactor) Valid() bool {
+	switch e {
+	case SecondFactorEnroll:
+		return true
+	case SecondFactorNotRequired:
+		return true
+	case SecondFactorVerified:
+		return true
+	case SecondFactorVerify:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Slot.
 const (
 	SlotCase        Slot = "case"
@@ -404,6 +437,11 @@ type CategoryCount struct {
 	Value Category `json:"value"`
 }
 
+// CodeRequest defines model for CodeRequest.
+type CodeRequest struct {
+	Code string `json:"code"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error ErrorDetail `json:"error"`
@@ -484,6 +522,18 @@ type HealthStatus string
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// Me The logged-in user, and where their session stands with the second factor.
+type Me struct {
+	Email string             `json:"email"`
+	Id    openapi_types.UUID `json:"id"`
+	Role  Role               `json:"role"`
+
+	// SecondFactor `not_required`: a customer, or an admin when the second factor is off (development only).
+	// `enroll`: an admin who must set up TOTP. `verify`: an admin who must enter a code.
+	// `verified`: done; the admin API is open.
+	SecondFactor SecondFactor `json:"second_factor"`
 }
 
 // Price A retail price. The web app formats it; it never does price math.
@@ -570,6 +620,11 @@ type ProductSummary struct {
 	Slug  string `json:"slug"`
 }
 
+// RecoveryCodes defines model for RecoveryCodes.
+type RecoveryCodes struct {
+	RecoveryCodes []string `json:"recovery_codes"`
+}
+
 // Role defines model for Role.
 type Role string
 
@@ -603,21 +658,35 @@ type SearchResult struct {
 // SearchSort `relevance` (the default) is the best text match first, or by name without `q`.
 type SearchSort string
 
+// SecondFactor `not_required`: a customer, or an admin when the second factor is off (development only).
+// `enroll`: an admin who must set up TOTP. `verify`: an admin who must enter a code.
+// `verified`: done; the admin API is open.
+type SecondFactor string
+
 // Slot A part of a PC build, named after its catalog category.
 type Slot string
+
+// TotpConfirmed defines model for TotpConfirmed.
+type TotpConfirmed struct {
+	// Me The logged-in user, and where their session stands with the second factor.
+	Me            Me       `json:"me"`
+	RecoveryCodes []string `json:"recovery_codes"`
+}
+
+// TotpSetup defines model for TotpSetup.
+type TotpSetup struct {
+	// Secret Base32, for typing into the app by hand.
+	Secret string `json:"secret"`
+
+	// Uri The `otpauth://totp/...` URI, for a QR code.
+	Uri string `json:"uri"`
+}
 
 // UnavailablePart defines model for UnavailablePart.
 type UnavailablePart struct {
 	// Slot A part of a PC build, named after its catalog category.
 	Slot Slot   `json:"slot"`
 	Slug string `json:"slug"`
-}
-
-// User defines model for User.
-type User struct {
-	Email string             `json:"email"`
-	Id    openapi_types.UUID `json:"id"`
-	Role  Role               `json:"role"`
 }
 
 // ValueCount defines model for ValueCount.
@@ -656,11 +725,23 @@ type Page = int
 // PageSize defines model for PageSize.
 type PageSize = int
 
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
 // InvalidBody defines model for InvalidBody.
 type InvalidBody = Error
 
+// InvalidCode defines model for InvalidCode.
+type InvalidCode = Error
+
 // NotFound defines model for NotFound.
 type NotFound = Error
+
+// SecondFactorState defines model for SecondFactorState.
+type SecondFactorState = Error
+
+// TooManyAttempts defines model for TooManyAttempts.
+type TooManyAttempts = Error
 
 // Unauthenticated defines model for Unauthenticated.
 type Unauthenticated = Error
@@ -757,6 +838,12 @@ type SearchProductsParams struct {
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// ConfirmTotpJSONRequestBody defines body for ConfirmTotp for application/json ContentType.
+type ConfirmTotpJSONRequestBody = CodeRequest
+
+// VerifyTotpJSONRequestBody defines body for VerifyTotp for application/json ContentType.
+type VerifyTotpJSONRequestBody = CodeRequest
+
 // SaveBuildJSONRequestBody defines body for SaveBuild for application/json ContentType.
 type SaveBuildJSONRequestBody = BuildSelection
 
@@ -771,6 +858,18 @@ type ServerInterface interface {
 	// GetMe The logged-in user
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// ConfirmTotp Finish setting up TOTP with a first code
+	// (POST /auth/totp/confirm)
+	ConfirmTotp(w http.ResponseWriter, r *http.Request)
+	// EnrollTotp Start setting up TOTP
+	// (POST /auth/totp/enroll)
+	EnrollTotp(w http.ResponseWriter, r *http.Request)
+	// RegenerateRecoveryCodes Replace the recovery codes
+	// (POST /auth/totp/recovery-codes)
+	RegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request)
+	// VerifyTotp Pass the second factor with a TOTP or recovery code
+	// (POST /auth/totp/verify)
+	VerifyTotp(w http.ResponseWriter, r *http.Request)
 	// CheckBuild Check a PC build's compatibility, power draw and price
 	// (GET /builder/check)
 	CheckBuild(w http.ResponseWriter, r *http.Request, params CheckBuildParams)
@@ -816,6 +915,30 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 // GetMe The logged-in user
 // (GET /auth/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConfirmTotp Finish setting up TOTP with a first code
+// (POST /auth/totp/confirm)
+func (_ Unimplemented) ConfirmTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnrollTotp Start setting up TOTP
+// (POST /auth/totp/enroll)
+func (_ Unimplemented) EnrollTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RegenerateRecoveryCodes Replace the recovery codes
+// (POST /auth/totp/recovery-codes)
+func (_ Unimplemented) RegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// VerifyTotp Pass the second factor with a TOTP or recovery code
+// (POST /auth/totp/verify)
+func (_ Unimplemented) VerifyTotp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -909,6 +1032,62 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmTotp operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnrollTotp operation middleware
+func (siw *ServerInterfaceWrapper) EnrollTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnrollTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegenerateRecoveryCodes operation middleware
+func (siw *ServerInterfaceWrapper) RegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegenerateRecoveryCodes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyTotp operation middleware
+func (siw *ServerInterfaceWrapper) VerifyTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyTotp(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1587,6 +1766,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/auth/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/totp/enroll", wrapper.EnrollTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/totp/confirm", wrapper.ConfirmTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/totp/verify", wrapper.VerifyTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/totp/recovery-codes", wrapper.RegenerateRecoveryCodes)
 	})
 
 	return r

@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// prodKey is a TOTP_KEY for production tests: 32 bytes, not the development key.
+const prodKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
 func env(m map[string]string) func(string) string {
 	return func(k string) string { return m[k] }
 }
@@ -36,6 +39,45 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Vali.URL != "http://localhost:8081" {
 		t.Errorf("Vali.URL = %q, want the local mock-vali", cfg.Vali.URL)
 	}
+	if len(cfg.Auth.TOTPKey) != 32 || cfg.Auth.SkipTOTP {
+		t.Errorf("Auth = %+v, want the development key and the second factor on", cfg.Auth)
+	}
+}
+
+func TestLoadAuth(t *testing.T) {
+	prod := func(m map[string]string) map[string]string {
+		m["ENV"] = "production"
+		m["VALI_URL"] = "https://vali.example"
+		return m
+	}
+	tests := []struct {
+		name    string
+		env     map[string]string
+		wantErr string
+	}{
+		{"key required in production", prod(map[string]string{}), "TOTP_KEY: required"},
+		{"dev key refused in production", prod(map[string]string{"TOTP_KEY": devTOTPKey}), "TOTP_KEY: the development key"},
+		{"key set in production", prod(map[string]string{"TOTP_KEY": prodKey}), ""},
+		{"not base64", map[string]string{"TOTP_KEY": "not base64!"}, "TOTP_KEY: must be 32 bytes"},
+		{"too short", map[string]string{"TOTP_KEY": "c2hvcnQ="}, "TOTP_KEY: must be 32 bytes"},
+		{"skip in development", map[string]string{"AUTH_SKIP_TOTP": "true"}, ""},
+		{"skip refused in production", prod(map[string]string{"TOTP_KEY": prodKey, "AUTH_SKIP_TOTP": "true"}), "AUTH_SKIP_TOTP: not allowed in production"},
+		{"skip not a bool", map[string]string{"AUTH_SKIP_TOTP": "yes"}, "AUTH_SKIP_TOTP: must be true or false"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.env["DATABASE_URL"] = "postgres://x"
+			cfg, err := load(env(tt.env))
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Fatalf("err = %v", err)
+			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+				t.Fatalf("err = %v, want %q", err, tt.wantErr)
+			case err == nil && cfg.Auth.SkipTOTP != (tt.env["AUTH_SKIP_TOTP"] == "true"):
+				t.Errorf("SkipTOTP = %v", cfg.Auth.SkipTOTP)
+			}
+		})
+	}
 }
 
 func TestLoadValiURL(t *testing.T) {
@@ -47,7 +89,7 @@ func TestLoadValiURL(t *testing.T) {
 		{"required in production", map[string]string{"ENV": "production"}, "VALI_URL: required"},
 		{"not a URL", map[string]string{"VALI_URL": "localhost:8081"}, "VALI_URL: must be an http(s) URL"},
 		{"no host", map[string]string{"VALI_URL": "http://"}, "VALI_URL: must be an http(s) URL"},
-		{"set in production", map[string]string{"ENV": "production", "VALI_URL": "https://vali.example"}, ""},
+		{"set in production", map[string]string{"ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -64,7 +106,7 @@ func TestLoadValiURL(t *testing.T) {
 }
 
 func TestLoadProductionDefaultsToJSONLogs(t *testing.T) {
-	cfg, err := load(env(map[string]string{"DATABASE_URL": "postgres://x", "ENV": "production", "VALI_URL": "https://vali.example"}))
+	cfg, err := load(env(map[string]string{"DATABASE_URL": "postgres://x", "ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey}))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -76,6 +76,12 @@ admin:
 	@test -n "$(email)" || (echo "usage: make admin email=<address>" && exit 1)
 	go run ./cmd/loadout admin create --email $(email)
 
+## admin-reset-totp: remove an admin's TOTP so they set it up again (make admin-reset-totp email=you@example.com)
+.PHONY: admin-reset-totp
+admin-reset-totp:
+	@test -n "$(email)" || (echo "usage: make admin-reset-totp email=<address>" && exit 1)
+	go run ./cmd/loadout admin reset-totp --email $(email)
+
 ## migration: create a new SQL migration (make migration name=create_catalog_products)
 .PHONY: migration
 migration:
