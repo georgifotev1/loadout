@@ -47,10 +47,16 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	),
 });
 
+// Flags Apple devices on <html> before first paint, so shortcut hints show ⌘ there and Ctrl
+// everywhere else without the label switching after hydration. The server can't tell.
+const platformScript = `if (/Mac|iPhone|iPad/.test(navigator.userAgent)) document.documentElement.dataset.mac = ""`;
+
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang={locale.split("-")[0]}>
+		<html lang={locale.split("-")[0]} suppressHydrationWarning>
 			<head>
+				{/* biome-ignore lint/security/noDangerouslySetInnerHtml: static inline script, no user input */}
+				<script dangerouslySetInnerHTML={{ __html: platformScript }} />
 				<HeadContent />
 			</head>
 			<body>

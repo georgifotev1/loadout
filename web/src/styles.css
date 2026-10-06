@@ -8,6 +8,8 @@
 /* One light theme: tie dark: to a class that is never set, so the dark: styles inside shadcn
    components don't kick in when the OS is in dark mode. */
 @custom-variant dark (&:is(.dark *));
+/* Apple devices, flagged on <html> by a script in the root route before first paint. */
+@custom-variant mac (&:is([data-mac] *));
 
 /*
  * One light theme. Product photos come from the supplier on white, so cards and image areas

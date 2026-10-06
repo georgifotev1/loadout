@@ -26,7 +26,7 @@ type Group = { label?: string; items: SearchItem[] };
 
 // SiteSearch is the header search with instant results. Empty, it suggests popular searches
 // (if given) and categories; while typing it shows matching products and categories. Enter without a
-// highlighted item submits the query for the full results page. "/" or ⌘K focuses it.
+// highlighted item submits the query for the full results page. "/" or Ctrl/⌘K focuses it.
 export function SiteSearch({
 	query,
 	onQueryChange,
@@ -133,10 +133,11 @@ export function SiteSearch({
 						type="search"
 						aria-label={m.search.label}
 						placeholder={m.nav.searchPlaceholder}
-						className="h-10 w-full rounded-lg border border-transparent bg-muted pr-14 pl-10 text-sm outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-subtle-foreground hover:bg-accent focus:border-border-strong focus:bg-card focus:shadow-[0_0_0_4px] focus:shadow-brand/12 pointer-coarse:text-base [&::-webkit-search-cancel-button]:hidden"
+						className="h-10 w-full rounded-lg border border-transparent bg-muted pr-18 pl-10 text-sm outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-subtle-foreground hover:bg-accent focus:border-border-strong focus:bg-card focus:shadow-[0_0_0_4px] focus:shadow-brand/12 pointer-coarse:text-base [&::-webkit-search-cancel-button]:hidden"
 					/>
 					<kbd className="-translate-y-1/2 pointer-events-none absolute top-1/2 right-3 hidden items-center rounded border bg-card px-1.5 py-0.5 font-mono text-[11px] text-subtle-foreground leading-none md:flex">
-						⌘K
+						<span className="mac:hidden">Ctrl K</span>
+						<span className="hidden mac:inline">⌘K</span>
 					</kbd>
 				</form>
 			</search>
