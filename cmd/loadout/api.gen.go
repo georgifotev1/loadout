@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for Category.
@@ -69,20 +70,32 @@ func (e Category) Valid() bool {
 
 // Defines values for ErrorCode.
 const (
-	ErrorCodeInternal         ErrorCode = "internal"
-	ErrorCodeInvalidBody      ErrorCode = "invalid_body"
-	ErrorCodeNotFound         ErrorCode = "not_found"
-	ErrorCodeValidationFailed ErrorCode = "validation_failed"
+	ErrorCodeForbidden          ErrorCode = "forbidden"
+	ErrorCodeInternal           ErrorCode = "internal"
+	ErrorCodeInvalidBody        ErrorCode = "invalid_body"
+	ErrorCodeInvalidCredentials ErrorCode = "invalid_credentials"
+	ErrorCodeNotFound           ErrorCode = "not_found"
+	ErrorCodeTooManyAttempts    ErrorCode = "too_many_attempts"
+	ErrorCodeUnauthenticated    ErrorCode = "unauthenticated"
+	ErrorCodeValidationFailed   ErrorCode = "validation_failed"
 )
 
 // Valid indicates whether the value is a known member of the ErrorCode enum.
 func (e ErrorCode) Valid() bool {
 	switch e {
+	case ErrorCodeForbidden:
+		return true
 	case ErrorCodeInternal:
 		return true
 	case ErrorCodeInvalidBody:
 		return true
+	case ErrorCodeInvalidCredentials:
+		return true
 	case ErrorCodeNotFound:
+		return true
+	case ErrorCodeTooManyAttempts:
+		return true
+	case ErrorCodeUnauthenticated:
 		return true
 	case ErrorCodeValidationFailed:
 		return true
@@ -232,6 +245,24 @@ const (
 func (e PriceCurrency) Valid() bool {
 	switch e {
 	case PriceCurrencyEUR:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Role.
+const (
+	RoleAdmin    Role = "admin"
+	RoleCustomer Role = "customer"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case RoleAdmin:
+		return true
+	case RoleCustomer:
 		return true
 	default:
 		return false
@@ -449,6 +480,12 @@ type HealthDatabase string
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 // Price A retail price. The web app formats it; it never does price math.
 type Price struct {
 	// AmountCents Euro cents, VAT included.
@@ -533,6 +570,9 @@ type ProductSummary struct {
 	Slug  string `json:"slug"`
 }
 
+// Role defines model for Role.
+type Role string
+
 // SavedBuild defines model for SavedBuild.
 type SavedBuild struct {
 	Check     BuildCheck `json:"check"`
@@ -571,6 +611,13 @@ type UnavailablePart struct {
 	// Slot A part of a PC build, named after its catalog category.
 	Slot Slot   `json:"slot"`
 	Slug string `json:"slug"`
+}
+
+// User defines model for User.
+type User struct {
+	Email string             `json:"email"`
+	Id    openapi_types.UUID `json:"id"`
+	Role  Role               `json:"role"`
 }
 
 // ValueCount defines model for ValueCount.
@@ -614,6 +661,9 @@ type InvalidBody = Error
 
 // NotFound defines model for NotFound.
 type NotFound = Error
+
+// Unauthenticated defines model for Unauthenticated.
+type Unauthenticated = Error
 
 // ValidationFailed defines model for ValidationFailed.
 type ValidationFailed = Error
@@ -704,11 +754,23 @@ type SearchProductsParams struct {
 	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
 // SaveBuildJSONRequestBody defines body for SaveBuild for application/json ContentType.
 type SaveBuildJSONRequestBody = BuildSelection
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login Log in with email and password
+	// (POST /auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+	// Logout Log out
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
+	// GetMe The logged-in user
+	// (GET /auth/me)
+	GetMe(w http.ResponseWriter, r *http.Request)
 	// CheckBuild Check a PC build's compatibility, power draw and price
 	// (GET /builder/check)
 	CheckBuild(w http.ResponseWriter, r *http.Request, params CheckBuildParams)
@@ -738,6 +800,24 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Login Log in with email and password
+// (POST /auth/login)
+func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Logout Log out
+// (POST /auth/logout)
+func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetMe The logged-in user
+// (GET /auth/me)
+func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // CheckBuild Check a PC build's compatibility, power draw and price
 // (GET /builder/check)
@@ -795,6 +875,48 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // CheckBuild operation middleware
 func (siw *ServerInterfaceWrapper) CheckBuild(w http.ResponseWriter, r *http.Request) {
@@ -1456,6 +1578,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/builds/{slug}", wrapper.GetBuild)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/me", wrapper.GetMe)
 	})
 
 	return r

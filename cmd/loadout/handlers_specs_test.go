@@ -8,9 +8,10 @@ import (
 
 func TestSpecsAdminAPI(t *testing.T) {
 	app := newCatalogApp(t)
+	admin := adminCookie(t, app)
 
 	t.Run("review queue", func(t *testing.T) {
-		rec := get(t, app, "/api/admin/specs/review-queue?category=cpu")
+		rec := get(t, app, "/api/admin/specs/review-queue?category=cpu", admin)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body)
 		}
@@ -35,7 +36,7 @@ func TestSpecsAdminAPI(t *testing.T) {
 			"/api/admin/specs/review-queue?page=abc",
 			"/api/admin/specs/review-queue?page_size=1000",
 		} {
-			if rec := get(t, app, target); rec.Code != http.StatusUnprocessableEntity {
+			if rec := get(t, app, target, admin); rec.Code != http.StatusUnprocessableEntity {
 				t.Errorf("%s: status %d, want 422", target, rec.Code)
 			}
 		}

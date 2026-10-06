@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
+	"strconv"
 
+	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/platform/validate"
@@ -22,6 +25,7 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 	}
 	var bodyErr *bodyError
 	var validationErr *validate.Error
+	var lockedErr *auth.LockedError
 	switch {
 	case errors.As(err, &bodyErr):
 		app.writeError(w, r, http.StatusBadRequest, ErrorCodeInvalidBody, bodyErr.Error())
@@ -29,6 +33,13 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 		app.writeValidation(w, r, validationErr)
 	case errors.Is(err, catalog.ErrNotFound), errors.Is(err, specs.ErrNotFound), errors.Is(err, configurator.ErrNotFound):
 		app.writeError(w, r, http.StatusNotFound, ErrorCodeNotFound, "resource not found")
+	case errors.Is(err, auth.ErrUnauthenticated):
+		app.writeError(w, r, http.StatusUnauthorized, ErrorCodeUnauthenticated, "not logged in")
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		app.writeError(w, r, http.StatusUnauthorized, ErrorCodeInvalidCredentials, "wrong email or password")
+	case errors.As(err, &lockedErr):
+		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(lockedErr.RetryAfter.Seconds()))))
+		app.writeError(w, r, http.StatusTooManyRequests, ErrorCodeTooManyAttempts, "too many failed logins")
 	case errors.Is(err, context.Canceled) && r.Context().Err() != nil:
 		w.WriteHeader(statusClientClosedRequest)
 	default:

@@ -13,6 +13,7 @@ import (
 	"github.com/riverqueue/river"
 
 	"github.com/gfotev/loadout/fixtures"
+	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/platform/config"
@@ -36,6 +37,7 @@ commands:
   sync                      pull products from the supplier (Vali, VALI_URL) into the catalog
   specs seed                store the development spec values (fixtures/specs.json) as admin
                             values, so the PC builder has parts; run after sync
+  admin create --email <a>  create an admin; asks for the password (or reads it from stdin)
   version                   print the version
 `
 
@@ -43,7 +45,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {
+	if err := run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
@@ -51,7 +53,7 @@ func main() {
 
 var errUsage = errors.New("invalid usage")
 
-func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return errUsage
@@ -62,7 +64,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	case "version":
 		fmt.Fprintln(stdout, version)
 		return nil
-	case "serve", "migrate", "sync", "specs":
+	case "serve", "migrate", "sync", "specs", "admin":
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, usage)
 		return nil
@@ -87,6 +89,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	defer pool.Close()
 
+	authSvc := auth.NewService(pool)
 	specsSvc := specs.NewService(pool)
 	// TODO(vali-api): mock-vali until the dealership is signed; the real client replaces it here.
 	catalogSvc := catalog.NewService(pool, vali.NewMockClient(cfg.Vali.URL, nil), specsSvc, logger)
@@ -113,6 +116,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			cfg:          cfg,
 			logger:       logger,
 			db:           pool,
+			auth:         authSvc,
 			catalog:      catalogSvc,
 			specs:        specsSvc,
 			configurator: configurator.NewService(pool, catalogSvc, specsSvc),
@@ -131,6 +135,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return fmt.Errorf("%w: specs needs: seed", errUsage)
 		}
 		return seedSpecs(ctx, fixtures.Specs, catalogSvc, specsSvc, stdout)
+	case "admin":
+		if len(args) == 0 || args[0] != "create" {
+			return fmt.Errorf("%w: admin needs: create --email <address>", errUsage)
+		}
+		return createAdmin(ctx, authSvc, args[1:], stdin, stdout, stderr)
 	}
 	return nil
 }

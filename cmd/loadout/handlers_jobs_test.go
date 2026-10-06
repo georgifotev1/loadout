@@ -21,20 +21,25 @@ func newJobsApp(t *testing.T) *application {
 	return app
 }
 
-func post(t *testing.T, app *application, target string) *httptest.ResponseRecorder {
+func post(t *testing.T, app *application, target string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	app.routes().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, target, nil))
+	req := httptest.NewRequest(http.MethodPost, target, nil)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	app.routes().ServeHTTP(rec, req)
 	return rec
 }
 
 func TestJobsAdminAPI(t *testing.T) {
 	app := newJobsApp(t)
+	admin := adminCookie(t, app)
 
 	t.Run("sync now queues one job", func(t *testing.T) {
 		var first, second syncTriggeredJSON
 		for _, out := range []*syncTriggeredJSON{&first, &second} {
-			rec := post(t, app, "/api/admin/sync")
+			rec := post(t, app, "/api/admin/sync", admin)
 			if rec.Code != http.StatusAccepted {
 				t.Fatalf("status %d: %s", rec.Code, rec.Body)
 			}
@@ -61,7 +66,7 @@ func TestJobsAdminAPI(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		rec := get(t, app, "/api/admin/jobs/discarded")
+		rec := get(t, app, "/api/admin/jobs/discarded", admin)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body)
 		}
@@ -84,7 +89,7 @@ func TestJobsAdminAPI(t *testing.T) {
 			"/api/admin/jobs/discarded?limit=1000",
 			"/api/admin/jobs/discarded?limit=abc",
 		} {
-			if rec := get(t, app, target); rec.Code != http.StatusUnprocessableEntity {
+			if rec := get(t, app, target, admin); rec.Code != http.StatusUnprocessableEntity {
 				t.Errorf("%s: status %d, want 422", target, rec.Code)
 			}
 		}

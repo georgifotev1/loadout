@@ -4,15 +4,22 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/gfotev/loadout/internal/auth"
 )
 
 type ctxKey int
 
-const requestIDKey ctxKey = iota
+const (
+	requestIDKey ctxKey = iota
+	userKey
+)
+
 const requestIDHeader = "X-Request-Id"
 
 func (app *application) requestID(next http.Handler) http.Handler {
@@ -55,6 +62,55 @@ func (app *application) logRequest(level slog.Level) func(http.Handler) http.Han
 			)
 		})
 	}
+}
+
+// authenticate puts the user of the session cookie, if there is a valid one, in the request
+// context. It doesn't reject anything: handlers and requireAdmin decide what needs a user.
+func (app *application) authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := r.Cookie(app.sessionCookieName())
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		sess, err := app.auth.Session(r.Context(), c.Value)
+		switch {
+		case errors.Is(err, auth.ErrUnauthenticated):
+			next.ServeHTTP(w, r)
+		case err != nil:
+			app.handleError(w, r, err)
+		default:
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, sess.User)))
+		}
+	})
+}
+
+// requireAdmin lets only admins through: 401 without a session, 403 for anyone else.
+// TODO(phase-6): require the TOTP second factor too.
+func (app *application) requireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, ok := userFrom(r.Context())
+		switch {
+		case !ok:
+			app.handleError(w, r, auth.ErrUnauthenticated)
+		case u.Role != auth.RoleAdmin:
+			app.writeError(w, r, http.StatusForbidden, ErrorCodeForbidden, "admins only")
+		default:
+			next.ServeHTTP(w, r)
+		}
+	})
+}
+
+// crossOrigin rejects state-changing requests (POST, PUT, DELETE, ...) that a browser sends from
+// another site: the CSRF check. The browser says where a request comes from in Sec-Fetch-Site
+// (or Origin), and a page can't fake it. Requests without either, like curl, aren't from a
+// browser and pass.
+func (app *application) crossOrigin(next http.Handler) http.Handler {
+	cop := http.NewCrossOriginProtection()
+	cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		app.writeError(w, r, http.StatusForbidden, ErrorCodeForbidden, "cross-origin request rejected")
+	}))
+	return cop.Handler(next)
 }
 
 func (app *application) recoverPanic(next http.Handler) http.Handler {

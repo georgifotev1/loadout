@@ -70,6 +70,12 @@ sync:
 seed-specs:
 	go run ./cmd/loadout specs seed
 
+## admin: create an admin account; asks for the password (make admin email=you@example.com)
+.PHONY: admin
+admin:
+	@test -n "$(email)" || (echo "usage: make admin email=<address>" && exit 1)
+	go run ./cmd/loadout admin create --email $(email)
+
 ## migration: create a new SQL migration (make migration name=create_catalog_products)
 .PHONY: migration
 migration:

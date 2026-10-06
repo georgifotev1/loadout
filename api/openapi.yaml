@@ -217,6 +217,69 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Error" }
 
+  /auth/login:
+    post:
+      operationId: login
+      summary: Log in with email and password
+      description: |
+        Starts a session and sets it as an HttpOnly cookie. A wrong password and an unknown email
+        get the same 401. Too many failures for the email or the client's IP get a 429, even with
+        the right password, until `Retry-After` seconds have passed.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Logged in. `Set-Cookie` holds the session.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401":
+          description: "`invalid_credentials`: wrong email or password."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        "429":
+          description: "`too_many_attempts`: locked for now."
+          headers:
+            Retry-After:
+              description: Seconds until the next try is allowed.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Log out
+      description: Ends the session and clears the cookie. Without a session it does nothing.
+      tags: [auth]
+      responses:
+        "204":
+          description: Logged out
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: The logged-in user
+      tags: [auth]
+      responses:
+        "200":
+          description: The user of the session cookie
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        default: { $ref: "#/components/responses/Error" }
+
 components:
   parameters:
     Page:
@@ -288,6 +351,11 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     NotFound:
       description: "`not_found`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthenticated:
+      description: "`unauthenticated`: no valid session."
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -623,6 +691,25 @@ components:
           description: One entry per product whose price changed since it was saved. Empty right after saving.
           items: { $ref: "#/components/schemas/PriceChange" }
 
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+
+    Role:
+      type: string
+      enum: [customer, admin]
+
+    User:
+      type: object
+      required: [id, email, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+
     Error:
       type: object
       required: [error]
@@ -649,6 +736,10 @@ components:
         - invalid_body
         - validation_failed
         - not_found
+        - unauthenticated
+        - forbidden
+        - invalid_credentials
+        - too_many_attempts
         - internal
 
     FieldError:

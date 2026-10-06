@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gfotev/loadout/fixtures"
+	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/platform/db/dbtest"
 	"github.com/gfotev/loadout/internal/specs"
@@ -26,6 +27,7 @@ func newCatalogApp(t *testing.T) *application {
 	}
 	app := newTestApp()
 	app.db = pool
+	app.auth = auth.NewService(pool)
 	app.specs = specs.NewService(pool)
 	app.catalog = catalog.NewService(pool, &supplier.Fake{Provider: "vali", Items: products}, app.specs, app.logger)
 	if _, err := app.catalog.Sync(context.Background()); err != nil {
@@ -34,10 +36,14 @@ func newCatalogApp(t *testing.T) *application {
 	return app
 }
 
-func get(t *testing.T, app *application, target string) *httptest.ResponseRecorder {
+func get(t *testing.T, app *application, target string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	app.routes().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	app.routes().ServeHTTP(rec, req)
 	return rec
 }
 
