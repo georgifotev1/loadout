@@ -119,15 +119,18 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			Username: cfg.Mail.SMTPUsername,
 			Password: cfg.Mail.SMTPPassword,
 		}, cfg.SiteURL)
+		ordersSvc := orders.NewService(pool, catalogSvc, jobsInserter)
 		workers := river.NewWorkers()
 		river.AddWorker(workers, catalog.NewSyncWorker(catalogSvc))
 		river.AddWorker(workers, auth.NewEmailWorker(authSvc, mailer))
+		river.AddWorker(workers, orders.NewStepWorker(ordersSvc, mailer))
 		jobsClient, err := jobs.New(pool, jobs.Config{
 			Logger:  logger.With("component", "jobs"),
 			Workers: workers,
 			Queues: map[string]river.QueueConfig{
-				jobs.QueueSync:  {MaxWorkers: 1},
-				jobs.QueueEmail: {MaxWorkers: 2},
+				jobs.QueueSync:   {MaxWorkers: 1},
+				jobs.QueueEmail:  {MaxWorkers: 2},
+				jobs.QueueOrders: {MaxWorkers: 4},
 			},
 			PeriodicJobs: []*river.PeriodicJob{
 				catalog.PeriodicSync(),
@@ -145,7 +148,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			catalog:      catalogSvc,
 			specs:        specsSvc,
 			configurator: configurator.NewService(pool, catalogSvc, specsSvc),
-			orders:       orders.NewService(pool, catalogSvc, jobsInserter),
+			orders:       ordersSvc,
 			jobs:         jobsClient,
 		}
 		return app.serve(ctx)

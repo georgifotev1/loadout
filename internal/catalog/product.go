@@ -220,6 +220,17 @@ type Part struct {
 	ProductSummary
 }
 
+// SalePart is a visible product as an order snapshots it: the supplier's SKU to order it with,
+// what we pay for it and the VAT, on top of the Part. It carries the dealer price, so it's for
+// orders only, never for a shopper-facing response.
+type SalePart struct {
+	Part
+	Provider    string
+	ProviderSKU string
+	DealerCents money.Cents
+	VATbp       int
+}
+
 // ProductDetail is everything the product page shows. It has the retail price only: the dealer
 // price and markup are for admins, so shopper-facing code can't leak them by accident.
 type ProductDetail struct {

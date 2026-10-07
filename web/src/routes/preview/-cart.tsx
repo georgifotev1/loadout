@@ -9,7 +9,7 @@ import {
 	summary,
 } from "./-data";
 
-// In-memory cart for the checkout and confirmation previews.
+// In-memory cart for the token specimen's product cards.
 
 type CartLine = { product: Schemas["ProductSummary"]; qty: number };
 
@@ -17,8 +17,6 @@ type PreviewCart = {
 	lines: CartLine[];
 	count: number;
 	add: (slug: string, qty?: number) => void;
-	setQty: (slug: string, qty: number) => void;
-	remove: (slug: string) => void;
 };
 
 const Ctx = createContext<PreviewCart | null>(null);
@@ -52,12 +50,6 @@ export function PreviewCartProvider({
 					: [{ product: summary(p), qty }, ...cur],
 			);
 		},
-		setQty: (slug, qty) =>
-			setLines((cur) =>
-				cur.map((l) => (l.product.slug === slug ? { ...l, qty } : l)),
-			),
-		remove: (slug) =>
-			setLines((cur) => cur.filter((l) => l.product.slug !== slug)),
 	};
 
 	return <Ctx.Provider value={cart}>{children}</Ctx.Provider>;

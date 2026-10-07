@@ -4,8 +4,13 @@ package notify
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/google/uuid"
+
+	"github.com/gfotev/loadout/internal/money"
 )
 
 // Message is one plain-text email.
@@ -86,6 +91,72 @@ func (s *Service) AccountExists(ctx context.Context, to string) error {
 			"",
 			"Ако не сте били вие, не правете нищо.",
 		),
+	})
+}
+
+// Order is what an order email shows.
+type Order struct {
+	ID     uuid.UUID
+	Number int64
+	// Token opens the order page without logging in (the link in the email).
+	Token          string
+	Email          string
+	Name           string
+	Phone          string
+	Address        string // street, postcode and city on one line
+	Lines          []OrderLine
+	SubtotalCents  money.Cents
+	DeliveryCents  money.Cents
+	TotalCents     money.Cents
+	CashOnDelivery bool
+}
+
+// OrderLine is one product of an order email.
+type OrderLine struct {
+	Name      string
+	Quantity  int
+	LineCents money.Cents
+}
+
+// OrderReceived confirms a new order: what was ordered, the totals, where it goes, and the link
+// to follow it.
+// TODO(phase-7): what the email must repeat by law (terms, withdrawal) comes with the lawyer's
+// review (step 8).
+func (s *Service) OrderReceived(ctx context.Context, o Order) error {
+	ls := []string{
+		"Здравейте, " + o.Name + ",",
+		"",
+		"Благодарим за поръчката! Получихме я и проверяваме наличността при доставчика.",
+		"Ще ви пишем, когато я потвърдим и когато пратката тръгне.",
+		"",
+		fmt.Sprintf("Поръчка № %d", o.Number),
+		"",
+	}
+	for _, l := range o.Lines {
+		ls = append(ls, fmt.Sprintf("%d × %s: %s", l.Quantity, l.Name, money.Format(l.LineCents)))
+	}
+	ls = append(ls,
+		"",
+		"Междинна сума: "+money.Format(o.SubtotalCents),
+		"Доставка: "+money.Format(o.DeliveryCents),
+		"Общо: "+money.Format(o.TotalCents)+" (с ДДС)",
+		"",
+	)
+	if o.CashOnDelivery {
+		ls = append(ls, "Плащане: наложен платеж, плащате на куриера при получаване.")
+	}
+	ls = append(ls,
+		"Доставка до: "+o.Address,
+		"Телефон: "+o.Phone,
+		"",
+		"Следете поръчката от тук:",
+		"",
+		s.siteURL+"/order/"+o.ID.String()+"?"+url.Values{"token": {o.Token}}.Encode(),
+	)
+	return s.sender.Send(ctx, Message{
+		To:      o.Email,
+		Subject: fmt.Sprintf("Поръчка № %d е приета", o.Number),
+		Text:    lines(ls...),
 	})
 }
 

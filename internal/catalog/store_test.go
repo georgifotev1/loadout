@@ -265,6 +265,36 @@ func TestSetStock(t *testing.T) {
 	})
 }
 
+func TestSaleParts(t *testing.T) {
+	pool := dbtest.New(t)
+	ctx := context.Background()
+	var s store
+	priced := mustUpsert(t, s, pool, testProduct())
+	if _, err := s.upsertPrice(ctx, pool, Price{ProductID: priced, DealerCents: 5235, RetailCents: 6282, VATbp: 2000}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.setStock(ctx, pool, priced, 3); err != nil {
+		t.Fatal(err)
+	}
+	unpriced := testProduct()
+	unpriced.ProviderSKU, unpriced.Slug = "UNPRICED", "unpriced"
+	unpricedID := mustUpsert(t, s, pool, unpriced)
+
+	got, err := s.saleParts(ctx, pool, []uuid.UUID{priced, unpricedID, uuid.New()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d parts, want only the priced one: %+v", len(got), got)
+	}
+	p := got[0]
+	if p.ID != priced || p.Provider != "vali" || p.ProviderSKU != "AMD-AM4-R3-RYZ-4100-BOX" ||
+		p.DealerCents != 5235 || p.RetailCents != 6282 || p.VATbp != 2000 || p.StockQty != 3 ||
+		p.Image != "https://www.vali.bg/a.jpg" {
+		t.Errorf("got %+v", p)
+	}
+}
+
 func TestMarkupRules(t *testing.T) {
 	pool := dbtest.New(t)
 	ctx := context.Background()

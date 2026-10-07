@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/platform/db"
 )
 
@@ -298,4 +299,171 @@ func (store) saveTransition(ctx context.Context, q db.DBTX, from, to Order, ev E
 		return fmt.Errorf("orders: insert transition of order %s: %w", to.ID, err)
 	}
 	return nil
+}
+
+func (store) deleteCart(ctx context.Context, q db.DBTX, cartID uuid.UUID) error {
+	if _, err := q.Exec(ctx, `DELETE FROM orders.carts WHERE id = $1`, cartID); err != nil {
+		return fmt.Errorf("orders: delete cart: %w", err)
+	}
+	return nil
+}
+
+// insertOrder stores a new order waiting for its payment, with its lines, and returns its id
+// and number.
+func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, int64, error) {
+	var userID *uuid.UUID
+	if o.UserID != uuid.Nil {
+		userID = &o.UserID
+	}
+	insert := `
+		INSERT INTO orders.orders (
+			status, payment, token, user_id, email, name, phone, city, postcode, address,
+			subtotal_cents, delivery_cents, total_cents
+		)
+		VALUES ('awaiting_payment', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		RETURNING id, number`
+
+	var id uuid.UUID
+	var number int64
+	err := q.QueryRow(ctx, insert,
+		o.Payment,
+		o.Token,
+		userID,
+		o.Email,
+		o.Name,
+		o.Phone,
+		o.City,
+		o.Postcode,
+		o.Address,
+		o.SubtotalCents,
+		o.DeliveryCents,
+		o.SubtotalCents+o.DeliveryCents,
+	).Scan(
+		&id,
+		&number,
+	)
+	if err != nil {
+		return uuid.Nil, 0, fmt.Errorf("orders: insert order: %w", err)
+	}
+
+	lineInsert := `
+		INSERT INTO orders.order_lines (
+			order_id, position, product_id, provider, provider_sku, slug, name, image, quantity,
+			dealer_cents, retail_cents, vat_bp
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+	for i, l := range o.Lines {
+		if _, err := q.Exec(ctx, lineInsert,
+			id,
+			i,
+			l.ID,
+			l.Provider,
+			l.ProviderSKU,
+			l.Slug,
+			l.Name,
+			l.Image,
+			l.Quantity,
+			l.DealerCents,
+			l.RetailCents,
+			l.VATbp,
+		); err != nil {
+			return uuid.Nil, 0, fmt.Errorf("orders: insert order line: %w", err)
+		}
+	}
+	return id, number, nil
+}
+
+// order returns an order with its lines, or ErrNotFound.
+func (store) order(ctx context.Context, q db.DBTX, id uuid.UUID) (OrderDetail, error) {
+	query := `
+		SELECT id, number, token, status, payment, paid_at, created_at, user_id, email, name, phone,
+		       city, postcode, address, subtotal_cents, delivery_cents, total_cents
+		FROM orders.orders
+		WHERE id = $1`
+
+	var o OrderDetail
+	err := q.QueryRow(ctx, query, id).Scan(
+		&o.ID,
+		&o.Number,
+		&o.Token,
+		&o.Status,
+		&o.Payment,
+		&o.PaidAt,
+		&o.CreatedAt,
+		&o.UserID,
+		&o.Email,
+		&o.Name,
+		&o.Phone,
+		&o.City,
+		&o.Postcode,
+		&o.Address,
+		&o.SubtotalCents,
+		&o.DeliveryCents,
+		&o.TotalCents,
+	)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return OrderDetail{}, ErrNotFound
+	case err != nil:
+		return OrderDetail{}, fmt.Errorf("orders: order %s: %w", id, err)
+	}
+
+	query = `
+		SELECT product_id, slug, name, image, quantity, retail_cents
+		FROM orders.order_lines
+		WHERE order_id = $1
+		ORDER BY position`
+	rows, err := q.Query(ctx, query, id)
+	if err != nil {
+		return OrderDetail{}, fmt.Errorf("orders: lines of order %s: %w", id, err)
+	}
+	o.Lines, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (OrderLine, error) {
+		var l OrderLine
+		err := row.Scan(
+			&l.ProductID,
+			&l.Slug,
+			&l.Name,
+			&l.Image,
+			&l.Quantity,
+			&l.UnitCents,
+		)
+		l.TotalCents = l.UnitCents * money.Cents(l.Quantity)
+		return l, err
+	})
+	if err != nil {
+		return OrderDetail{}, fmt.Errorf("orders: lines of order %s: %w", id, err)
+	}
+	return o, nil
+}
+
+// customerOrders returns the orders of a user, and the ones placed with email when it isn't
+// "", newest first.
+func (store) customerOrders(ctx context.Context, q db.DBTX, userID uuid.UUID, email string) ([]OrderSummary, error) {
+	query := `
+		SELECT o.id, o.number, o.status, o.created_at, o.total_cents,
+		       (SELECT sum(l.quantity) FROM orders.order_lines l WHERE l.order_id = o.id)
+		FROM orders.orders o
+		WHERE o.user_id = $1 OR ($2 <> '' AND o.email = $2::citext)
+		ORDER BY o.created_at DESC, o.number DESC`
+
+	rows, err := q.Query(ctx, query, userID, email)
+	if err != nil {
+		return nil, fmt.Errorf("orders: customer orders: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (OrderSummary, error) {
+		var o OrderSummary
+		err := row.Scan(
+			&o.ID,
+			&o.Number,
+			&o.Status,
+			&o.CreatedAt,
+			&o.TotalCents,
+			&o.Count,
+		)
+		return o, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("orders: customer orders: %w", err)
+	}
+	return out, nil
 }

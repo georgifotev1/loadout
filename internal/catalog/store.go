@@ -758,6 +758,41 @@ func (store) visibleParts(ctx context.Context, q db.DBTX, ids []uuid.UUID, slugs
 	return parts, nil
 }
 
+// saleParts returns the visible products whose ID is in ids, with their supplier SKU and prices.
+func (store) saleParts(ctx context.Context, q db.DBTX, ids []uuid.UUID) ([]SalePart, error) {
+	query := `
+		SELECT p.id, p.slug, p.name, p.brand, p.category, coalesce(p.images ->> 0, ''), pr.retail_cents,
+		       ` + stockQty + `, p.provider, p.provider_sku, pr.dealer_cents, pr.vat_bp
+		` + visibleProducts + ` AND p.id = ANY ($1)`
+
+	rows, err := q.Query(ctx, query, ids)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: sale parts: %w", err)
+	}
+	parts, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (SalePart, error) {
+		var p SalePart
+		err := row.Scan(
+			&p.ID,
+			&p.Slug,
+			&p.Name,
+			&p.Brand,
+			&p.Category,
+			&p.Image,
+			&p.RetailCents,
+			&p.StockQty,
+			&p.Provider,
+			&p.ProviderSKU,
+			&p.DealerCents,
+			&p.VATbp,
+		)
+		return p, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("catalog: sale parts: %w", err)
+	}
+	return parts, nil
+}
+
 func (store) productIDsBySKU(ctx context.Context, q db.DBTX, provider string, skus []string) (map[string]uuid.UUID, error) {
 	query := `SELECT provider_sku, id FROM catalog.products WHERE provider = $1 AND provider_sku = ANY ($2)`
 

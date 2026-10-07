@@ -32,12 +32,19 @@ func newOrderService(t *testing.T) *Service {
 	return s
 }
 
-// newOrder stores an order waiting for its payment. Checkout will make them; until then, tests do.
+// newOrder stores an order waiting for its payment, without lines: what the state machine works
+// on, without a cart and a checkout around it.
 func newOrder(t *testing.T, s *Service, p Payment) uuid.UUID {
 	t.Helper()
 	var id uuid.UUID
-	err := s.pool.QueryRow(context.Background(),
-		`INSERT INTO orders.orders (status, payment) VALUES ('awaiting_payment', $1) RETURNING id`, p,
+	err := s.pool.QueryRow(context.Background(), `
+		INSERT INTO orders.orders (
+			status, payment, token, email, name, phone, city, postcode, address,
+			subtotal_cents, delivery_cents, total_cents
+		)
+		VALUES ('awaiting_payment', $1, $2, 'ivan@example.bg', 'Иван', '0888123456', 'София', '1000',
+		        'ул. 1', 0, 0, 0)
+		RETURNING id`, p, randomToken(),
 	).Scan(&id)
 	if err != nil {
 		t.Fatal(err)

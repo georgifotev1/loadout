@@ -311,6 +311,93 @@ paths:
         "422": { $ref: "#/components/responses/ValidationFailed" }
         default: { $ref: "#/components/responses/Error" }
 
+  /checkout:
+    get:
+      operationId: getCheckout
+      summary: The cart as checkout shows it, with delivery and the total
+      description: |
+        The shopper's cart (as `GET /cart`) plus delivery and the total to send back as
+        `expected_total_cents`. `orderable` is false for an empty cart or one with a product no
+        longer for sale or out of stock.
+      tags: [checkout]
+      responses:
+        "200":
+          description: The checkout
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Checkout" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: placeOrder
+      summary: Place an order with the cart
+      description: |
+        Turns the cart into an order at today's prices and empties it (a guest's `cart` cookie is
+        cleared). A logged-in customer's order is theirs; a guest opens it with the returned
+        `token`. Field errors: `name`, `city`, `address` (`required`, `too_long`); `email`
+        (`required`, `invalid_email`); `phone` (`required`, `invalid_phone`); `postcode`
+        (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`); `cart`
+        (`empty`; `unavailable`: a product is no longer for sale or out of stock);
+        `expected_total_cents` (`changed`: prices moved since `GET /checkout`).
+      tags: [checkout]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckoutRequest" }
+      responses:
+        "201":
+          description: The order is placed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderPlaced" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /orders:
+    get:
+      operationId: listMyOrders
+      summary: The logged-in customer's orders, newest first
+      description: |
+        The orders placed while logged in and, once the account's email is verified, the guest
+        orders placed with that email.
+      tags: [orders]
+      responses:
+        "200":
+          description: The orders
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /orders/{order_id}:
+    get:
+      operationId: getOrder
+      summary: An order, for its customer
+      description: |
+        Open with the order's `token` (the link from checkout and the emails), or as the
+        logged-in customer it belongs to (see `GET /orders`). Anyone else gets a 404, as for an
+        order that doesn't exist.
+      tags: [orders]
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: token
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
   /auth/login:
     post:
       operationId: login
@@ -1439,6 +1526,139 @@ components:
       required: [quantity]
       properties:
         quantity: { type: integer, minimum: 1, maximum: 10 }
+
+    Checkout:
+      type: object
+      required: [cart, delivery, total, orderable]
+      properties:
+        cart: { $ref: "#/components/schemas/Cart" }
+        delivery:
+          $ref: "#/components/schemas/Price"
+          description: Delivery to an address.
+        total:
+          $ref: "#/components/schemas/Price"
+          description: The subtotal and delivery. Send it back as `expected_total_cents`.
+        orderable:
+          type: boolean
+          description: Whether the cart can be ordered as it is.
+
+    PaymentMethod:
+      type: string
+      description: "`cod`: cash on delivery, paid to the courier."
+      enum: [cod]
+
+    CheckoutRequest:
+      type: object
+      required: [name, email, phone, city, postcode, address, payment, expected_total_cents]
+      properties:
+        name: { type: string, description: The recipient's full name. }
+        email: { type: string }
+        phone: { type: string }
+        city: { type: string }
+        postcode: { type: string, description: Four digits. }
+        address: { type: string, description: "Street, number, floor: what the courier needs." }
+        payment: { $ref: "#/components/schemas/PaymentMethod" }
+        expected_total_cents:
+          type: integer
+          format: int64
+          description: The `total` the customer saw at `GET /checkout`.
+
+    OrderPlaced:
+      type: object
+      required: [id, number, token]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, format: int64 }
+        token:
+          type: string
+          description: Opens the order with `GET /orders/{order_id}?token=`, without logging in.
+
+    OrderStatus:
+      type: string
+      description: |
+        `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+        `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+      enum:
+        - awaiting_payment
+        - supplier_pending
+        - ready_to_ship
+        - shipped
+        - delivered
+        - refunding
+        - cancelled
+
+    Order:
+      type: object
+      required:
+        - id
+        - number
+        - status
+        - payment
+        - created_at
+        - name
+        - email
+        - phone
+        - city
+        - postcode
+        - address
+        - lines
+        - subtotal
+        - delivery
+        - total
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, format: int64 }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        payment: { $ref: "#/components/schemas/PaymentMethod" }
+        created_at: { type: string, format: date-time }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        city: { type: string }
+        postcode: { type: string }
+        address: { type: string }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/OrderLine" }
+        subtotal: { $ref: "#/components/schemas/Price" }
+        delivery: { $ref: "#/components/schemas/Price" }
+        total: { $ref: "#/components/schemas/Price" }
+
+    OrderLine:
+      type: object
+      description: A product as it was sold.
+      required: [product_id, slug, name, quantity, unit_price, line_total]
+      properties:
+        product_id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        image:
+          type: string
+          description: Absent when the product had none.
+        quantity: { type: integer }
+        unit_price: { $ref: "#/components/schemas/Price" }
+        line_total: { $ref: "#/components/schemas/Price" }
+
+    OrderSummary:
+      type: object
+      required: [id, number, status, created_at, count, total]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, format: int64 }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        created_at: { type: string, format: date-time }
+        count:
+          type: integer
+          description: Units over all lines.
+        total: { $ref: "#/components/schemas/Price" }
+
+    OrderList:
+      type: object
+      required: [orders]
+      properties:
+        orders:
+          type: array
+          items: { $ref: "#/components/schemas/OrderSummary" }
 
     LoginRequest:
       type: object

@@ -229,6 +229,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The cart as checkout shows it, with delivery and the total
+         * @description The shopper's cart (as `GET /cart`) plus delivery and the total to send back as
+         *     `expected_total_cents`. `orderable` is false for an empty cart or one with a product no
+         *     longer for sale or out of stock.
+         */
+        get: operations["getCheckout"];
+        put?: never;
+        /**
+         * Place an order with the cart
+         * @description Turns the cart into an order at today's prices and empties it (a guest's `cart` cookie is
+         *     cleared). A logged-in customer's order is theirs; a guest opens it with the returned
+         *     `token`. Field errors: `name`, `city`, `address` (`required`, `too_long`); `email`
+         *     (`required`, `invalid_email`); `phone` (`required`, `invalid_phone`); `postcode`
+         *     (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`); `cart`
+         *     (`empty`; `unavailable`: a product is no longer for sale or out of stock);
+         *     `expected_total_cents` (`changed`: prices moved since `GET /checkout`).
+         */
+        post: operations["placeOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The logged-in customer's orders, newest first
+         * @description The orders placed while logged in and, once the account's email is verified, the guest
+         *     orders placed with that email.
+         */
+        get: operations["listMyOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An order, for its customer
+         * @description Open with the order's `token` (the link from checkout and the emails), or as the
+         *     logged-in customer it belongs to (see `GET /orders`). Anyone else gets a 404, as for an
+         *     order that doesn't exist.
+         */
+        get: operations["getOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -1001,6 +1076,98 @@ export interface components {
         };
         CartQuantity: {
             quantity: number;
+        };
+        Checkout: {
+            cart: components["schemas"]["Cart"];
+            /** @description Delivery to an address. */
+            delivery: components["schemas"]["Price"];
+            /** @description The subtotal and delivery. Send it back as `expected_total_cents`. */
+            total: components["schemas"]["Price"];
+            /** @description Whether the cart can be ordered as it is. */
+            orderable: boolean;
+        };
+        /**
+         * @description `cod`: cash on delivery, paid to the courier.
+         * @enum {string}
+         */
+        PaymentMethod: "cod";
+        CheckoutRequest: {
+            /** @description The recipient's full name. */
+            name: string;
+            email: string;
+            phone: string;
+            city: string;
+            /** @description Four digits. */
+            postcode: string;
+            /** @description Street, number, floor: what the courier needs. */
+            address: string;
+            payment: components["schemas"]["PaymentMethod"];
+            /**
+             * Format: int64
+             * @description The `total` the customer saw at `GET /checkout`.
+             */
+            expected_total_cents: number;
+        };
+        OrderPlaced: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            number: number;
+            /** @description Opens the order with `GET /orders/{order_id}?token=`, without logging in. */
+            token: string;
+        };
+        /**
+         * @description `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+         *     `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+         * @enum {string}
+         */
+        OrderStatus: "awaiting_payment" | "supplier_pending" | "ready_to_ship" | "shipped" | "delivered" | "refunding" | "cancelled";
+        Order: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            number: number;
+            status: components["schemas"]["OrderStatus"];
+            payment: components["schemas"]["PaymentMethod"];
+            /** Format: date-time */
+            created_at: string;
+            name: string;
+            email: string;
+            phone: string;
+            city: string;
+            postcode: string;
+            address: string;
+            lines: components["schemas"]["OrderLine"][];
+            subtotal: components["schemas"]["Price"];
+            delivery: components["schemas"]["Price"];
+            total: components["schemas"]["Price"];
+        };
+        /** @description A product as it was sold. */
+        OrderLine: {
+            /** Format: uuid */
+            product_id: string;
+            slug: string;
+            name: string;
+            /** @description Absent when the product had none. */
+            image?: string;
+            quantity: number;
+            unit_price: components["schemas"]["Price"];
+            line_total: components["schemas"]["Price"];
+        };
+        OrderSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            number: number;
+            status: components["schemas"]["OrderStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** @description Units over all lines. */
+            count: number;
+            total: components["schemas"]["Price"];
+        };
+        OrderList: {
+            orders: components["schemas"]["OrderSummary"][];
         };
         LoginRequest: {
             email: string;
@@ -1822,6 +1989,103 @@ export interface operations {
                     "application/json": components["schemas"]["Cart"];
                 };
             };
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The checkout */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkout"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    placeOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutRequest"];
+            };
+        };
+        responses: {
+            /** @description The order is placed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPlaced"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listMyOrders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The orders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrder: {
+        parameters: {
+            query?: {
+                token?: string;
+            };
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationFailed"];
             default: components["responses"]["Error"];
         };

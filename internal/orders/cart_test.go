@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -28,6 +29,21 @@ func (f *fakeCatalog) PartsByIDs(_ context.Context, ids []uuid.UUID) ([]catalog.
 
 func (f *fakeCatalog) PartsBySlugs(_ context.Context, slugs []string) ([]catalog.Part, error) {
 	return f.find(func(p catalog.Part) bool { return slices.Contains(slugs, p.Slug) }), nil
+}
+
+// SaleParts sells every part at a dealer price of 80% of retail, with the slug as the SKU.
+func (f *fakeCatalog) SaleParts(_ context.Context, ids []uuid.UUID) ([]catalog.SalePart, error) {
+	var out []catalog.SalePart
+	for _, p := range f.find(func(p catalog.Part) bool { return slices.Contains(ids, p.ID) }) {
+		out = append(out, catalog.SalePart{
+			Part:        p,
+			Provider:    "vali",
+			ProviderSKU: strings.ToUpper(p.Slug),
+			DealerCents: p.RetailCents * 8 / 10,
+			VATbp:       money.VATStandardBP,
+		})
+	}
+	return out, nil
 }
 
 func (f *fakeCatalog) find(match func(catalog.Part) bool) []catalog.Part {

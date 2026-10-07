@@ -248,6 +248,5 @@ func (s *Service) release() {
 // real check is the link we email to it.
 func checkEmail(v *validate.Validator, field, email string) {
 	v.Check(email != "", field, "required")
-	v.Check(len(email) <= 254 && strings.Count(email, "@") == 1 &&
-		!strings.HasPrefix(email, "@") && !strings.HasSuffix(email, "@"), field, "invalid_email")
+	v.Check(validate.Email(email), field, "invalid_email")
 }

@@ -162,13 +162,13 @@ function CartPage() {
 							{m.cart.vatIncluded}
 						</p>
 					</dl>
-					{/* TODO(phase-7): link to checkout once it exists. */}
-					<Button size="lg" className="mt-6 h-11 w-full" disabled>
+					<Button
+						size="lg"
+						className="mt-6 h-11 w-full"
+						render={<Link to="/checkout" />}
+					>
 						{m.cart.checkout} <ArrowRight />
 					</Button>
-					<p className="mt-2 text-center text-subtle-foreground text-xs">
-						{m.cart.checkoutSoon}
-					</p>
 					<Button
 						variant="link"
 						className="mt-2 w-full text-muted-foreground"

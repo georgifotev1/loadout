@@ -60,3 +60,10 @@ func (v *Validator) Err() error {
 	}
 	return &Error{Fields: v.fields}
 }
+
+// Email reports whether s (already trimmed) looks like an email address. It's only a shape
+// check: whether the address works shows when we send to it.
+func Email(s string) bool {
+	return len(s) <= 254 && strings.Count(s, "@") == 1 &&
+		!strings.HasPrefix(s, "@") && !strings.HasSuffix(s, "@")
+}

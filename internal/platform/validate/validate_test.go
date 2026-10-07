@@ -36,3 +36,19 @@ func TestValidatorKeepsFirstErrorPerField(t *testing.T) {
 		t.Errorf("Error() = %q", got)
 	}
 }
+
+func TestEmail(t *testing.T) {
+	for s, want := range map[string]bool{
+		"ivan@example.bg": true,
+		"a@b":             true,
+		"":                false,
+		"ivan":            false,
+		"@example.bg":     false,
+		"ivan@":           false,
+		"a@b@c":           false,
+	} {
+		if got := Email(s); got != want {
+			t.Errorf("Email(%q) = %v, want %v", s, got, want)
+		}
+	}
+}

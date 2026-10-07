@@ -260,10 +260,15 @@ func (s *Service) MergeCart(ctx context.Context, token string, userID uuid.UUID)
 
 // newToken returns a random cart token for the cookie and its hash for the database.
 func newToken() (string, []byte) {
+	token := randomToken()
+	return token, hashToken(token)
+}
+
+// randomToken returns 256 random bits, URL-safe: a cart's token, or an order's.
+func randomToken() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b) // crypto/rand.Read never returns an error
-	token := base64.RawURLEncoding.EncodeToString(b)
-	return token, hashToken(token)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // hashToken is a plain SHA-256, as for auth sessions: the token is 256 random bits, so it can't

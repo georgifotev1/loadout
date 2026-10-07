@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type recorder struct{ sent []Message }
@@ -40,6 +42,43 @@ func TestLinks(t *testing.T) {
 	} {
 		if !strings.Contains(r.sent[i].Text, want) {
 			t.Errorf("email %d doesn't contain %q:\n%s", i, want, r.sent[i].Text)
+		}
+	}
+}
+
+func TestOrderReceived(t *testing.T) {
+	r := &recorder{}
+	s := NewService(r, "https://loadout.bg")
+	id := uuid.MustParse("6f1c2b8e-0d4a-4c1e-9a77-2b1f0c3d4e5f")
+	err := s.OrderReceived(context.Background(), Order{
+		ID:             id,
+		Number:         1001,
+		Token:          "t+k",
+		Email:          "ivan@example.bg",
+		Name:           "Иван Иванов",
+		Phone:          "0888 123 456",
+		Address:        "ул. Граф Игнатиев 1, 1000 София",
+		Lines:          []OrderLine{{Name: "Процесор AMD Ryzen 5 7600", Quantity: 2, LineCents: 400_00}},
+		SubtotalCents:  400_00,
+		DeliveryCents:  5_99,
+		TotalCents:     405_99,
+		CashOnDelivery: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := r.sent[0]
+	if m.To != "ivan@example.bg" || m.Subject != "Поръчка № 1001 е приета" {
+		t.Errorf("to %q, subject %q", m.To, m.Subject)
+	}
+	for _, want := range []string{
+		"2 × Процесор AMD Ryzen 5 7600: 400,00\u00a0€\n",
+		"Общо: 405,99\u00a0€ (с ДДС)\n",
+		"наложен платеж",
+		"https://loadout.bg/order/" + id.String() + "?token=t%2Bk\n",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("email doesn't contain %q:\n%s", want, m.Text)
 		}
 	}
 }

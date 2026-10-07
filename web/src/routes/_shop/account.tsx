@@ -1,5 +1,6 @@
 import {
 	useMutation,
+	useQuery,
 	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -9,11 +10,12 @@ import {
 	redirect,
 	useNavigate,
 } from "@tanstack/react-router";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { ChevronRight, LogOut, ShieldCheck } from "lucide-react";
 import { ChangePasswordForm } from "#/components/auth/change-password-form";
+import { Price } from "#/components/product/price";
 import { Container } from "#/components/site/container";
 import { Button } from "#/components/ui/button";
-import { m } from "#/i18n";
+import { formatDateTime, m } from "#/i18n";
 import {
 	logout,
 	type Me,
@@ -21,11 +23,12 @@ import {
 	resendVerification,
 	signedIn,
 } from "#/lib/api/auth";
+import { myOrdersQuery } from "#/lib/api/orders";
 import { cn } from "#/lib/utils";
 
 const t = m.auth.account;
 
-// /account: the signed-in customer's profile. Order history comes with orders (checkout).
+// /account: the signed-in customer's orders and profile.
 export const Route = createFileRoute("/_shop/account")({
 	beforeLoad: async ({ context, location }) => {
 		const me = await context.queryClient.query({ ...meQuery, staleTime: 0 });
@@ -76,6 +79,9 @@ function AccountPage() {
 			</div>
 
 			<div className="mt-8 flex flex-col gap-4">
+				<Section title={t.orders}>
+					<Orders me={me} />
+				</Section>
 				<Section title={t.profile}>
 					<Profile me={me} />
 				</Section>
@@ -87,6 +93,60 @@ function AccountPage() {
 				</Section>
 			</div>
 		</Container>
+	);
+}
+
+// Orders is the order history. It loads in the browser, like the order pages it links to.
+function Orders({ me }: { me: Me }) {
+	const { data, isError } = useQuery({
+		...myOrdersQuery,
+		enabled: typeof window !== "undefined",
+	});
+	const hint = me.email_verified ? null : (
+		<p className="mt-4 text-muted-foreground text-xs">{t.ordersUnverified}</p>
+	);
+
+	if (isError) {
+		return (
+			<p role="alert" className="text-destructive text-sm">
+				{m.auth.errors.generic}
+			</p>
+		);
+	}
+	if (!data) return <div className="h-12" aria-busy />;
+	if (data.orders.length === 0) {
+		return (
+			<>
+				<p className="text-muted-foreground text-sm">{t.noOrders}</p>
+				{hint}
+			</>
+		);
+	}
+	return (
+		<>
+			<ul className="-mx-2 flex flex-col">
+				{data.orders.map((o) => (
+					<li key={o.id}>
+						<Link
+							to="/order/$id"
+							params={{ id: o.id }}
+							className="flex items-center gap-4 rounded-md px-2 py-3 text-sm transition-colors hover:bg-muted"
+						>
+							<div className="min-w-0 flex-1">
+								<p className="font-medium">{m.order.title(o.number)}</p>
+								<p className="mt-0.5 text-muted-foreground text-xs">
+									{formatDateTime(new Date(o.created_at))} ·{" "}
+									{t.orderItems(o.count)} · {m.order.status[o.status]}
+								</p>
+							</div>
+							<Price cents={o.total.amount_cents} />
+							<ChevronRight className="size-4 text-subtle-foreground" />
+						</Link>
+					</li>
+				))}
+			</ul>
+			{hint}
+		</>
 	);
 }
 

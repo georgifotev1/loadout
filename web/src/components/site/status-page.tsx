@@ -53,13 +53,15 @@ export function StatusPage({
 	children,
 }: {
 	title: string;
-	detail: string;
+	detail?: string;
 	children: React.ReactNode;
 }) {
 	return (
 		<Container className="flex flex-col items-start py-20 lg:py-28">
 			<h1 className="font-semibold text-3xl tracking-[-0.03em]">{title}</h1>
-			<p className="mt-3 max-w-lg text-muted-foreground">{detail}</p>
+			{detail ? (
+				<p className="mt-3 max-w-lg text-muted-foreground">{detail}</p>
+			) : null}
 			<div className="mt-8">{children}</div>
 		</Container>
 	);

@@ -278,6 +278,54 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for OrderStatus.
+const (
+	OrderStatusAwaitingPayment OrderStatus = "awaiting_payment"
+	OrderStatusCancelled       OrderStatus = "cancelled"
+	OrderStatusDelivered       OrderStatus = "delivered"
+	OrderStatusReadyToShip     OrderStatus = "ready_to_ship"
+	OrderStatusRefunding       OrderStatus = "refunding"
+	OrderStatusShipped         OrderStatus = "shipped"
+	OrderStatusSupplierPending OrderStatus = "supplier_pending"
+)
+
+// Valid indicates whether the value is a known member of the OrderStatus enum.
+func (e OrderStatus) Valid() bool {
+	switch e {
+	case OrderStatusAwaitingPayment:
+		return true
+	case OrderStatusCancelled:
+		return true
+	case OrderStatusDelivered:
+		return true
+	case OrderStatusReadyToShip:
+		return true
+	case OrderStatusRefunding:
+		return true
+	case OrderStatusShipped:
+		return true
+	case OrderStatusSupplierPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PaymentMethod.
+const (
+	PaymentMethodCod PaymentMethod = "cod"
+)
+
+// Valid indicates whether the value is a known member of the PaymentMethod enum.
+func (e PaymentMethod) Valid() bool {
+	switch e {
+	case PaymentMethodCod:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PriceCurrency.
 const (
 	PriceCurrencyEUR PriceCurrency = "EUR"
@@ -717,6 +765,41 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
+// Checkout defines model for Checkout.
+type Checkout struct {
+	Cart Cart `json:"cart"`
+
+	// Delivery A retail price. The web app formats it; it never does price math.
+	Delivery Price `json:"delivery"`
+
+	// Orderable Whether the cart can be ordered as it is.
+	Orderable bool `json:"orderable"`
+
+	// Total A retail price. The web app formats it; it never does price math.
+	Total Price `json:"total"`
+}
+
+// CheckoutRequest defines model for CheckoutRequest.
+type CheckoutRequest struct {
+	// Address Street, number, floor: what the courier needs.
+	Address string `json:"address"`
+	City    string `json:"city"`
+	Email   string `json:"email"`
+
+	// ExpectedTotalCents The `total` the customer saw at `GET /checkout`.
+	ExpectedTotalCents int64 `json:"expected_total_cents"`
+
+	// Name The recipient's full name.
+	Name string `json:"name"`
+
+	// Payment `cod`: cash on delivery, paid to the courier.
+	Payment PaymentMethod `json:"payment"`
+	Phone   string        `json:"phone"`
+
+	// Postcode Four digits.
+	Postcode string `json:"postcode"`
+}
+
 // CodeRequest defines model for CodeRequest.
 type CodeRequest struct {
 	Code string `json:"code"`
@@ -965,6 +1048,89 @@ type Me struct {
 	// `verified`: done; the admin API is open.
 	SecondFactor SecondFactor `json:"second_factor"`
 }
+
+// Order defines model for Order.
+type Order struct {
+	Address   string    `json:"address"`
+	City      string    `json:"city"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// Delivery A retail price. The web app formats it; it never does price math.
+	Delivery Price              `json:"delivery"`
+	Email    string             `json:"email"`
+	Id       openapi_types.UUID `json:"id"`
+	Lines    []OrderLine        `json:"lines"`
+	Name     string             `json:"name"`
+	Number   int64              `json:"number"`
+
+	// Payment `cod`: cash on delivery, paid to the courier.
+	Payment  PaymentMethod `json:"payment"`
+	Phone    string        `json:"phone"`
+	Postcode string        `json:"postcode"`
+
+	// Status `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+	// `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+	Status OrderStatus `json:"status"`
+
+	// Subtotal A retail price. The web app formats it; it never does price math.
+	Subtotal Price `json:"subtotal"`
+
+	// Total A retail price. The web app formats it; it never does price math.
+	Total Price `json:"total"`
+}
+
+// OrderLine A product as it was sold.
+type OrderLine struct {
+	// Image Absent when the product had none.
+	Image string `json:"image,omitempty"`
+
+	// LineTotal A retail price. The web app formats it; it never does price math.
+	LineTotal Price              `json:"line_total"`
+	Name      string             `json:"name"`
+	ProductId openapi_types.UUID `json:"product_id"`
+	Quantity  int                `json:"quantity"`
+	Slug      string             `json:"slug"`
+
+	// UnitPrice A retail price. The web app formats it; it never does price math.
+	UnitPrice Price `json:"unit_price"`
+}
+
+// OrderList defines model for OrderList.
+type OrderList struct {
+	Orders []OrderSummary `json:"orders"`
+}
+
+// OrderPlaced defines model for OrderPlaced.
+type OrderPlaced struct {
+	Id     openapi_types.UUID `json:"id"`
+	Number int64              `json:"number"`
+
+	// Token Opens the order with `GET /orders/{order_id}?token=`, without logging in.
+	Token string `json:"token"`
+}
+
+// OrderStatus `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+// `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+type OrderStatus string
+
+// OrderSummary defines model for OrderSummary.
+type OrderSummary struct {
+	// Count Units over all lines.
+	Count     int                `json:"count"`
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	Number    int64              `json:"number"`
+
+	// Status `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+	// `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+	Status OrderStatus `json:"status"`
+
+	// Total A retail price. The web app formats it; it never does price math.
+	Total Price `json:"total"`
+}
+
+// PaymentMethod `cod`: cash on delivery, paid to the courier.
+type PaymentMethod string
 
 // Price A retail price. The web app formats it; it never does price math.
 type Price struct {
@@ -1464,6 +1630,11 @@ type ListBuilderOptionsParams struct {
 	Cooler BuildCooler `form:"cooler,omitempty" json:"cooler,omitempty"`
 }
 
+// GetOrderParams defines parameters for GetOrder.
+type GetOrderParams struct {
+	Token string `form:"token,omitempty" json:"token,omitempty"`
+}
+
 // ListProductsParams defines parameters for ListProducts.
 type ListProductsParams struct {
 	Category Category `form:"category,omitempty" json:"category,omitempty"`
@@ -1540,6 +1711,9 @@ type AddToCartJSONRequestBody = CartAdd
 
 // SetCartQuantityJSONRequestBody defines body for SetCartQuantity for application/json ContentType.
 type SetCartQuantityJSONRequestBody = CartQuantity
+
+// PlaceOrderJSONRequestBody defines body for PlaceOrder for application/json ContentType.
+type PlaceOrderJSONRequestBody = CheckoutRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -1648,9 +1822,21 @@ type ServerInterface interface {
 	// SetCartQuantity Change how many of a product the cart holds
 	// (PUT /cart/lines/{product_id})
 	SetCartQuantity(w http.ResponseWriter, r *http.Request, productId openapi_types.UUID)
+	// GetCheckout The cart as checkout shows it, with delivery and the total
+	// (GET /checkout)
+	GetCheckout(w http.ResponseWriter, r *http.Request)
+	// PlaceOrder Place an order with the cart
+	// (POST /checkout)
+	PlaceOrder(w http.ResponseWriter, r *http.Request)
 	// GetHealth Health summary
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// ListMyOrders The logged-in customer's orders, newest first
+	// (GET /orders)
+	ListMyOrders(w http.ResponseWriter, r *http.Request)
+	// GetOrder An order, for its customer
+	// (GET /orders/{order_id})
+	GetOrder(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID, params GetOrderParams)
 	// ListProducts List the products shoppers can see
 	// (GET /products)
 	ListProducts(w http.ResponseWriter, r *http.Request, params ListProductsParams)
@@ -1876,9 +2062,33 @@ func (_ Unimplemented) SetCartQuantity(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetCheckout The cart as checkout shows it, with delivery and the total
+// (GET /checkout)
+func (_ Unimplemented) GetCheckout(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PlaceOrder Place an order with the cart
+// (POST /checkout)
+func (_ Unimplemented) PlaceOrder(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetHealth Health summary
 // (GET /healthz)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListMyOrders The logged-in customer's orders, newest first
+// (GET /orders)
+func (_ Unimplemented) ListMyOrders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrder An order, for its customer
+// (GET /orders/{order_id})
+func (_ Unimplemented) GetOrder(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID, params GetOrderParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2907,11 +3117,95 @@ func (siw *ServerInterfaceWrapper) SetCartQuantity(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetCheckout operation middleware
+func (siw *ServerInterfaceWrapper) GetCheckout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCheckout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlaceOrder operation middleware
+func (siw *ServerInterfaceWrapper) PlaceOrder(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlaceOrder(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyOrders operation middleware
+func (siw *ServerInterfaceWrapper) ListMyOrders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyOrders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrder operation middleware
+func (siw *ServerInterfaceWrapper) GetOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "order_id" -------------
+	var orderId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "order_id", chi.URLParam(r, "order_id"), &orderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrderParams
+
+	// ------------- Optional query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrder(w, r, orderId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3291,6 +3585,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/cart/lines/{product_id}", wrapper.SetCartQuantity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/checkout", wrapper.GetCheckout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/checkout", wrapper.PlaceOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/orders", wrapper.ListMyOrders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/orders/{order_id}", wrapper.GetOrder)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/login", wrapper.Login)

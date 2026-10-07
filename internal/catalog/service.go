@@ -168,6 +168,12 @@ func (s *Service) PartsBySlugs(ctx context.Context, slugs []string) ([]Part, err
 	return s.store.visibleParts(ctx, s.pool, []uuid.UUID{}, slugs)
 }
 
+// SaleParts returns the visible products among ids with what an order line keeps of them, in
+// no particular order. Hidden and unknown IDs are left out.
+func (s *Service) SaleParts(ctx context.Context, ids []uuid.UUID) ([]SalePart, error) {
+	return s.store.saleParts(ctx, s.pool, ids)
+}
+
 // ProductIDsBySKU maps a supplier's SKUs to our product IDs, active or not. Unknown SKUs are
 // left out.
 func (s *Service) ProductIDsBySKU(ctx context.Context, provider string, skus []string) (map[string]uuid.UUID, error) {

@@ -24,6 +24,7 @@ var ErrNotFound = errors.New("orders: not found")
 type Catalog interface {
 	PartsByIDs(ctx context.Context, ids []uuid.UUID) ([]catalog.Part, error)
 	PartsBySlugs(ctx context.Context, slugs []string) ([]catalog.Part, error)
+	SaleParts(ctx context.Context, ids []uuid.UUID) ([]catalog.SalePart, error)
 }
 
 // Inserter enqueues background jobs in the caller's transaction: *jobs.Client.
