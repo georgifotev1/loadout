@@ -1,18 +1,22 @@
-// Package orders owns carts and, later in Phase 7, orders and their state machine. It reads
-// products and prices through the catalog's service, never its tables.
+// Package orders owns carts, orders and the orders' state machine. It reads products and prices
+// through the catalog's service, never its tables.
 package orders
 
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 
 	"github.com/gfotev/loadout/internal/catalog"
 )
 
-// ErrNotFound is returned for a cart line that doesn't exist.
+// ErrNotFound is returned for a cart line or an order that doesn't exist.
 var ErrNotFound = errors.New("orders: not found")
 
 // Catalog is what orders needs from the catalog: the products for sale and their prices.
@@ -22,13 +26,21 @@ type Catalog interface {
 	PartsBySlugs(ctx context.Context, slugs []string) ([]catalog.Part, error)
 }
 
+// Inserter enqueues background jobs in the caller's transaction: *jobs.Client.
+type Inserter interface {
+	InsertTx(ctx context.Context, tx pgx.Tx, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error)
+}
+
 // Service is the orders module's public API.
 type Service struct {
 	pool    *pgxpool.Pool
 	store   store
 	catalog Catalog
+	jobs    Inserter
+	now     func() time.Time
 }
 
-func NewService(pool *pgxpool.Pool, c Catalog) *Service {
-	return &Service{pool: pool, catalog: c}
+// NewService returns the orders service. jobs enqueues the orders' steps (StepArgs).
+func NewService(pool *pgxpool.Pool, c Catalog, jobs Inserter) *Service {
+	return &Service{pool: pool, catalog: c, jobs: jobs, now: time.Now}
 }

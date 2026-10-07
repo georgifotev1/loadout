@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -243,6 +244,58 @@ func (store) mergeCart(ctx context.Context, q db.DBTX, from, into uuid.UUID, max
 	}
 	if _, err := q.Exec(ctx, `UPDATE orders.carts SET updated_at = now() WHERE id = $1`, into); err != nil {
 		return fmt.Errorf("orders: touch merged cart: %w", err)
+	}
+	return nil
+}
+
+// lockOrder returns an order and locks its row until the transaction ends, or ErrNotFound.
+func (store) lockOrder(ctx context.Context, q db.DBTX, id uuid.UUID) (Order, error) {
+	query := `SELECT id, status, payment, paid_at, seq FROM orders.orders WHERE id = $1 FOR UPDATE`
+
+	var o Order
+	err := q.QueryRow(ctx, query, id).Scan(
+		&o.ID,
+		&o.Status,
+		&o.Payment,
+		&o.PaidAt,
+		&o.Seq,
+	)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return Order{}, ErrNotFound
+	case err != nil:
+		return Order{}, fmt.Errorf("orders: lock order %s: %w", id, err)
+	}
+	return o, nil
+}
+
+// saveTransition stores the order after a transition and the transition's audit row.
+func (store) saveTransition(ctx context.Context, q db.DBTX, from, to Order, ev Event, at time.Time) error {
+	update := `
+		UPDATE orders.orders SET status = $2, paid_at = $3, seq = $4, updated_at = $5
+		WHERE id = $1`
+	if _, err := q.Exec(ctx, update,
+		to.ID,
+		to.Status,
+		to.PaidAt,
+		to.Seq,
+		at,
+	); err != nil {
+		return fmt.Errorf("orders: save order %s: %w", to.ID, err)
+	}
+
+	insert := `
+		INSERT INTO orders.order_transitions (order_id, seq, event, from_status, to_status, at)
+		VALUES ($1, $2, $3, $4, $5, $6)`
+	if _, err := q.Exec(ctx, insert,
+		to.ID,
+		to.Seq,
+		ev,
+		from.Status,
+		to.Status,
+		at,
+	); err != nil {
+		return fmt.Errorf("orders: insert transition of order %s: %w", to.ID, err)
 	}
 	return nil
 }

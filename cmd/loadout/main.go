@@ -145,7 +145,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			catalog:      catalogSvc,
 			specs:        specsSvc,
 			configurator: configurator.NewService(pool, catalogSvc, specsSvc),
-			orders:       orders.NewService(pool, catalogSvc),
+			orders:       orders.NewService(pool, catalogSvc, jobsInserter),
 			jobs:         jobsClient,
 		}
 		return app.serve(ctx)

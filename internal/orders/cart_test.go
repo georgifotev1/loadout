@@ -74,7 +74,7 @@ func newCartService(t *testing.T) (*Service, *fakeCatalog) {
 		part("ram", 80_00, 5),
 		part("gpu", 500_00, 0),
 	}}
-	return NewService(dbtest.New(t), cat), cat
+	return NewService(dbtest.New(t), cat, nil), cat // the cart queues no jobs
 }
 
 // fieldCodes lists a validation error's fields as "field: code".

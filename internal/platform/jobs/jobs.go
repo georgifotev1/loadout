@@ -31,6 +31,8 @@ const (
 	QueueSync = "sync"
 	// QueueEmail sends emails, so a slow mail server doesn't hold up other jobs.
 	QueueEmail = "email"
+	// QueueOrders carries out the steps of orders' transitions.
+	QueueOrders = "orders"
 )
 
 var (

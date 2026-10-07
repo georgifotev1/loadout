@@ -39,7 +39,7 @@ func decodeCart(t *testing.T, rec *httptest.ResponseRecorder) Cart {
 
 func TestCartAPI(t *testing.T) {
 	app := newCatalogApp(t)
-	app.orders = orders.NewService(app.db, app.catalog)
+	app.orders = orders.NewService(app.db, app.catalog, nil) // the cart queues no jobs
 	slug := slugs(t, app)
 	cpu := slug["AMD-AM5-R5-7600-BOX"]
 
@@ -119,7 +119,7 @@ func cookieNamed(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 // no cart cookie, and stays with it after logout.
 func TestCartFollowsTheAccount(t *testing.T) {
 	app := newCatalogApp(t)
-	app.orders = orders.NewService(app.db, app.catalog)
+	app.orders = orders.NewService(app.db, app.catalog, nil) // the cart queues no jobs
 	app.auth = newAuthService(t, app.db)
 	if err := app.auth.Register(context.Background(), "ivan@example.bg", testPassword); err != nil {
 		t.Fatal(err)
