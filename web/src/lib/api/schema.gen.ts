@@ -169,8 +169,8 @@ export interface paths {
         };
         /**
          * The shopper's cart at today's prices
-         * @description The cart of the `cart` cookie. Without the cookie, or with one whose cart is gone, it's an
-         *     empty cart; reading never creates one.
+         * @description A logged-in user's cart, or else the cart of the `cart` cookie. Without either, or with a
+         *     cookie whose cart is gone, it's an empty cart; reading never creates one.
          */
         get: operations["getCart"];
         put?: never;
@@ -193,7 +193,8 @@ export interface paths {
         /**
          * Add products to the cart
          * @description Adds each product on top of what the cart already has, all or none. Without a cart it
-         *     starts one and sets the `cart` cookie (HttpOnly, 30 days, renewed on every change).
+         *     starts one: the logged-in user's, or else a guest's, and sets the `cart` cookie (HttpOnly,
+         *     30 days, renewed on every change).
          *     Field errors name `lines[i].slug` (`unavailable`: not for sale; `out_of_stock`) or
          *     `lines[i].quantity` (`out_of_range`; `too_many`: over 10 of one product with what's in
          *     the cart), or `lines` (`too_many`: over 50 products in the cart).
@@ -239,7 +240,8 @@ export interface paths {
         put?: never;
         /**
          * Log in with email and password
-         * @description Starts a session and sets it as an HttpOnly cookie. A wrong password and an unknown email
+         * @description Starts a session and sets it as an HttpOnly cookie. The guest cart of the `cart` cookie
+         *     moves into the user's cart, and the cookie is cleared. A wrong password and an unknown email
          *     get the same 401. Too many failures for the email or the client's IP get a 429, even with
          *     the right password, until `Retry-After` seconds have passed.
          */
@@ -261,7 +263,8 @@ export interface paths {
         put?: never;
         /**
          * Log out
-         * @description Ends the session and clears the cookie. Without a session it does nothing.
+         * @description Ends the session and clears its cookie and the `cart` cookie; the cart stays with the
+         *     account. Without a session it does nothing.
          */
         post: operations["logout"];
         delete?: never;
@@ -281,6 +284,136 @@ export interface paths {
         get: operations["getMe"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign up as a customer
+         * @description Answers 202 whether or not the email already has an account, so sign-up can't be used to
+         *     find out who has one. A new account gets an email with a link to verify the address
+         *     (`/auth/verify-email`); a taken address gets an email saying it has an account. It
+         *     doesn't log in: the new customer logs in with `/auth/login`, and the account works
+         *     before the email is verified.
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an email with the token from the emailed link
+         * @description Each link works once, for 48 hours, and only the latest one sent. A wrong, expired or used
+         *     token is a 422 with `token: invalid`. It doesn't log in.
+         */
+        post: operations["verifyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/verify-email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the logged-in user a new verification link
+         * @description Does nothing if the email is verified already. At most one email per 5 minutes; a resend
+         *     within that is a no-op too.
+         */
+        post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a link to set a new password
+         * @description Answers 202 whether or not the email has an account. The link works once, for an hour.
+         *     At most one email per 5 minutes.
+         */
+        post: operations["forgotPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with the token from the emailed link
+         * @description Logs the user out everywhere and starts a new session (an admin still needs the second
+         *     factor). It also verifies the email. A wrong, expired or used token is a 422 with
+         *     `token: invalid`.
+         */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the logged-in user's password
+         * @description Logs the user out of their other sessions and replaces this one. A wrong current password
+         *     is a 422 with `current_password: incorrect`, and counts as a failed login for the email.
+         */
+        post: operations["changePassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -873,6 +1006,27 @@ export interface components {
             email: string;
             password: string;
         };
+        RegisterRequest: {
+            email: string;
+            /** @description 10 to 128 characters. */
+            password: string;
+        };
+        TokenRequest: {
+            token: string;
+        };
+        ForgotPasswordRequest: {
+            email: string;
+        };
+        ResetPasswordRequest: {
+            token: string;
+            /** @description 10 to 128 characters. */
+            password: string;
+        };
+        ChangePasswordRequest: {
+            current_password: string;
+            /** @description 10 to 128 characters. */
+            new_password: string;
+        };
         /** @enum {string} */
         Role: "customer" | "admin";
         /** @description The logged-in user, and where their session stands with the second factor. */
@@ -880,6 +1034,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             email: string;
+            /** @description Whether the user opened a verification or reset link we emailed them. */
+            email_verified: boolean;
             role: components["schemas"]["Role"];
             second_factor: components["schemas"]["SecondFactor"];
         };
@@ -1758,6 +1914,157 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["Error"];
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted; an email is on its way. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["InvalidBody"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenRequest"];
+            };
+        };
+        responses: {
+            /** @description The email is verified. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["InvalidBody"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    resendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sent, or nothing to send. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["Error"];
+        };
+    };
+    forgotPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted; an email is on its way if the email has an account. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["InvalidBody"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description The password is set. `Set-Cookie` holds the new session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. `Set-Cookie` holds the new session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            401: components["responses"]["Unauthenticated"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["TooManyAttempts"];
             default: components["responses"]["Error"];
         };
     };

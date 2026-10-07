@@ -709,6 +709,14 @@ type CategoryCount struct {
 	Value Category `json:"value"`
 }
 
+// ChangePasswordRequest defines model for ChangePasswordRequest.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+
+	// NewPassword 10 to 128 characters.
+	NewPassword string `json:"new_password"`
+}
+
 // CodeRequest defines model for CodeRequest.
 type CodeRequest struct {
 	Code string `json:"code"`
@@ -803,6 +811,11 @@ type FindingSeverity string
 // `MISSING_SPEC` replaces an error-level check that couldn't run because a spec value is
 // unknown (params: `field`, `check`), so an unknown never reads as compatible.
 type FindingRule string
+
+// ForgotPasswordRequest defines model for ForgotPasswordRequest.
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
 
 // Health defines model for Health.
 type Health struct {
@@ -940,9 +953,12 @@ type MarkupRuleUpdate struct {
 
 // Me The logged-in user, and where their session stands with the second factor.
 type Me struct {
-	Email string             `json:"email"`
-	Id    openapi_types.UUID `json:"id"`
-	Role  Role               `json:"role"`
+	Email string `json:"email"`
+
+	// EmailVerified Whether the user opened a verification or reset link we emailed them.
+	EmailVerified bool               `json:"email_verified"`
+	Id            openapi_types.UUID `json:"id"`
+	Role          Role               `json:"role"`
 
 	// SecondFactor `not_required`: a customer, or an admin when the second factor is off (development only).
 	// `enroll`: an admin who must set up TOTP. `verify`: an admin who must enter a code.
@@ -1085,6 +1101,21 @@ type ProductSummary struct {
 // RecoveryCodes defines model for RecoveryCodes.
 type RecoveryCodes struct {
 	RecoveryCodes []string `json:"recovery_codes"`
+}
+
+// RegisterRequest defines model for RegisterRequest.
+type RegisterRequest struct {
+	Email string `json:"email"`
+
+	// Password 10 to 128 characters.
+	Password string `json:"password"`
+}
+
+// ResetPasswordRequest defines model for ResetPasswordRequest.
+type ResetPasswordRequest struct {
+	// Password 10 to 128 characters.
+	Password string `json:"password"`
+	Token    string `json:"token"`
 }
 
 // ReviewItem defines model for ReviewItem.
@@ -1245,6 +1276,11 @@ type SyncTriggered struct {
 	// AlreadyQueued A sync was already waiting or running; `job_id` is that one.
 	AlreadyQueued bool  `json:"already_queued"`
 	JobId         int64 `json:"job_id"`
+}
+
+// TokenRequest defines model for TokenRequest.
+type TokenRequest struct {
+	Token string `json:"token"`
 }
 
 // TotpConfirmed defines model for TotpConfirmed.
@@ -1475,11 +1511,26 @@ type UpdateProductSpecsJSONRequestBody = SpecsUpdate
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody = ChangePasswordRequest
+
+// ForgotPasswordJSONRequestBody defines body for ForgotPassword for application/json ContentType.
+type ForgotPasswordJSONRequestBody = ForgotPasswordRequest
+
+// ResetPasswordJSONRequestBody defines body for ResetPassword for application/json ContentType.
+type ResetPasswordJSONRequestBody = ResetPasswordRequest
+
+// RegisterJSONRequestBody defines body for Register for application/json ContentType.
+type RegisterJSONRequestBody = RegisterRequest
+
 // ConfirmTotpJSONRequestBody defines body for ConfirmTotp for application/json ContentType.
 type ConfirmTotpJSONRequestBody = CodeRequest
 
 // VerifyTotpJSONRequestBody defines body for VerifyTotp for application/json ContentType.
 type VerifyTotpJSONRequestBody = CodeRequest
+
+// VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
+type VerifyEmailJSONRequestBody = TokenRequest
 
 // SaveBuildJSONRequestBody defines body for SaveBuild for application/json ContentType.
 type SaveBuildJSONRequestBody = BuildSelection
@@ -1543,6 +1594,18 @@ type ServerInterface interface {
 	// GetMe The logged-in user
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// ChangePassword Change the logged-in user's password
+	// (POST /auth/password)
+	ChangePassword(w http.ResponseWriter, r *http.Request)
+	// ForgotPassword Email a link to set a new password
+	// (POST /auth/password/forgot)
+	ForgotPassword(w http.ResponseWriter, r *http.Request)
+	// ResetPassword Set a new password with the token from the emailed link
+	// (POST /auth/password/reset)
+	ResetPassword(w http.ResponseWriter, r *http.Request)
+	// Register Sign up as a customer
+	// (POST /auth/register)
+	Register(w http.ResponseWriter, r *http.Request)
 	// ConfirmTotp Finish setting up TOTP with a first code
 	// (POST /auth/totp/confirm)
 	ConfirmTotp(w http.ResponseWriter, r *http.Request)
@@ -1555,6 +1618,12 @@ type ServerInterface interface {
 	// VerifyTotp Pass the second factor with a TOTP or recovery code
 	// (POST /auth/totp/verify)
 	VerifyTotp(w http.ResponseWriter, r *http.Request)
+	// VerifyEmail Verify an email with the token from the emailed link
+	// (POST /auth/verify-email)
+	VerifyEmail(w http.ResponseWriter, r *http.Request)
+	// ResendVerification Email the logged-in user a new verification link
+	// (POST /auth/verify-email/resend)
+	ResendVerification(w http.ResponseWriter, r *http.Request)
 	// CheckBuild Check a PC build's compatibility, power draw and price
 	// (GET /builder/check)
 	CheckBuild(w http.ResponseWriter, r *http.Request, params CheckBuildParams)
@@ -1699,6 +1768,30 @@ func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ChangePassword Change the logged-in user's password
+// (POST /auth/password)
+func (_ Unimplemented) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ForgotPassword Email a link to set a new password
+// (POST /auth/password/forgot)
+func (_ Unimplemented) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResetPassword Set a new password with the token from the emailed link
+// (POST /auth/password/reset)
+func (_ Unimplemented) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register Sign up as a customer
+// (POST /auth/register)
+func (_ Unimplemented) Register(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ConfirmTotp Finish setting up TOTP with a first code
 // (POST /auth/totp/confirm)
 func (_ Unimplemented) ConfirmTotp(w http.ResponseWriter, r *http.Request) {
@@ -1720,6 +1813,18 @@ func (_ Unimplemented) RegenerateRecoveryCodes(w http.ResponseWriter, r *http.Re
 // VerifyTotp Pass the second factor with a TOTP or recovery code
 // (POST /auth/totp/verify)
 func (_ Unimplemented) VerifyTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// VerifyEmail Verify an email with the token from the emailed link
+// (POST /auth/verify-email)
+func (_ Unimplemented) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResendVerification Email the logged-in user a new verification link
+// (POST /auth/verify-email/resend)
+func (_ Unimplemented) ResendVerification(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2281,6 +2386,62 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 	handler.ServeHTTP(w, r)
 }
 
+// ChangePassword operation middleware
+func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ForgotPassword operation middleware
+func (siw *ServerInterfaceWrapper) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ForgotPassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResetPassword operation middleware
+func (siw *ServerInterfaceWrapper) ResetPassword(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResetPassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Register operation middleware
+func (siw *ServerInterfaceWrapper) Register(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Register(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ConfirmTotp operation middleware
 func (siw *ServerInterfaceWrapper) ConfirmTotp(w http.ResponseWriter, r *http.Request) {
 
@@ -2328,6 +2489,34 @@ func (siw *ServerInterfaceWrapper) VerifyTotp(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.VerifyTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyEmail operation middleware
+func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyEmail(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResendVerification operation middleware
+func (siw *ServerInterfaceWrapper) ResendVerification(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResendVerification(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3111,6 +3300,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/auth/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/register", wrapper.Register)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/verify-email", wrapper.VerifyEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/verify-email/resend", wrapper.ResendVerification)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/password/forgot", wrapper.ForgotPassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/password/reset", wrapper.ResetPassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/password", wrapper.ChangePassword)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/totp/enroll", wrapper.EnrollTotp)

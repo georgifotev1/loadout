@@ -14,10 +14,15 @@ import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as PreviewRouteRouteImport } from './routes/preview/route'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShopIndexRouteImport } from './routes/_shop/index'
+import { Route as ShopAccountRouteImport } from './routes/_shop/account'
 import { Route as ShopBuilderRouteImport } from './routes/_shop/builder'
 import { Route as ShopCartRouteImport } from './routes/_shop/cart'
+import { Route as ShopForgotPasswordRouteImport } from './routes/_shop/forgot-password'
 import { Route as ShopLoginRouteImport } from './routes/_shop/login'
+import { Route as ShopRegisterRouteImport } from './routes/_shop/register'
+import { Route as ShopResetPasswordRouteImport } from './routes/_shop/reset-password'
 import { Route as ShopSearchRouteImport } from './routes/_shop/search'
+import { Route as ShopVerifyEmailRouteImport } from './routes/_shop/verify-email'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAccountRouteImport } from './routes/admin/account'
 import { Route as AdminJobsRouteImport } from './routes/admin/jobs'
@@ -57,6 +62,11 @@ const ShopIndexRoute = ShopIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopAccountRoute = ShopAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopBuilderRoute = ShopBuilderRouteImport.update({
   id: '/builder',
   path: '/builder',
@@ -67,14 +77,34 @@ const ShopCartRoute = ShopCartRouteImport.update({
   path: '/cart',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopForgotPasswordRoute = ShopForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopLoginRoute = ShopLoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopRegisterRoute = ShopRegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopResetPasswordRoute = ShopResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopSearchRoute = ShopSearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopVerifyEmailRoute = ShopVerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
   getParentRoute: () => ShopRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -153,10 +183,15 @@ export interface FileRoutesByFullPath {
   '/preview': typeof PreviewRouteRouteWithChildren
   '/': typeof ShopIndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/account': typeof ShopAccountRoute
   '/builder': typeof ShopBuilderRoute
   '/cart': typeof ShopCartRoute
+  '/forgot-password': typeof ShopForgotPasswordRoute
   '/login': typeof ShopLoginRoute
+  '/register': typeof ShopRegisterRoute
+  '/reset-password': typeof ShopResetPasswordRoute
   '/search': typeof ShopSearchRoute
+  '/verify-email': typeof ShopVerifyEmailRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
@@ -174,10 +209,15 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/account': typeof ShopAccountRoute
   '/builder': typeof ShopBuilderRoute
   '/cart': typeof ShopCartRoute
+  '/forgot-password': typeof ShopForgotPasswordRoute
   '/login': typeof ShopLoginRoute
+  '/register': typeof ShopRegisterRoute
+  '/reset-password': typeof ShopResetPasswordRoute
   '/search': typeof ShopSearchRoute
+  '/verify-email': typeof ShopVerifyEmailRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
@@ -200,10 +240,15 @@ export interface FileRoutesById {
   '/preview': typeof PreviewRouteRouteWithChildren
   '/_shop': typeof ShopRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/_shop/account': typeof ShopAccountRoute
   '/_shop/builder': typeof ShopBuilderRoute
   '/_shop/cart': typeof ShopCartRoute
+  '/_shop/forgot-password': typeof ShopForgotPasswordRoute
   '/_shop/login': typeof ShopLoginRoute
+  '/_shop/register': typeof ShopRegisterRoute
+  '/_shop/reset-password': typeof ShopResetPasswordRoute
   '/_shop/search': typeof ShopSearchRoute
+  '/_shop/verify-email': typeof ShopVerifyEmailRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
@@ -227,10 +272,15 @@ export interface FileRouteTypes {
     | '/preview'
     | '/'
     | '/sitemap.xml'
+    | '/account'
     | '/builder'
     | '/cart'
+    | '/forgot-password'
     | '/login'
+    | '/register'
+    | '/reset-password'
     | '/search'
+    | '/verify-email'
     | '/admin/account'
     | '/admin/jobs'
     | '/admin/markup-rules'
@@ -248,10 +298,15 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sitemap.xml'
+    | '/account'
     | '/builder'
     | '/cart'
+    | '/forgot-password'
     | '/login'
+    | '/register'
+    | '/reset-password'
     | '/search'
+    | '/verify-email'
     | '/admin/account'
     | '/admin/jobs'
     | '/admin/markup-rules'
@@ -273,10 +328,15 @@ export interface FileRouteTypes {
     | '/preview'
     | '/_shop'
     | '/sitemap.xml'
+    | '/_shop/account'
     | '/_shop/builder'
     | '/_shop/cart'
+    | '/_shop/forgot-password'
     | '/_shop/login'
+    | '/_shop/register'
+    | '/_shop/reset-password'
     | '/_shop/search'
+    | '/_shop/verify-email'
     | '/admin/account'
     | '/admin/jobs'
     | '/admin/markup-rules'
@@ -338,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopIndexRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/account': {
+      id: '/_shop/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof ShopAccountRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/builder': {
       id: '/_shop/builder'
       path: '/builder'
@@ -352,6 +419,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopCartRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/forgot-password': {
+      id: '/_shop/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ShopForgotPasswordRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/login': {
       id: '/_shop/login'
       path: '/login'
@@ -359,11 +433,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopLoginRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/register': {
+      id: '/_shop/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof ShopRegisterRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/reset-password': {
+      id: '/_shop/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ShopResetPasswordRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/search': {
       id: '/_shop/search'
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof ShopSearchRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/verify-email': {
+      id: '/_shop/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof ShopVerifyEmailRouteImport
       parentRoute: typeof ShopRoute
     }
     '/admin/': {
@@ -510,10 +605,15 @@ const PreviewRouteRouteWithChildren = PreviewRouteRoute._addFileChildren(
 )
 
 interface ShopRouteChildren {
+  ShopAccountRoute: typeof ShopAccountRoute
   ShopBuilderRoute: typeof ShopBuilderRoute
   ShopCartRoute: typeof ShopCartRoute
+  ShopForgotPasswordRoute: typeof ShopForgotPasswordRoute
   ShopLoginRoute: typeof ShopLoginRoute
+  ShopRegisterRoute: typeof ShopRegisterRoute
+  ShopResetPasswordRoute: typeof ShopResetPasswordRoute
   ShopSearchRoute: typeof ShopSearchRoute
+  ShopVerifyEmailRoute: typeof ShopVerifyEmailRoute
   ShopIndexRoute: typeof ShopIndexRoute
   ShopBuildSlugRoute: typeof ShopBuildSlugRoute
   ShopCCategoryRoute: typeof ShopCCategoryRoute
@@ -521,10 +621,15 @@ interface ShopRouteChildren {
 }
 
 const ShopRouteChildren: ShopRouteChildren = {
+  ShopAccountRoute: ShopAccountRoute,
   ShopBuilderRoute: ShopBuilderRoute,
   ShopCartRoute: ShopCartRoute,
+  ShopForgotPasswordRoute: ShopForgotPasswordRoute,
   ShopLoginRoute: ShopLoginRoute,
+  ShopRegisterRoute: ShopRegisterRoute,
+  ShopResetPasswordRoute: ShopResetPasswordRoute,
   ShopSearchRoute: ShopSearchRoute,
+  ShopVerifyEmailRoute: ShopVerifyEmailRoute,
   ShopIndexRoute: ShopIndexRoute,
   ShopBuildSlugRoute: ShopBuildSlugRoute,
   ShopCCategoryRoute: ShopCCategoryRoute,

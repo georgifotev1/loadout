@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/gfotev/loadout/internal/platform/db/dbtest"
+	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/platform/validate"
 )
 
@@ -15,7 +17,12 @@ const password = "correct horse battery"
 // newTestService returns a service with cheap hashing and a clock the test moves by hand.
 func newTestService(t *testing.T) (*Service, *time.Time) {
 	t.Helper()
-	s, err := NewService(dbtest.New(t), make([]byte, TOTPKeyLen))
+	pool := dbtest.New(t)
+	jobsClient, err := jobs.New(pool, jobs.Config{Logger: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewService(pool, make([]byte, TOTPKeyLen), jobsClient)
 	if err != nil {
 		t.Fatal(err)
 	}

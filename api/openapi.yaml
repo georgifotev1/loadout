@@ -234,8 +234,8 @@ paths:
       operationId: getCart
       summary: The shopper's cart at today's prices
       description: |
-        The cart of the `cart` cookie. Without the cookie, or with one whose cart is gone, it's an
-        empty cart; reading never creates one.
+        A logged-in user's cart, or else the cart of the `cart` cookie. Without either, or with a
+        cookie whose cart is gone, it's an empty cart; reading never creates one.
       tags: [cart]
       responses:
         "200":
@@ -251,7 +251,8 @@ paths:
       summary: Add products to the cart
       description: |
         Adds each product on top of what the cart already has, all or none. Without a cart it
-        starts one and sets the `cart` cookie (HttpOnly, 30 days, renewed on every change).
+        starts one: the logged-in user's, or else a guest's, and sets the `cart` cookie (HttpOnly,
+        30 days, renewed on every change).
         Field errors name `lines[i].slug` (`unavailable`: not for sale; `out_of_stock`) or
         `lines[i].quantity` (`out_of_range`; `too_many`: over 10 of one product with what's in
         the cart), or `lines` (`too_many`: over 50 products in the cart).
@@ -315,7 +316,8 @@ paths:
       operationId: login
       summary: Log in with email and password
       description: |
-        Starts a session and sets it as an HttpOnly cookie. A wrong password and an unknown email
+        Starts a session and sets it as an HttpOnly cookie. The guest cart of the `cart` cookie
+        moves into the user's cart, and the cookie is cleared. A wrong password and an unknown email
         get the same 401. Too many failures for the email or the client's IP get a 429, even with
         the right password, until `Retry-After` seconds have passed.
       tags: [auth]
@@ -354,7 +356,9 @@ paths:
     post:
       operationId: logout
       summary: Log out
-      description: Ends the session and clears the cookie. Without a session it does nothing.
+      description: |
+        Ends the session and clears its cookie and the `cart` cookie; the cart stays with the
+        account. Without a session it does nothing.
       tags: [auth]
       responses:
         "204":
@@ -373,6 +377,132 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/register:
+    post:
+      operationId: register
+      summary: Sign up as a customer
+      description: |
+        Answers 202 whether or not the email already has an account, so sign-up can't be used to
+        find out who has one. A new account gets an email with a link to verify the address
+        (`/auth/verify-email`); a taken address gets an email saying it has an account. It
+        doesn't log in: the new customer logs in with `/auth/login`, and the account works
+        before the email is verified.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "202":
+          description: Accepted; an email is on its way.
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/verify-email:
+    post:
+      operationId: verifyEmail
+      summary: Verify an email with the token from the emailed link
+      description: |
+        Each link works once, for 48 hours, and only the latest one sent. A wrong, expired or used
+        token is a 422 with `token: invalid`. It doesn't log in.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TokenRequest" }
+      responses:
+        "204":
+          description: The email is verified.
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/verify-email/resend:
+    post:
+      operationId: resendVerification
+      summary: Email the logged-in user a new verification link
+      description: |
+        Does nothing if the email is verified already. At most one email per 5 minutes; a resend
+        within that is a no-op too.
+      tags: [auth]
+      responses:
+        "204":
+          description: Sent, or nothing to send.
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/password/forgot:
+    post:
+      operationId: forgotPassword
+      summary: Email a link to set a new password
+      description: |
+        Answers 202 whether or not the email has an account. The link works once, for an hour.
+        At most one email per 5 minutes.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForgotPasswordRequest" }
+      responses:
+        "202":
+          description: Accepted; an email is on its way if the email has an account.
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/password/reset:
+    post:
+      operationId: resetPassword
+      summary: Set a new password with the token from the emailed link
+      description: |
+        Logs the user out everywhere and starts a new session (an admin still needs the second
+        factor). It also verifies the email. A wrong, expired or used token is a 422 with
+        `token: invalid`.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResetPasswordRequest" }
+      responses:
+        "200":
+          description: The password is set. `Set-Cookie` holds the new session.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/password:
+    post:
+      operationId: changePassword
+      summary: Change the logged-in user's password
+      description: |
+        Logs the user out of their other sessions and replaces this one. A wrong current password
+        is a 422 with `current_password: incorrect`, and counts as a failed login for the email.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChangePasswordRequest" }
+      responses:
+        "200":
+          description: Changed. `Set-Cookie` holds the new session.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        "429": { $ref: "#/components/responses/TooManyAttempts" }
         default: { $ref: "#/components/responses/Error" }
 
   /auth/totp/enroll:
@@ -1317,6 +1447,45 @@ components:
         email: { type: string }
         password: { type: string }
 
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password:
+          type: string
+          description: 10 to 128 characters.
+
+    TokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string }
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string }
+        password:
+          type: string
+          description: 10 to 128 characters.
+
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string }
+        new_password:
+          type: string
+          description: 10 to 128 characters.
+
     Role:
       type: string
       enum: [customer, admin]
@@ -1324,10 +1493,13 @@ components:
     Me:
       type: object
       description: The logged-in user, and where their session stands with the second factor.
-      required: [id, email, role, second_factor]
+      required: [id, email, email_verified, role, second_factor]
       properties:
         id: { type: string, format: uuid }
         email: { type: string }
+        email_verified:
+          type: boolean
+          description: Whether the user opened a verification or reset link we emailed them.
         role: { $ref: "#/components/schemas/Role" }
         second_factor: { $ref: "#/components/schemas/SecondFactor" }
 

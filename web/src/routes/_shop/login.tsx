@@ -8,7 +8,7 @@ import { TotpVerify } from "#/components/auth/totp-verify";
 import { Container } from "#/components/site/container";
 import { Button } from "#/components/ui/button";
 import { m } from "#/i18n";
-import { logout, type Me, meQuery, signedIn } from "#/lib/api/auth";
+import { loggedIn, logout, type Me, meQuery, signedIn } from "#/lib/api/auth";
 import { ApiError } from "#/lib/api/client";
 import { afterLogin } from "#/lib/login-redirect";
 
@@ -43,7 +43,7 @@ function LoginPage() {
 	}
 
 	function update(next: Me) {
-		queryClient.setQueryData(meQuery.queryKey, next);
+		loggedIn(queryClient, next);
 		setNotice(null);
 		if (signedIn(next)) finish(next);
 	}

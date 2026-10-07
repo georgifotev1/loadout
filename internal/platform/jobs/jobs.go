@@ -25,8 +25,13 @@ import (
 // sharing public.
 const Schema = "river"
 
-// QueueSync runs supplier syncs, one at a time.
-const QueueSync = "sync"
+// Queues besides River's default.
+const (
+	// QueueSync runs supplier syncs, one at a time.
+	QueueSync = "sync"
+	// QueueEmail sends emails, so a slow mail server doesn't hold up other jobs.
+	QueueEmail = "email"
+)
 
 var (
 	// ErrNotDiscarded is returned by RetryDiscarded and DeleteDiscarded for a job that doesn't
@@ -57,6 +62,10 @@ type Config struct {
 }
 
 // Client is a River client bound to pgx. Services insert through it (InsertTx); serve runs it.
+//
+// Services get an insert-only client (no Workers) and serve runs a second, working one. Workers
+// need their module's service, so a service that took the working client would need it before
+// the client could exist.
 type Client struct {
 	*river.Client[pgx.Tx]
 	pool        *pgxpool.Pool

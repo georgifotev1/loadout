@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,13 +11,15 @@ import (
 	"github.com/gfotev/loadout/internal/orders"
 )
 
-func cartRequest(t *testing.T, app *application, method, target, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
+func cartRequest(t *testing.T, app *application, method, target, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	if cookie != nil {
-		req.AddCookie(cookie)
+	for _, c := range cookies {
+		if c != nil {
+			req.AddCookie(c)
+		}
 	}
 	app.routes().ServeHTTP(rec, req)
 	return rec
@@ -101,4 +104,56 @@ func TestCartAPI(t *testing.T) {
 			t.Errorf("cart %+v", c)
 		}
 	})
+}
+
+func cookieNamed(rec *httptest.ResponseRecorder, name string) *http.Cookie {
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
+}
+
+// A guest cart moves into the account on login; a logged-in user's cart is the account's, with
+// no cart cookie, and stays with it after logout.
+func TestCartFollowsTheAccount(t *testing.T) {
+	app := newCatalogApp(t)
+	app.orders = orders.NewService(app.db, app.catalog)
+	app.auth = newAuthService(t, app.db)
+	if err := app.auth.Register(context.Background(), "ivan@example.bg", testPassword); err != nil {
+		t.Fatal(err)
+	}
+	cpu := slugs(t, app)["AMD-AM5-R5-7600-BOX"]
+	add := `{"lines":[{"slug":"` + cpu + `","quantity":1}]}`
+
+	guest := cookieNamed(cartRequest(t, app, http.MethodPost, "/api/cart/lines", add), "cart")
+	login := cartRequest(t, app, http.MethodPost, "/api/auth/login", `{"email": "ivan@example.bg", "password": "`+testPassword+`"}`, guest)
+	if login.Code != http.StatusOK {
+		t.Fatalf("login: status %d: %s", login.Code, login.Body)
+	}
+	if c := cookieNamed(login, "cart"); c == nil || c.MaxAge >= 0 {
+		t.Errorf("cart cookie not cleared on login: %+v", c)
+	}
+	session := sessionCookie(t, login)
+
+	rec := cartRequest(t, app, http.MethodPost, "/api/cart/lines", add, session)
+	if c := decodeCart(t, rec); c.Count != 2 {
+		t.Errorf("cart %+v, want the guest's line and this one", c)
+	}
+	if c := cookieNamed(rec, "cart"); c != nil {
+		t.Errorf("a logged-in add set a cart cookie: %+v", c)
+	}
+	if c := decodeCart(t, get(t, app, "/api/cart", guest)); c.Count != 0 {
+		t.Errorf("the guest cart is still there: %+v", c)
+	}
+
+	logout := post(t, app, "/api/auth/logout", session)
+	if c := cookieNamed(logout, "cart"); c == nil || c.MaxAge >= 0 {
+		t.Errorf("cart cookie not cleared on logout: %+v", c)
+	}
+	login = postJSON(t, app, "/api/auth/login", `{"email": "ivan@example.bg", "password": "`+testPassword+`"}`)
+	if c := decodeCart(t, get(t, app, "/api/cart", sessionCookie(t, login))); c.Count != 2 {
+		t.Errorf("cart after logging in again %+v", c)
+	}
 }

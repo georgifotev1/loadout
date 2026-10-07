@@ -4,7 +4,6 @@ CREATE SCHEMA orders;
 
 -- A shopper's cart, found by the token in its cookie. Only the token's SHA-256 is stored, like
 -- auth.sessions. A cart is created by the first add to cart, so browsing alone creates nothing.
--- TODO(phase-7): user_id, and the merge into the user's cart on login, with customer accounts.
 -- TODO(phase-10): delete carts left untouched for a long time.
 CREATE TABLE orders.carts (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),

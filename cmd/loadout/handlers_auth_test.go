@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/db/dbtest"
+	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/specs"
 )
 
@@ -36,7 +38,11 @@ func newAuthApp(t *testing.T) *application {
 
 func newAuthService(t *testing.T, pool *pgxpool.Pool) *auth.Service {
 	t.Helper()
-	svc, err := auth.NewService(pool, make([]byte, auth.TOTPKeyLen))
+	inserter, err := jobs.New(pool, jobs.Config{Logger: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := auth.NewService(pool, make([]byte, auth.TOTPKeyLen), inserter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,6 +175,73 @@ func TestAuthAPI(t *testing.T) {
 	})
 }
 
+func TestAccountAPI(t *testing.T) {
+	app := newAuthApp(t)
+	const email = "ivan@example.bg"
+
+	t.Run("register answers 202 for a new and a taken email", func(t *testing.T) {
+		for range 2 {
+			rec := postJSON(t, app, "/api/auth/register", `{"email": "`+email+`", "password": "`+testPassword+`"}`)
+			if rec.Code != http.StatusAccepted || len(rec.Result().Cookies()) != 0 {
+				t.Errorf("status %d, cookies %v: %s", rec.Code, rec.Result().Cookies(), rec.Body)
+			}
+		}
+		rec := postJSON(t, app, "/api/auth/register", `{"email": "ivan", "password": "short"}`)
+		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), `"invalid_email"`) {
+			t.Errorf("status %d: %s", rec.Code, rec.Body)
+		}
+	})
+
+	rec := postJSON(t, app, "/api/auth/login", `{"email": "`+email+`", "password": "`+testPassword+`"}`)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"email_verified":false`) {
+		t.Fatalf("login: status %d: %s", rec.Code, rec.Body)
+	}
+	session := sessionCookie(t, rec)
+
+	t.Run("a wrong verify token", func(t *testing.T) {
+		rec := postJSON(t, app, "/api/auth/verify-email", `{"token": "made up"}`)
+		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), `{"code":"invalid","field":"token"}`) {
+			t.Errorf("status %d: %s", rec.Code, rec.Body)
+		}
+	})
+
+	t.Run("resend needs a session", func(t *testing.T) {
+		if rec := post(t, app, "/api/auth/verify-email/resend"); rec.Code != http.StatusUnauthorized {
+			t.Errorf("status %d", rec.Code)
+		}
+		if rec := post(t, app, "/api/auth/verify-email/resend", session); rec.Code != http.StatusNoContent {
+			t.Errorf("status %d: %s", rec.Code, rec.Body)
+		}
+	})
+
+	t.Run("forgot password answers 202 for any email", func(t *testing.T) {
+		for _, e := range []string{email, "nobody@example.bg"} {
+			if rec := postJSON(t, app, "/api/auth/password/forgot", `{"email": "`+e+`"}`); rec.Code != http.StatusAccepted {
+				t.Errorf("%s: status %d: %s", e, rec.Code, rec.Body)
+			}
+		}
+	})
+
+	t.Run("change password", func(t *testing.T) {
+		body := `{"current_password": "wrong password", "new_password": "a new password"}`
+		if rec := send(t, app, http.MethodPost, "/api/auth/password", body, session); rec.Code != http.StatusUnprocessableEntity ||
+			!strings.Contains(rec.Body.String(), `"incorrect"`) {
+			t.Errorf("wrong current: status %d: %s", rec.Code, rec.Body)
+		}
+		body = `{"current_password": "` + testPassword + `", "new_password": "a new password"}`
+		rec := send(t, app, http.MethodPost, "/api/auth/password", body, session)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body)
+		}
+		if c := sessionCookie(t, rec); c.Value == session.Value {
+			t.Error("the session wasn't replaced")
+		}
+		if rec := get(t, app, "/api/auth/me", session); rec.Code != http.StatusUnauthorized {
+			t.Errorf("the old session: status %d", rec.Code)
+		}
+	})
+}
+
 func TestProductionSessionCookie(t *testing.T) {
 	app := newTestApp()
 	app.cfg.Env = config.EnvProduction
@@ -186,10 +259,7 @@ func TestAdminRoutesNeedAnAdmin(t *testing.T) {
 	ctx := context.Background()
 
 	admin := adminCookie(t, app)
-	// Customers can't sign up yet, so add one by hand, with the admin's password hash.
-	if _, err := app.db.Exec(ctx, `
-		INSERT INTO auth.users (email, password_hash, role)
-		SELECT 'customer@loadout.bg', password_hash, 'customer' FROM auth.users LIMIT 1`); err != nil {
+	if err := app.auth.Register(ctx, "customer@loadout.bg", testPassword); err != nil {
 		t.Fatal(err)
 	}
 	sess, err := app.auth.Login(ctx, auth.LoginInput{Email: "customer@loadout.bg", Password: testPassword})

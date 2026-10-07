@@ -3,6 +3,7 @@ package orders
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync"
 	"testing"
@@ -96,7 +97,7 @@ func TestCart(t *testing.T) {
 
 	t.Run("no token is an empty cart", func(t *testing.T) {
 		for _, token := range []string{"", "unknown"} {
-			c, err := s.Cart(ctx, token)
+			c, err := s.Cart(ctx, GuestCart(token))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -107,14 +108,14 @@ func TestCart(t *testing.T) {
 	})
 
 	// The first add starts a cart; later ones add to it, on top of what's there.
-	c, token, err := s.AddToCart(ctx, "", []AddLine{{Slug: "cpu", Quantity: 1}})
+	c, token, err := s.AddToCart(ctx, GuestCart(""), []AddLine{{Slug: "cpu", Quantity: 1}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if token == "" || c.Count != 1 || c.SubtotalCents != 200_00 {
 		t.Fatalf("token %q, cart %+v", token, c)
 	}
-	c, again, err := s.AddToCart(ctx, token, []AddLine{{Slug: "ram", Quantity: 2}, {Slug: "cpu", Quantity: 1}})
+	c, again, err := s.AddToCart(ctx, GuestCart(token), []AddLine{{Slug: "ram", Quantity: 2}, {Slug: "cpu", Quantity: 1}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +130,7 @@ func TestCart(t *testing.T) {
 	}
 
 	t.Run("an unknown token starts a new cart", func(t *testing.T) {
-		_, other, err := s.AddToCart(ctx, "unknown", []AddLine{{Slug: "cpu", Quantity: 1}})
+		_, other, err := s.AddToCart(ctx, GuestCart("unknown"), []AddLine{{Slug: "cpu", Quantity: 1}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -154,11 +155,11 @@ func TestCart(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				_, _, err := s.AddToCart(ctx, token, tt.lines)
+				_, _, err := s.AddToCart(ctx, GuestCart(token), tt.lines)
 				if got := fieldCodes(t, err); !slices.Equal(got, tt.want) {
 					t.Errorf("fields %v, want %v", got, tt.want)
 				}
-				c, err := s.Cart(ctx, token)
+				c, err := s.Cart(ctx, GuestCart(token))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -172,27 +173,27 @@ func TestCart(t *testing.T) {
 	cpu := lineOf(t, c, "cpu").ProductID
 
 	t.Run("set quantity", func(t *testing.T) {
-		c, err := s.SetCartQuantity(ctx, token, cpu, 3)
+		c, err := s.SetCartQuantity(ctx, GuestCart(token), cpu, 3)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if lineOf(t, c, "cpu").Quantity != 3 || c.Count != 5 {
 			t.Errorf("cart %+v", c)
 		}
-		if _, err := s.SetCartQuantity(ctx, token, cpu, MaxQuantity+1); fieldCodes(t, err)[0] != "quantity: out_of_range" {
+		if _, err := s.SetCartQuantity(ctx, GuestCart(token), cpu, MaxQuantity+1); fieldCodes(t, err)[0] != "quantity: out_of_range" {
 			t.Errorf("err %v", err)
 		}
-		if _, err := s.SetCartQuantity(ctx, token, uuid.New(), 1); !errors.Is(err, ErrNotFound) {
+		if _, err := s.SetCartQuantity(ctx, GuestCart(token), uuid.New(), 1); !errors.Is(err, ErrNotFound) {
 			t.Errorf("unknown product: err %v", err)
 		}
-		if _, err := s.SetCartQuantity(ctx, "", cpu, 1); !errors.Is(err, ErrNotFound) {
+		if _, err := s.SetCartQuantity(ctx, GuestCart(""), cpu, 1); !errors.Is(err, ErrNotFound) {
 			t.Errorf("no cart: err %v", err)
 		}
 	})
 
 	t.Run("a product no longer for sale stays, out of the subtotal", func(t *testing.T) {
 		cat.update("ram", func(p *catalog.Part) { p.Slug, p.Name = "ram-renamed", "RAM renamed" })
-		c, err := s.Cart(ctx, token)
+		c, err := s.Cart(ctx, GuestCart(token))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -201,7 +202,7 @@ func TestCart(t *testing.T) {
 		}
 
 		cat.remove("ram-renamed")
-		c, err = s.Cart(ctx, token)
+		c, err = s.Cart(ctx, GuestCart(token))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -217,7 +218,7 @@ func TestCart(t *testing.T) {
 	t.Run("remove", func(t *testing.T) {
 		ram := lineOf(t, c, "ram").ProductID
 		for range 2 { // removing twice is fine
-			c, err := s.RemoveFromCart(ctx, token, ram)
+			c, err := s.RemoveFromCart(ctx, GuestCart(token), ram)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -233,7 +234,7 @@ func TestCart(t *testing.T) {
 func TestAddToCartConcurrently(t *testing.T) {
 	s, _ := newCartService(t)
 	ctx := context.Background()
-	_, token, err := s.AddToCart(ctx, "", []AddLine{{Slug: "cpu", Quantity: 1}})
+	_, token, err := s.AddToCart(ctx, GuestCart(""), []AddLine{{Slug: "cpu", Quantity: 1}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +243,7 @@ func TestAddToCartConcurrently(t *testing.T) {
 	errs := make([]error, 2)
 	for i := range errs {
 		wg.Go(func() {
-			_, _, errs[i] = s.AddToCart(ctx, token, []AddLine{{Slug: "cpu", Quantity: 5}})
+			_, _, errs[i] = s.AddToCart(ctx, GuestCart(token), []AddLine{{Slug: "cpu", Quantity: 5}})
 		})
 	}
 	wg.Wait()
@@ -256,13 +257,107 @@ func TestAddToCartConcurrently(t *testing.T) {
 			failed++
 		}
 	}
-	c, err := s.Cart(ctx, token)
+	c, err := s.Cart(ctx, GuestCart(token))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if failed != 1 || c.Count != 6 {
 		t.Errorf("%d failed, count %d; want 1 and 6", failed, c.Count)
 	}
+}
+
+func TestUserCart(t *testing.T) {
+	s, _ := newCartService(t)
+	ctx := context.Background()
+	user := UserCart(uuid.New())
+
+	// A user's cart has no token: it's found by the user.
+	c, token, err := s.AddToCart(ctx, user, []AddLine{{Slug: "cpu", Quantity: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "" || c.Count != 1 {
+		t.Fatalf("token %q, cart %+v", token, c)
+	}
+	if c, err = s.SetCartQuantity(ctx, user, lineOf(t, c, "cpu").ProductID, 2); err != nil || c.Count != 2 {
+		t.Fatalf("cart %+v, err %v", c, err)
+	}
+	if c, err = s.Cart(ctx, UserCart(uuid.New())); err != nil || c.Count != 0 {
+		t.Errorf("another user's cart %+v, err %v", c, err)
+	}
+}
+
+func TestMergeCart(t *testing.T) {
+	s, cat := newCartService(t)
+	ctx := context.Background()
+	guest := func(lines ...AddLine) string {
+		t.Helper()
+		_, token, err := s.AddToCart(ctx, GuestCart(""), lines)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return token
+	}
+	merge := func(token string, user CartOwner) Cart {
+		t.Helper()
+		if err := s.MergeCart(ctx, token, user.UserID); err != nil {
+			t.Fatal(err)
+		}
+		// The guest cart is gone either way.
+		if c, err := s.Cart(ctx, GuestCart(token)); err != nil || c.Count != 0 {
+			t.Errorf("guest cart after merge %+v, err %v", c, err)
+		}
+		c, err := s.Cart(ctx, user)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+
+	t.Run("a user without a cart takes the guest's over", func(t *testing.T) {
+		user := UserCart(uuid.New())
+		c := merge(guest(AddLine{Slug: "cpu", Quantity: 2}), user)
+		if c.Count != 2 || lineOf(t, c, "cpu").Quantity != 2 {
+			t.Errorf("cart %+v", c)
+		}
+	})
+
+	t.Run("lines add up, to the limit", func(t *testing.T) {
+		user := UserCart(uuid.New())
+		if _, _, err := s.AddToCart(ctx, user, []AddLine{{Slug: "cpu", Quantity: 8}, {Slug: "ram", Quantity: 1}}); err != nil {
+			t.Fatal(err)
+		}
+		c := merge(guest(AddLine{Slug: "cpu", Quantity: 5}, AddLine{Slug: "ram", Quantity: 2}), user)
+		if lineOf(t, c, "cpu").Quantity != MaxQuantity || lineOf(t, c, "ram").Quantity != 3 {
+			t.Errorf("cart %+v", c)
+		}
+	})
+
+	t.Run("past the line limit the oldest lines go", func(t *testing.T) {
+		var adds []AddLine
+		for i := range MaxCartLines {
+			p := part(fmt.Sprintf("p%02d", i), 1_00, 5)
+			cat.parts = append(cat.parts, p)
+			adds = append(adds, AddLine{Slug: p.Slug, Quantity: 1})
+		}
+		user := UserCart(uuid.New())
+		if _, _, err := s.AddToCart(ctx, user, adds); err != nil {
+			t.Fatal(err)
+		}
+		c := merge(guest(AddLine{Slug: "cpu", Quantity: 1}), user)
+		if len(c.Lines) != MaxCartLines || c.Lines[0].Slug != "cpu" {
+			t.Errorf("%d lines, first %q", len(c.Lines), c.Lines[0].Slug)
+		}
+	})
+
+	t.Run("no guest cart is nothing to do", func(t *testing.T) {
+		user := UserCart(uuid.New())
+		for _, token := range []string{"", "unknown"} {
+			if c := merge(token, user); c.Count != 0 {
+				t.Errorf("cart %+v", c)
+			}
+		}
+	})
 }
 
 func slugsOf(c Cart) []string {

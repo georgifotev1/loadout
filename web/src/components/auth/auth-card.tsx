@@ -44,6 +44,37 @@ export function isSessionError(err: unknown): boolean {
 	);
 }
 
+/** Whether err is input errors on named fields, which the form shows next to the fields. */
+export function isFieldError(err: unknown): boolean {
+	return (
+		err instanceof ApiError &&
+		err.code === "validation_failed" &&
+		err.fields.length > 0
+	);
+}
+
+/** The message for an input error on field, if err has one. */
+export function fieldError(err: unknown, field: string): string | undefined {
+	if (!(err instanceof ApiError)) return undefined;
+	const code = err.fields.find((f) => f.field === field)?.code;
+	switch (code) {
+		case undefined:
+			return undefined;
+		case "required":
+			return m.auth.fields.required;
+		case "invalid_email":
+			return m.auth.fields.invalidEmail;
+		case "too_short":
+			return m.auth.fields.tooShort;
+		case "too_long":
+			return m.auth.fields.tooLong;
+		case "incorrect":
+			return m.auth.fields.incorrect;
+		default:
+			return m.auth.errors.generic;
+	}
+}
+
 /** The message for a failed login or code step. */
 export function authErrorMessage(err: unknown): string {
 	if (!(err instanceof ApiError)) return m.auth.errors.generic;

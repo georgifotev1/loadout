@@ -16,6 +16,7 @@ import (
 	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
+	"github.com/gfotev/loadout/internal/notify"
 	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/db"
@@ -93,7 +94,13 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	}
 	defer pool.Close()
 
-	authSvc, err := auth.NewService(pool, cfg.Auth.TOTPKey)
+	// Services enqueue through an insert-only client; serve also runs a working one (see
+	// jobs.Client).
+	jobsInserter, err := jobs.New(pool, jobs.Config{Logger: logger.With("component", "jobs")})
+	if err != nil {
+		return err
+	}
+	authSvc, err := auth.NewService(pool, cfg.Auth.TOTPKey, jobsInserter)
 	if err != nil {
 		return err
 	}
@@ -106,13 +113,21 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		if cfg.Auth.SkipTOTP {
 			logger.Warn("AUTH_SKIP_TOTP is on: the admin API doesn't ask for the second factor")
 		}
+		mailer := notify.NewService(&notify.SMTPSender{
+			Addr:     cfg.Mail.SMTPAddr,
+			From:     cfg.Mail.From,
+			Username: cfg.Mail.SMTPUsername,
+			Password: cfg.Mail.SMTPPassword,
+		}, cfg.SiteURL)
 		workers := river.NewWorkers()
 		river.AddWorker(workers, catalog.NewSyncWorker(catalogSvc))
+		river.AddWorker(workers, auth.NewEmailWorker(authSvc, mailer))
 		jobsClient, err := jobs.New(pool, jobs.Config{
 			Logger:  logger.With("component", "jobs"),
 			Workers: workers,
 			Queues: map[string]river.QueueConfig{
-				jobs.QueueSync: {MaxWorkers: 1},
+				jobs.QueueSync:  {MaxWorkers: 1},
+				jobs.QueueEmail: {MaxWorkers: 2},
 			},
 			PeriodicJobs: []*river.PeriodicJob{
 				catalog.PeriodicSync(),

@@ -1,5 +1,6 @@
 // Package auth is email + password login for customers and admins (ADR 0005): users, password
-// hashing, server-side sessions and login limits.
+// hashing, server-side sessions, login limits, and the emailed links that verify an email or
+// reset a password.
 package auth
 
 import (
@@ -47,10 +48,13 @@ const (
 )
 
 type User struct {
-	ID        uuid.UUID
-	Email     string
-	Role      Role
-	CreatedAt time.Time
+	ID    uuid.UUID
+	Email string
+	Role  Role
+	// EmailVerified is whether the user has opened a link we emailed them (or was created from
+	// the CLI, as admins are).
+	EmailVerified bool
+	CreatedAt     time.Time
 }
 
 // SecondFactor is where a session stands with the admins' second factor (TOTP).

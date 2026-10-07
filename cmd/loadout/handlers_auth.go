@@ -27,18 +27,125 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 		app.handleError(w, r, err)
 		return
 	}
-	app.setSessionCookie(w, sess.Token, sess.ExpiresAt)
-	app.writeJSON(w, r, http.StatusOK, app.me(sess))
+	app.loggedIn(w, r, sess)
 }
 
-// Logout handles POST /api/auth/logout.
+// Logout handles POST /api/auth/logout. The cart stays with the account; the browser starts
+// with no cart, so the next person at a shared computer doesn't see it.
 func (app *application) Logout(w http.ResponseWriter, r *http.Request) {
 	if err := app.auth.Logout(r.Context(), app.sessionToken(r)); err != nil {
 		app.handleError(w, r, err)
 		return
 	}
 	app.setSessionCookie(w, "", time.Time{})
+	app.setCartCookie(w, "")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Register handles POST /api/auth/register.
+func (app *application) Register(w http.ResponseWriter, r *http.Request) {
+	var in RegisterRequest
+	if err := readJSON(w, r, &in); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	if err := app.auth.Register(r.Context(), in.Email, in.Password); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+// VerifyEmail handles POST /api/auth/verify-email.
+func (app *application) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var in TokenRequest
+	if err := readJSON(w, r, &in); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	if err := app.auth.VerifyEmail(r.Context(), in.Token); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ResendVerification handles POST /api/auth/verify-email/resend.
+func (app *application) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	if err := app.auth.ResendVerification(r.Context(), app.sessionToken(r)); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ForgotPassword handles POST /api/auth/password/forgot.
+func (app *application) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var in ForgotPasswordRequest
+	if err := readJSON(w, r, &in); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	if err := app.auth.RequestPasswordReset(r.Context(), in.Email); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+// ResetPassword handles POST /api/auth/password/reset.
+func (app *application) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var in ResetPasswordRequest
+	if err := readJSON(w, r, &in); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	sess, err := app.auth.ResetPassword(r.Context(), auth.ResetPasswordInput{
+		Token:    in.Token,
+		Password: in.Password,
+		OldToken: app.sessionToken(r),
+	})
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	app.loggedIn(w, r, sess)
+}
+
+// ChangePassword handles POST /api/auth/password.
+func (app *application) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	var in ChangePasswordRequest
+	if err := readJSON(w, r, &in); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	sess, err := app.auth.ChangePassword(r.Context(), auth.ChangePasswordInput{
+		Token:           app.sessionToken(r),
+		CurrentPassword: in.CurrentPassword,
+		NewPassword:     in.NewPassword,
+	})
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	app.setSessionCookie(w, sess.Token, sess.ExpiresAt)
+	app.writeJSON(w, r, http.StatusOK, app.me(sess))
+}
+
+// loggedIn finishes a login: it sets the session cookie, moves the guest cart into the user's
+// and answers with the user. The cart is a second step after the session's transaction: a
+// failed merge shouldn't fail the login, and the guest cart stays in its cookie to try again
+// on the next login.
+func (app *application) loggedIn(w http.ResponseWriter, r *http.Request, sess auth.Session) {
+	app.setSessionCookie(w, sess.Token, sess.ExpiresAt)
+	if token := app.cartToken(r); token != "" {
+		if err := app.orders.MergeCart(r.Context(), token, sess.User.ID); err != nil {
+			app.logger.Warn("merge cart on login", "err", err, "request_id", requestIDFrom(r.Context()))
+		} else {
+			app.setCartCookie(w, "")
+		}
+	}
+	app.writeJSON(w, r, http.StatusOK, app.me(sess))
 }
 
 // GetMe handles GET /api/auth/me.
@@ -111,7 +218,7 @@ func (app *application) me(sess auth.Session) Me {
 		sf = SecondFactorNotRequired
 	}
 	u := sess.User
-	return Me{Id: u.ID, Email: u.Email, Role: Role(u.Role), SecondFactor: sf}
+	return Me{Id: u.ID, Email: u.Email, EmailVerified: u.EmailVerified, Role: Role(u.Role), SecondFactor: sf}
 }
 
 // sessionToken is the session cookie's value, or "" without one.

@@ -42,13 +42,16 @@ func TestLoadDefaults(t *testing.T) {
 	if len(cfg.Auth.TOTPKey) != 32 || cfg.Auth.SkipTOTP {
 		t.Errorf("Auth = %+v, want the development key and the second factor on", cfg.Auth)
 	}
+	if cfg.SiteURL != "http://localhost:3000" || cfg.Mail.SMTPAddr != "localhost:1025" {
+		t.Errorf("SiteURL = %q, SMTPAddr = %q, want the web dev server and Mailpit", cfg.SiteURL, cfg.Mail.SMTPAddr)
+	}
 }
 
 func TestLoadAuth(t *testing.T) {
 	prod := func(m map[string]string) map[string]string {
 		m["ENV"] = "production"
 		m["VALI_URL"] = "https://vali.example"
-		return m
+		return withMail(m)
 	}
 	tests := []struct {
 		name    string
@@ -89,7 +92,7 @@ func TestLoadValiURL(t *testing.T) {
 		{"required in production", map[string]string{"ENV": "production"}, "VALI_URL: required"},
 		{"not a URL", map[string]string{"VALI_URL": "localhost:8081"}, "VALI_URL: must be an http(s) URL"},
 		{"no host", map[string]string{"VALI_URL": "http://"}, "VALI_URL: must be an http(s) URL"},
-		{"set in production", map[string]string{"ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey}, ""},
+		{"set in production", withMail(map[string]string{"ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey}), ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -105,8 +108,46 @@ func TestLoadValiURL(t *testing.T) {
 	}
 }
 
+// withMail adds the site and mail settings production requires.
+func withMail(m map[string]string) map[string]string {
+	m["SITE_URL"] = "https://loadout.bg"
+	m["SMTP_ADDR"] = "smtp.example:587"
+	m["MAIL_FROM"] = "Loadout <noreply@loadout.bg>"
+	return m
+}
+
+func TestLoadMail(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     map[string]string
+		wantErr string
+	}{
+		{"site required in production", map[string]string{"ENV": "production"}, "SITE_URL: required"},
+		{"smtp required in production", map[string]string{"ENV": "production"}, "SMTP_ADDR: required"},
+		{"from required in production", map[string]string{"ENV": "production"}, "MAIL_FROM: required"},
+		{"site with a path", map[string]string{"SITE_URL": "https://loadout.bg/shop"}, "SITE_URL: must be an http(s) origin"},
+		{"site trailing slash", map[string]string{"SITE_URL": "https://loadout.bg/"}, ""},
+		{"smtp without port", map[string]string{"SMTP_ADDR": "smtp.example"}, "SMTP_ADDR: must be host:port"},
+		{"from not an address", map[string]string{"MAIL_FROM": "Loadout"}, "MAIL_FROM: must be an email address"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.env["DATABASE_URL"] = "postgres://x"
+			cfg, err := load(env(tt.env))
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Fatalf("err = %v", err)
+			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+				t.Fatalf("err = %v, want %q", err, tt.wantErr)
+			case err == nil && strings.HasSuffix(cfg.SiteURL, "/"):
+				t.Errorf("SiteURL = %q, want no trailing slash", cfg.SiteURL)
+			}
+		})
+	}
+}
+
 func TestLoadProductionDefaultsToJSONLogs(t *testing.T) {
-	cfg, err := load(env(map[string]string{"DATABASE_URL": "postgres://x", "ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey}))
+	cfg, err := load(env(withMail(map[string]string{"DATABASE_URL": "postgres://x", "ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey})))
 	if err != nil {
 		t.Fatal(err)
 	}

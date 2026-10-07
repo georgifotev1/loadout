@@ -11,6 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/validate"
@@ -23,6 +25,7 @@ const maxConcurrentHashes = 4
 type Service struct {
 	pool    *pgxpool.Pool
 	store   store
+	jobs    Inserter
 	params  params
 	hashing chan struct{}
 	sealer  sealer
@@ -32,15 +35,21 @@ type Service struct {
 	dummyHash func() string
 }
 
+// Inserter enqueues background jobs in the caller's transaction: *jobs.Client.
+type Inserter interface {
+	InsertTx(ctx context.Context, tx pgx.Tx, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error)
+}
+
 // NewService returns the auth service. totpKey encrypts the admins' TOTP secrets: TOTPKeyLen
-// random bytes, kept out of the database.
-func NewService(pool *pgxpool.Pool, totpKey []byte) (*Service, error) {
+// random bytes, kept out of the database. jobs enqueues the emails (EmailArgs).
+func NewService(pool *pgxpool.Pool, totpKey []byte, jobs Inserter) (*Service, error) {
 	sealer, err := newSealer(totpKey)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{
 		pool:    pool,
+		jobs:    jobs,
 		params:  defaultParams,
 		hashing: make(chan struct{}, maxConcurrentHashes),
 		sealer:  sealer,
@@ -53,13 +62,11 @@ func NewService(pool *pgxpool.Pool, totpKey []byte) (*Service, error) {
 }
 
 // CreateAdmin adds an admin. Admins are only created this way (from the CLI); there's no
-// sign-up for them. A taken email is a validation error.
+// sign-up for them, and their email counts as verified. A taken email is a validation error.
 func (s *Service) CreateAdmin(ctx context.Context, email, password string) (User, error) {
 	email = strings.TrimSpace(email)
 	var v validate.Validator
-	v.Check(email != "", "email", "required")
-	v.Check(len(email) <= 254 && strings.Count(email, "@") == 1 &&
-		!strings.HasPrefix(email, "@") && !strings.HasSuffix(email, "@"), "email", "invalid_email")
+	checkEmail(&v, "email", email)
 	checkPassword(&v, "password", password)
 	if err := v.Err(); err != nil {
 		return User{}, err
@@ -69,7 +76,8 @@ func (s *Service) CreateAdmin(ctx context.Context, email, password string) (User
 	if err != nil {
 		return User{}, err
 	}
-	u, ok, err := s.store.insertUser(ctx, s.pool, email, hash, RoleAdmin)
+	now := s.now()
+	u, ok, err := s.store.insertUser(ctx, s.pool, email, hash, RoleAdmin, &now)
 	if err != nil {
 		return User{}, err
 	}
@@ -102,7 +110,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 		return Session{}, err
 	}
 
-	keys := []string{"email:" + strings.ToLower(email)}
+	keys := []string{emailLimitKey(email)}
 	if in.IP != "" {
 		keys = append(keys, "ip:"+in.IP)
 	}
@@ -142,13 +150,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 		}
 	}
 
-	token, idHash := newToken()
-	sess := Session{
-		Token:        token,
-		User:         u,
-		ExpiresAt:    now.Add(sessionTTL(u.Role)),
-		SecondFactor: secondFactor(u.Role, enrolled, nil),
-	}
+	var sess Session
 	err = db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
 		// Only the email's failures: logging into one account mustn't reset the limit on an IP
 		// that's guessing others.
@@ -165,7 +167,8 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 				return err
 			}
 		}
-		return s.store.insertSession(ctx, tx, idHash, sess, now)
+		sess, err = s.startSession(ctx, tx, u, enrolled, nil, now)
+		return err
 	})
 	if err != nil {
 		return Session{}, err
@@ -239,4 +242,12 @@ func (s *Service) acquire(ctx context.Context) error {
 
 func (s *Service) release() {
 	<-s.hashing
+}
+
+// checkEmail records a field error unless email (already trimmed) looks like an address. The
+// real check is the link we email to it.
+func checkEmail(v *validate.Validator, field, email string) {
+	v.Check(email != "", field, "required")
+	v.Check(len(email) <= 254 && strings.Count(email, "@") == 1 &&
+		!strings.HasPrefix(email, "@") && !strings.HasSuffix(email, "@"), field, "invalid_email")
 }

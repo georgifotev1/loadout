@@ -4,6 +4,7 @@ import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { AdminPage, StatusDot } from "#/components/admin/admin-page";
 import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
+import { ChangePasswordForm } from "#/components/auth/change-password-form";
 import {
 	RecoveryCodeList,
 	SavedConfirm,
@@ -23,8 +24,7 @@ import { Button } from "#/components/ui/button";
 import { m } from "#/i18n";
 import { regenerateRecoveryCodes } from "#/lib/api/auth";
 
-// /admin/account: the signed-in admin's profile and second factor. Changing the password comes
-// with customer accounts (Phase 7), which build password changes and resets for everyone.
+// /admin/account: the signed-in admin's profile, password and second factor.
 export const Route = createFileRoute("/admin/account")({
 	head: () => ({ meta: [{ title: m.site.title(m.admin.account.title) }] }),
 	errorComponent: AdminError,
@@ -48,6 +48,13 @@ function AccountPage() {
 						<dt className="text-muted-foreground">{t.role}</dt>
 						<dd>{t.roleAdmin}</dd>
 					</dl>
+				</Section>
+
+				<Section title={m.auth.changePassword.title}>
+					<p className="-mt-2 mb-4 text-muted-foreground text-sm">
+						{m.auth.changePassword.lead}
+					</p>
+					<ChangePasswordForm />
 				</Section>
 
 				<Section title={t.twoFactor}>

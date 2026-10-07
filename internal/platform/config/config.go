@@ -8,6 +8,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
@@ -63,6 +65,20 @@ type Config struct {
 		// SkipTOTP lets admins use the admin API without the second factor, for local
 		// development. Refused in production.
 		SkipTOTP bool
+	}
+
+	// SiteURL is the storefront's public origin (https://loadout.bg), for links in emails.
+	SiteURL string
+
+	Mail struct {
+		// SMTPAddr is the mail server's host:port: Mailpit locally, the provider's relay in
+		// production.
+		SMTPAddr string
+		// SMTPUsername and SMTPPassword log in to it; empty for Mailpit.
+		SMTPUsername string
+		SMTPPassword string
+		// From is the sender of every email, e.g. "Loadout <noreply@loadout.bg>".
+		From string
 	}
 
 	Log struct {
@@ -133,6 +149,35 @@ func load(getenv func(string) string) (Config, error) {
 	cfg.Auth.SkipTOTP = boolean(getenv, "AUTH_SKIP_TOTP", &errs)
 	if cfg.Auth.SkipTOTP && cfg.Env == EnvProduction {
 		errs = append(errs, errors.New("AUTH_SKIP_TOTP: not allowed in production"))
+	}
+
+	// Development defaults point at the web dev server and Mailpit (make up). Production must
+	// say where it is and how it sends email.
+	defaultSiteURL, defaultSMTPAddr, defaultFrom := "", "", ""
+	if cfg.Env == EnvDevelopment {
+		defaultSiteURL = "http://localhost:3000"
+		defaultSMTPAddr = "localhost:1025"
+		defaultFrom = "Loadout <noreply@loadout.localhost>"
+	}
+	cfg.SiteURL = strings.TrimSuffix(str(getenv, "SITE_URL", defaultSiteURL), "/")
+	if cfg.SiteURL == "" {
+		errs = append(errs, errors.New("SITE_URL: required in production"))
+	} else if u, err := url.Parse(cfg.SiteURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Path != "" {
+		errs = append(errs, fmt.Errorf("SITE_URL: must be an http(s) origin, got %q", cfg.SiteURL))
+	}
+	cfg.Mail.SMTPAddr = str(getenv, "SMTP_ADDR", defaultSMTPAddr)
+	if cfg.Mail.SMTPAddr == "" {
+		errs = append(errs, errors.New("SMTP_ADDR: required in production"))
+	} else if _, _, err := net.SplitHostPort(cfg.Mail.SMTPAddr); err != nil {
+		errs = append(errs, fmt.Errorf("SMTP_ADDR: must be host:port, got %q", cfg.Mail.SMTPAddr))
+	}
+	cfg.Mail.SMTPUsername = str(getenv, "SMTP_USERNAME", "")
+	cfg.Mail.SMTPPassword = str(getenv, "SMTP_PASSWORD", "")
+	cfg.Mail.From = str(getenv, "MAIL_FROM", defaultFrom)
+	if cfg.Mail.From == "" {
+		errs = append(errs, errors.New("MAIL_FROM: required in production"))
+	} else if _, err := mail.ParseAddress(cfg.Mail.From); err != nil {
+		errs = append(errs, fmt.Errorf("MAIL_FROM: must be an email address, got %q", cfg.Mail.From))
 	}
 
 	cfg.Log.Level = strings.ToLower(str(getenv, "LOG_LEVEL", "info"))

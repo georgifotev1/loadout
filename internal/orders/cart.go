@@ -43,19 +43,43 @@ type Cart struct {
 	SubtotalCents money.Cents
 }
 
+// CartOwner says whose cart: a logged-in user's (UserID), or else the one of the browser's cart
+// cookie (Token). An owner with neither has no cart.
+type CartOwner struct {
+	UserID uuid.UUID
+	Token  string
+}
+
+// UserCart is the cart of a logged-in user.
+func UserCart(id uuid.UUID) CartOwner { return CartOwner{UserID: id} }
+
+// GuestCart is the cart of a cart cookie's token.
+func GuestCart(token string) CartOwner { return CartOwner{Token: token} }
+
+func (o CartOwner) isUser() bool { return o.UserID != uuid.Nil }
+
+func (o CartOwner) none() bool { return !o.isUser() && o.Token == "" }
+
+// key is the owner as store arguments: the user id, or else the token's hash; the other is nil.
+func (o CartOwner) key() cartKey {
+	if o.isUser() {
+		return cartKey{userID: &o.UserID}
+	}
+	return cartKey{tokenHash: hashToken(o.Token)}
+}
+
 // AddLine is a product to add to a cart.
 type AddLine struct {
 	Slug     string
 	Quantity int
 }
 
-// Cart returns the cart of token at today's prices. Without a token, or with one that has no
-// cart, it's an empty cart.
-func (s *Service) Cart(ctx context.Context, token string) (Cart, error) {
-	if token == "" {
+// Cart returns the owner's cart at today's prices. An owner without a cart has an empty one.
+func (s *Service) Cart(ctx context.Context, owner CartOwner) (Cart, error) {
+	if owner.none() {
 		return Cart{Lines: []CartLine{}}, nil
 	}
-	lines, err := s.store.cartLines(ctx, s.pool, hashToken(token))
+	lines, err := s.store.cartLines(ctx, s.pool, owner.key())
 	if err != nil {
 		return Cart{}, err
 	}
@@ -86,13 +110,13 @@ func (s *Service) Cart(ctx context.Context, token string) (Cart, error) {
 	return c, nil
 }
 
-// AddToCart adds products to the cart of token, on top of what's there, all or none. Without a
-// token, or with one that has no cart, it starts a new cart. It returns the cart and its token:
-// token itself, or the new cart's.
+// AddToCart adds products to the owner's cart, on top of what's there, all or none. An owner
+// without a cart gets a new one. It returns the cart and, for a guest, its token: owner.Token,
+// or the new cart's.
 //
 // Only products for sale and in stock can be added, and a product's quantity can't go over
 // MaxQuantity. Field errors name the slug or quantity of lines[i].
-func (s *Service) AddToCart(ctx context.Context, token string, lines []AddLine) (Cart, string, error) {
+func (s *Service) AddToCart(ctx context.Context, owner CartOwner, lines []AddLine) (Cart, string, error) {
 	var v validate.Validator
 	v.Check(len(lines) > 0, "lines", "required")
 	v.Check(len(lines) <= MaxCartLines, "lines", "too_many")
@@ -132,14 +156,18 @@ func (s *Service) AddToCart(ctx context.Context, token string, lines []AddLine) 
 	}
 
 	err = db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
-		cartID, found, err := s.store.lockCart(ctx, tx, hashToken(token))
-		if err != nil {
-			return err
+		cartID, found := uuid.Nil, false
+		if !owner.none() {
+			if cartID, found, err = s.store.lockCart(ctx, tx, owner.key()); err != nil {
+				return err
+			}
 		}
 		if !found {
-			var hash []byte
-			token, hash = newToken()
-			if cartID, err = s.store.insertCart(ctx, tx, hash); err != nil {
+			key := owner.key()
+			if !owner.isUser() {
+				owner.Token, key.tokenHash = newToken()
+			}
+			if cartID, err = s.store.insertCart(ctx, tx, key); err != nil {
 				return err
 			}
 		}
@@ -174,40 +202,60 @@ func (s *Service) AddToCart(ctx context.Context, token string, lines []AddLine) 
 		return Cart{}, "", err
 	}
 
-	c, err := s.Cart(ctx, token)
-	return c, token, err
+	c, err := s.Cart(ctx, owner)
+	return c, owner.Token, err
 }
 
-// SetCartQuantity changes how many of a product the cart of token holds. A product that isn't
-// in the cart is ErrNotFound.
-func (s *Service) SetCartQuantity(ctx context.Context, token string, productID uuid.UUID, quantity int) (Cart, error) {
+// SetCartQuantity changes how many of a product the owner's cart holds. A product that isn't in
+// the cart is ErrNotFound.
+func (s *Service) SetCartQuantity(ctx context.Context, owner CartOwner, productID uuid.UUID, quantity int) (Cart, error) {
 	var v validate.Validator
 	v.Check(quantity >= 1 && quantity <= MaxQuantity, "quantity", "out_of_range")
 	if err := v.Err(); err != nil {
 		return Cart{}, err
 	}
-	if token == "" {
+	if owner.none() {
 		return Cart{}, ErrNotFound
 	}
-	ok, err := s.store.setQuantity(ctx, s.pool, hashToken(token), productID, quantity)
+	ok, err := s.store.setQuantity(ctx, s.pool, owner.key(), productID, quantity)
 	if err != nil {
 		return Cart{}, err
 	}
 	if !ok {
 		return Cart{}, ErrNotFound
 	}
-	return s.Cart(ctx, token)
+	return s.Cart(ctx, owner)
 }
 
-// RemoveFromCart takes a product out of the cart of token. Removing one that isn't there is
-// not an error: the cart is as asked either way.
-func (s *Service) RemoveFromCart(ctx context.Context, token string, productID uuid.UUID) (Cart, error) {
-	if token != "" {
-		if err := s.store.removeLine(ctx, s.pool, hashToken(token), productID); err != nil {
+// RemoveFromCart takes a product out of the owner's cart. Removing one that isn't there is not
+// an error: the cart is as asked either way.
+func (s *Service) RemoveFromCart(ctx context.Context, owner CartOwner, productID uuid.UUID) (Cart, error) {
+	if !owner.none() {
+		if err := s.store.removeLine(ctx, s.pool, owner.key(), productID); err != nil {
 			return Cart{}, err
 		}
 	}
-	return s.Cart(ctx, token)
+	return s.Cart(ctx, owner)
+}
+
+// MergeCart moves the guest cart of token into the user's cart when they log in, so what they
+// added before logging in isn't lost. Quantities of a product in both add up to MaxQuantity, and
+// past MaxCartLines the oldest lines go. The guest cart is gone afterwards; with no cart of its
+// own, the user simply takes it over.
+func (s *Service) MergeCart(ctx context.Context, token string, userID uuid.UUID) error {
+	if token == "" {
+		return nil
+	}
+	return db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
+		guestID, userCartID, err := s.store.lockCartsForMerge(ctx, tx, hashToken(token), userID)
+		if err != nil || guestID == uuid.Nil {
+			return err
+		}
+		if userCartID == uuid.Nil {
+			return s.store.giveCart(ctx, tx, guestID, userID)
+		}
+		return s.store.mergeCart(ctx, tx, guestID, userCartID, MaxQuantity, MaxCartLines)
+	})
 }
 
 // newToken returns a random cart token for the cookie and its hash for the database.

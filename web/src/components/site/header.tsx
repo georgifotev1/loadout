@@ -1,5 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Menu, ShoppingCart, Wrench, X } from "lucide-react";
+import {
+	ChevronRight,
+	Menu,
+	ShoppingCart,
+	UserRound,
+	Wrench,
+	X,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "#/components/ui/button";
 import {
@@ -19,9 +26,9 @@ import { cn } from "#/lib/utils";
 import { Container } from "./container";
 import { Logo } from "./logo";
 
-// SiteHeader is the storefront header. The cart button only shows with onCartClick (not in
-// checkout).
-// TODO(phase-7): an account button, with customer accounts.
+// SiteHeader is the storefront header. The account and cart buttons only show with onCartClick
+// (not in checkout). The account button always links to /account, which sends a guest on to
+// /login: the header doesn't know who's logged in, so cached pages stay the same for everyone.
 export function SiteHeader({
 	search,
 	cartCount = 0,
@@ -53,6 +60,15 @@ export function SiteHeader({
 
 				{onCartClick ? (
 					<div className="ml-auto flex items-center gap-0.5">
+						<Button
+							variant="ghost"
+							className="gap-3 px-2.5"
+							aria-label={m.nav.account}
+							render={<Link to="/account" />}
+						>
+							<UserRound />
+							<span className="hidden lg:inline">{m.nav.account}</span>
+						</Button>
 						<Button
 							variant="ghost"
 							className="-mr-2 gap-3 px-2.5 md:mr-0"

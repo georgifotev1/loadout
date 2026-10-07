@@ -5,6 +5,7 @@ import { afterLogin } from "./login-redirect";
 const admin: Me = {
 	id: "00000000-0000-0000-0000-000000000001",
 	email: "admin@example.com",
+	email_verified: true,
 	role: "admin",
 	second_factor: "verified",
 };

@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
@@ -45,7 +46,15 @@ export function LoginForm({
 					/>
 				</div>
 				<div className="flex flex-col gap-2">
-					<Label htmlFor="password">{m.auth.login.password}</Label>
+					<div className="flex items-baseline justify-between gap-2">
+						<Label htmlFor="password">{m.auth.login.password}</Label>
+						<Link
+							to="/forgot-password"
+							className="text-muted-foreground text-sm hover:text-foreground"
+						>
+							{m.auth.login.forgot}
+						</Link>
+					</div>
 					<Input
 						id="password"
 						name="password"
@@ -58,6 +67,15 @@ export function LoginForm({
 					{submit.isPending ? m.auth.login.submitting : m.auth.login.submit}
 				</Button>
 			</form>
+			<p className="mt-6 text-center text-muted-foreground text-sm">
+				{m.auth.login.noAccount}{" "}
+				<Link
+					to="/register"
+					className="font-medium text-foreground underline-offset-4 hover:underline"
+				>
+					{m.auth.login.register}
+				</Link>
+			</p>
 		</AuthCard>
 	);
 }

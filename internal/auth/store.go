@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/gfotev/loadout/internal/platform/db"
 )
@@ -16,25 +15,26 @@ import (
 // TODO(phase-10): a periodic job that deletes expired sessions and forgotten login attempts.
 type store struct{}
 
-const uniqueViolation = "23505"
-
-// insertUser stores a user. It reports false, and stores nothing, if the email is taken.
-func (store) insertUser(ctx context.Context, q db.DBTX, email, passwordHash string, role Role) (User, bool, error) {
+// insertUser stores a user, with their email verified at verifiedAt (nil: not yet). It reports
+// false, and stores nothing, if the email is taken. A taken email doesn't fail the statement, so
+// it doesn't abort the caller's transaction.
+func (store) insertUser(ctx context.Context, q db.DBTX, email, passwordHash string, role Role, verifiedAt *time.Time) (User, bool, error) {
 	query := `
-		INSERT INTO auth.users (email, password_hash, role)
-		VALUES ($1, $2, $3)
-		RETURNING id, email, role, created_at`
+		INSERT INTO auth.users (email, password_hash, role, email_verified_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (email) DO NOTHING
+		RETURNING id, email, role, email_verified_at IS NOT NULL, created_at`
 
 	var u User
-	err := q.QueryRow(ctx, query, email, passwordHash, role).Scan(
+	err := q.QueryRow(ctx, query, email, passwordHash, role, verifiedAt).Scan(
 		&u.ID,
 		&u.Email,
 		&u.Role,
+		&u.EmailVerified,
 		&u.CreatedAt,
 	)
-	var pgErr *pgconn.PgError
 	switch {
-	case errors.As(err, &pgErr) && pgErr.Code == uniqueViolation:
+	case errors.Is(err, pgx.ErrNoRows):
 		return User{}, false, nil
 	case err != nil:
 		return User{}, false, fmt.Errorf("auth: insert user: %w", err)
@@ -46,7 +46,8 @@ func (store) insertUser(ctx context.Context, q db.DBTX, email, passwordHash stri
 // ErrInvalidCredentials.
 func (store) userByEmail(ctx context.Context, q db.DBTX, email string) (User, string, bool, error) {
 	query := `
-		SELECT u.id, u.email, u.role, u.created_at, u.password_hash, t.confirmed_at IS NOT NULL
+		SELECT u.id, u.email, u.role, u.email_verified_at IS NOT NULL, u.created_at, u.password_hash,
+			t.confirmed_at IS NOT NULL
 		FROM auth.users u
 		LEFT JOIN auth.totp t ON t.user_id = u.id
 		WHERE u.email = $1`
@@ -58,6 +59,7 @@ func (store) userByEmail(ctx context.Context, q db.DBTX, email string) (User, st
 		&u.ID,
 		&u.Email,
 		&u.Role,
+		&u.EmailVerified,
 		&u.CreatedAt,
 		&hash,
 		&enrolled,
@@ -93,8 +95,8 @@ func (store) insertSession(ctx context.Context, q db.DBTX, idHash []byte, s Sess
 // session returns the unexpired session with this hash, or ErrUnauthenticated.
 func (store) session(ctx context.Context, q db.DBTX, idHash []byte, now time.Time) (Session, error) {
 	query := `
-		SELECT u.id, u.email, u.role, u.created_at, s.expires_at, s.second_factor_at,
-			t.confirmed_at IS NOT NULL
+		SELECT u.id, u.email, u.role, u.email_verified_at IS NOT NULL, u.created_at, s.expires_at,
+			s.second_factor_at, t.confirmed_at IS NOT NULL
 		FROM auth.sessions s
 		JOIN auth.users u ON u.id = s.user_id
 		LEFT JOIN auth.totp t ON t.user_id = u.id
@@ -106,6 +108,7 @@ func (store) session(ctx context.Context, q db.DBTX, idHash []byte, now time.Tim
 		&s.User.ID,
 		&s.User.Email,
 		&s.User.Role,
+		&s.User.EmailVerified,
 		&s.User.CreatedAt,
 		&s.ExpiresAt,
 		&s.secondFactorAt,
@@ -297,4 +300,84 @@ func (store) useRecoveryCode(ctx context.Context, q db.DBTX, userID uuid.UUID, h
 		return false, fmt.Errorf("auth: use recovery code: %w", err)
 	}
 	return tag.RowsAffected() == 1, nil
+}
+
+// userByID returns the user, their password hash and whether they have confirmed TOTP, or
+// ErrUnauthenticated if there's no such user.
+func (store) userByID(ctx context.Context, q db.DBTX, id uuid.UUID) (User, string, bool, error) {
+	query := `
+		SELECT u.id, u.email, u.role, u.email_verified_at IS NOT NULL, u.created_at, u.password_hash,
+			t.confirmed_at IS NOT NULL
+		FROM auth.users u
+		LEFT JOIN auth.totp t ON t.user_id = u.id
+		WHERE u.id = $1`
+
+	var u User
+	var hash string
+	var enrolled bool
+	err := q.QueryRow(ctx, query, id).Scan(
+		&u.ID,
+		&u.Email,
+		&u.Role,
+		&u.EmailVerified,
+		&u.CreatedAt,
+		&hash,
+		&enrolled,
+	)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return User{}, "", false, ErrUnauthenticated
+	case err != nil:
+		return User{}, "", false, fmt.Errorf("auth: user by id: %w", err)
+	}
+	return u, hash, enrolled, nil
+}
+
+func (store) markEmailVerified(ctx context.Context, q db.DBTX, userID uuid.UUID, now time.Time) error {
+	query := `UPDATE auth.users SET email_verified_at = $2 WHERE id = $1 AND email_verified_at IS NULL`
+	if _, err := q.Exec(ctx, query, userID, now); err != nil {
+		return fmt.Errorf("auth: mark email verified: %w", err)
+	}
+	return nil
+}
+
+// replaceEmailToken stores a new token for purpose and deletes the user's unused ones for it, so
+// only the link in the latest email works.
+func (store) replaceEmailToken(ctx context.Context, q db.DBTX, hash []byte, userID uuid.UUID, purpose tokenPurpose, now, expiresAt time.Time) error {
+	query := `DELETE FROM auth.email_tokens WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL`
+	if _, err := q.Exec(ctx, query, userID, purpose); err != nil {
+		return fmt.Errorf("auth: delete email tokens: %w", err)
+	}
+	query = `
+		INSERT INTO auth.email_tokens (token_hash, user_id, purpose, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5)`
+	if _, err := q.Exec(ctx, query, hash, userID, purpose, now, expiresAt); err != nil {
+		return fmt.Errorf("auth: insert email token: %w", err)
+	}
+	return nil
+}
+
+// emailToken returns the user of an unused, unexpired token for purpose. ok is false if there's
+// no such token. With use, it also marks the token used; two requests with one token can't both
+// get it.
+func (store) emailToken(ctx context.Context, q db.DBTX, hash []byte, purpose tokenPurpose, now time.Time, use bool) (uuid.UUID, bool, error) {
+	query := `
+		SELECT user_id FROM auth.email_tokens
+		WHERE token_hash = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > $3`
+	if use {
+		query = `
+			UPDATE auth.email_tokens SET used_at = $3
+			WHERE token_hash = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > $3
+			RETURNING user_id`
+	}
+
+	var id uuid.UUID
+	err := q.QueryRow(ctx, query, hash, purpose, now).Scan(&id)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return uuid.Nil, false, nil
+	case err != nil:
+		return uuid.Nil, false, fmt.Errorf("auth: email token: %w", err)
+	}
+	return id, true, nil
 }
