@@ -29,6 +29,7 @@ import {
 import {
 	type CheckoutField,
 	cartChanged,
+	checkCheckoutFields,
 	checkoutError,
 	checkoutFieldError,
 } from "#/lib/checkout";
@@ -123,11 +124,15 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 			}
 		},
 	});
+	// Mistakes found before sending, by the API's rules; the API's own errors come after.
+	const [mistakes, setMistakes] = useState<
+		Partial<Record<CheckoutField, string>>
+	>({});
 	const err = submit.error;
 	const formError = checkoutError(err);
 	const field = (name: CheckoutField) => ({
 		name,
-		error: checkoutFieldError(err, name),
+		error: mistakes[name] ?? checkoutFieldError(err, name),
 	});
 
 	return (
@@ -136,17 +141,37 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 
 			<form
 				className="mt-8 grid items-start gap-8 lg:grid-cols-[1fr_24rem]"
+				// Our own checks and messages instead of the browser's, which speak its language.
+				noValidate
+				onInput={(e) => {
+					// A field's mistake goes once the customer edits it.
+					const name = (e.target as HTMLInputElement).name as CheckoutField;
+					if (mistakes[name]) setMistakes(({ [name]: _, ...rest }) => rest);
+				}}
 				onSubmit={(e) => {
 					e.preventDefault();
-					const data = new FormData(e.currentTarget);
+					const form = e.currentTarget;
+					const data = new FormData(form);
 					const text = (k: CheckoutField) => String(data.get(k) ?? "").trim();
-					submit.mutate({
+					const values = {
 						name: text("name"),
 						email: text("email"),
 						phone: text("phone"),
 						city: text("city"),
 						postcode: text("postcode"),
 						address: text("address"),
+					};
+					const found = checkCheckoutFields(values);
+					setMistakes(found);
+					const first = Object.keys(values).find(
+						(k) => found[k as CheckoutField],
+					);
+					if (first) {
+						form.querySelector<HTMLInputElement>(`[name="${first}"]`)?.focus();
+						return;
+					}
+					submit.mutate({
+						...values,
 						payment,
 						expected_total_cents: checkout.total.amount_cents,
 					});

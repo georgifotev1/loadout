@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { m } from "#/i18n";
 import { ApiError } from "#/lib/api/client";
-import { cartChanged, checkoutError, checkoutFieldError } from "./checkout";
+import {
+	type CheckoutValues,
+	cartChanged,
+	checkCheckoutFields,
+	checkoutError,
+	checkoutFieldError,
+} from "./checkout";
 
 const invalid = (...fields: [string, string][]) =>
 	new ApiError(
@@ -43,5 +49,53 @@ describe("checkoutError", () => {
 			m.checkout.errors.generic,
 		);
 		expect(checkoutError(new Error("network"))).toBe(m.checkout.errors.generic);
+	});
+});
+
+describe("checkCheckoutFields", () => {
+	const valid: CheckoutValues = {
+		name: "Иван Иванов",
+		email: "ivan@example.bg",
+		phone: "+359 (888) 123-456",
+		city: "София",
+		postcode: "1000",
+		address: "ул. Граф Игнатиев 1",
+	};
+
+	it("passes a filled-in form", () => {
+		expect(checkCheckoutFields(valid)).toEqual({});
+	});
+
+	it("names every mistake at once", () => {
+		const f = m.checkout.fields;
+		expect(
+			checkCheckoutFields({
+				name: "",
+				email: "ivan",
+				phone: "0888 12",
+				city: "С".repeat(101),
+				postcode: "10000",
+				address: "",
+			}),
+		).toEqual({
+			name: m.auth.fields.required,
+			email: m.auth.fields.invalidEmail,
+			phone: f.invalidPhone,
+			city: f.tooLong,
+			postcode: f.invalidPostcode,
+			address: m.auth.fields.required,
+		});
+	});
+
+	it("follows the API's rules at the edges", () => {
+		const check = (patch: Partial<CheckoutValues>) =>
+			checkCheckoutFields({ ...valid, ...patch });
+		expect(check({ name: "Я".repeat(100) })).toEqual({});
+		expect(check({ phone: "0888123456789012" })).toHaveProperty("phone");
+		expect(check({ phone: "0888 123 45x" })).toHaveProperty("phone");
+		expect(check({ phone: "359+888123456" })).toHaveProperty("phone");
+		expect(check({ email: "a@b@c" })).toHaveProperty("email");
+		expect(check({ email: "@example.bg" })).toHaveProperty("email");
+		expect(check({ postcode: "1ООО" })).toHaveProperty("postcode");
 	});
 });

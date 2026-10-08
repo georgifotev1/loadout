@@ -10,13 +10,66 @@ export type CheckoutField =
 	| "postcode"
 	| "address";
 
+export type CheckoutValues = Record<CheckoutField, string>;
+
 /** The message for an input error on a checkout field, if err has one. */
 export function checkoutFieldError(
 	err: unknown,
 	field: CheckoutField,
 ): string | undefined {
 	if (!(err instanceof ApiError)) return undefined;
-	switch (err.fields.find((f) => f.field === field)?.code) {
+	return fieldMessage(err.fields.find((f) => f.field === field)?.code);
+}
+
+/**
+ * Checks the trimmed checkout fields by the API's rules and returns the message for each wrong
+ * one, so the customer sees every mistake at once, in Bulgarian, before a round trip. The API
+ * checks again and decides.
+ */
+export function checkCheckoutFields(
+	v: CheckoutValues,
+): Partial<Record<CheckoutField, string>> {
+	const codes: Partial<Record<CheckoutField, string>> = {};
+	const text = (f: CheckoutField, max: number) => {
+		if (v[f] === "") codes[f] = "required";
+		else if ([...v[f]].length > max) codes[f] = "too_long";
+	};
+	text("name", 100);
+	if (v.email === "") codes.email = "required";
+	else if (!email(v.email)) codes.email = "invalid_email";
+	if (v.phone === "") codes.phone = "required";
+	else if (!phone(v.phone)) codes.phone = "invalid_phone";
+	text("city", 100);
+	if (v.postcode === "") codes.postcode = "required";
+	else if (!/^[0-9]{4}$/.test(v.postcode)) codes.postcode = "invalid_postcode";
+	text("address", 200);
+
+	const out: Partial<Record<CheckoutField, string>> = {};
+	for (const [f, code] of Object.entries(codes)) {
+		out[f as CheckoutField] = fieldMessage(code);
+	}
+	return out;
+}
+
+// email is the API's shape check: one @, not at either end. Whether it works shows when we send.
+function email(s: string) {
+	return (
+		s.length <= 254 &&
+		s.split("@").length === 2 &&
+		!s.startsWith("@") &&
+		!s.endsWith("@")
+	);
+}
+
+// phone is the API's: 9 to 15 digits, with spaces, dashes, dots, brackets and a leading +.
+function phone(s: string) {
+	if (!/^\+?[0-9 ().-]*$/.test(s)) return false;
+	const digits = s.replace(/[^0-9]/g, "").length;
+	return digits >= 9 && digits <= 15;
+}
+
+function fieldMessage(code: string | undefined): string | undefined {
+	switch (code) {
 		case undefined:
 			return undefined;
 		case "required":
