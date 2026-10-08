@@ -653,6 +653,8 @@ export const bg = {
 		backToDashboard: "Към началото",
 		nav: {
 			label: "Администрация",
+			sales: "Продажби",
+			orders: "Поръчки",
 			catalog: "Каталог",
 			system: "Система",
 			dashboard: "Начало",
@@ -688,10 +690,135 @@ export const bg = {
 				n === 0
 					? "Всички фонови задачи минават."
 					: "Чакат да ги пуснете отново или изтриете.",
+			orders: "Поръчки за потвърждаване",
+			ordersNote: (stale: number) =>
+				stale === 0
+					? "Чакат отговор от доставчика."
+					: `${stale} ${plural(stale, { one: "чака", other: "чакат" })} повече от ден.`,
+			refunding: "Връщане на плащания",
+			refundingNote: (n: number) =>
+				n === 0
+					? "Няма плащания за връщане."
+					: "Проверете в Stripe, ако някое се бави.",
 			products: "Продукти",
 			productsNote: (inactive: number) =>
 				`активни, ${inactive} ${plural(inactive, { one: "неактивен", other: "неактивни" })}`,
 			open: "Отвори",
+		},
+		orders: {
+			title: "Поръчки",
+			lead: "Поръчките на клиентите. Тези, които чакат вас, са най-отгоре в изгледа „Чакат действие“.",
+			search: "Номер, име, имейл или телефон",
+			view: "Изглед",
+			allOrders: "Всички",
+			needsAction: "Чакат действие",
+			order: "Поръчка",
+			customer: "Клиент",
+			status: "Статус",
+			payment: "Плащане",
+			total: "Сума",
+			placed: "Направена",
+			count: (n: number) =>
+				`${n} ${plural(n, { one: "поръчка", other: "поръчки" })}`,
+			empty: "Няма поръчки.",
+			emptyNeedsAction: "Нищо не чака. Новите поръчки ще се появят тук.",
+			units: (n: number) => `${n} бр.`,
+			stale: "Над ден",
+			since: (when: string) => `от ${when}`,
+			// The admin's words for a status; the customer's are in m.order.status.
+			statuses: {
+				awaiting_payment: "Чака плащане",
+				supplier_pending: "Чака доставчика",
+				ready_to_ship: "За изпращане",
+				shipped: "Изпратена",
+				delivered: "Доставена",
+				refunding: "Връщане на плащане",
+				cancelled: "Отказана",
+			},
+			payments: { cod: "Наложен платеж", card: "Карта" },
+			paid: "Платена",
+			unpaid: "Неплатена",
+			// What happened, for the order's history. An unknown event shows as is.
+			events: {
+				cod_selected: "Поръчана с наложен платеж",
+				payment_succeeded: "Плащането е получено",
+				payment_failed: "Плащането не мина",
+				payment_timed_out: "Времето за плащане изтече",
+				supplier_confirmed: "Потвърдена от доставчика",
+				supplier_rejected: "Отказана от доставчика",
+				shipment_created: "Изпратена",
+				delivered: "Доставена",
+				refund_succeeded: "Парите са върнати",
+				cancel: "Отказана",
+			} as Record<string, string | undefined>,
+			system: "системата",
+			// The order's page.
+			orderTitle: (number: number) => `Поръчка № ${number}`,
+			placedOn: (date: string) => `Направена на ${date}`,
+			customerPage: "Страницата на клиента",
+			back: "Всички поръчки",
+			lines: "Продукти",
+			product: "Продукт",
+			supplierSku: "Код при доставчика",
+			quantity: "Бр.",
+			dealer: "Доставна",
+			retail: "Продажна",
+			lineTotal: "Общо",
+			subtotal: "Междинна сума",
+			delivery: "Доставка",
+			grandTotal: "Общо за клиента",
+			dealerTotal: "Доставна цена",
+			margin: "Марж (без доставката)",
+			contact: "Клиент",
+			guest: "Гост, без профил",
+			account: "С профил",
+			address: "Доставка до",
+			paymentTitle: "Плащане",
+			paidOn: (date: string) => `Платена на ${date}`,
+			history: "История",
+			by: (who: string) => `от ${who}`,
+			// What the order waits for, above its actions.
+			todo: {
+				supplier_pending:
+					"Поръчайте продуктите при доставчика с кодовете от таблицата, после отбележете отговора му. Клиентът получава имейл и при двата отговора.",
+				supplier_pending_stale:
+					"Чака отговор от доставчика повече от ден. Обадете се на доставчика или откажете поръчката.",
+				refunding:
+					"Връщаме плащането през Stripe. Обикновено отнема минути. Ако в Stripe връщането е неуспешно, върнете парите по друг начин и го отбележете тук.",
+			} as Partial<Record<string, string>>,
+			actions: {
+				supplier_confirmed: "Доставчикът потвърди",
+				supplier_rejected: "Доставчикът отказа",
+				cancel: "Откажи поръчката",
+				refund_succeeded: "Парите са върнати",
+			},
+			confirm: {
+				supplier_confirmed: {
+					title: "Доставчикът потвърди ли всички продукти?",
+					body: "Поръчката минава към изпращане и клиентът получава имейл, че е потвърдена.",
+				},
+				supplier_rejected: {
+					title: "Да откажем ли поръчката?",
+					body: "Доставчикът няма продуктите. Поръчката се отказва и клиентът получава имейл. Платеното с карта се връща автоматично.",
+				},
+				cancel: {
+					title: "Да откажем ли поръчката?",
+					body: "Клиентът получава имейл, че поръчката е отказана. Платеното с карта се връща автоматично. Това не може да се отмени.",
+				},
+				refund_succeeded: {
+					title: "Върнахте ли парите на клиента?",
+					body: "Само ако връщането през Stripe е неуспешно и сте върнали парите по друг начин. Иначе клиентът ще получи парите два пъти.",
+				},
+			},
+			note: "Бележка",
+			noteHint: "Само за историята на поръчката; клиентът не я вижда.",
+			noteRequired: "Опишете как върнахте парите.",
+			noteRefundPlaceholder: "Напр. банков превод на 9.10.2026",
+			noteConfirmPlaceholder: "Напр. номер на поръчката при доставчика",
+			apply: "Потвърди",
+			cancelDialog: "Назад",
+			failed: "Не успяхме. Опитайте отново.",
+			changed: "Поръчката междувременно се промени. Вижте новото ѝ състояние.",
 		},
 		sync: {
 			title: "Синхронизации",
@@ -880,6 +1007,9 @@ export const bg = {
 			// Job kinds as an admin reads them; an unknown kind shows as is.
 			kinds: {
 				supplier_sync: "Синхронизация с доставчика",
+				order_step: "Стъпка на поръчка",
+				order_payment_timeout: "Срок за плащане на поръчка",
+				auth_email: "Имейл за профил",
 			} as Record<string, string | undefined>,
 		},
 		specs: {

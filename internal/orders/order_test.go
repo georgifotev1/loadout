@@ -87,7 +87,7 @@ var transitions = map[move]result{
 	{awaitingCard, EventPaymentSucceeded}: {pendingCard, []Command{CmdPlaceSupplierOrder, CmdEmailReceived}},
 	{awaitingCard, EventPaymentFailed}:    {cancelledCard, nil},
 	{awaitingCard, EventPaymentTimedOut}:  {cancelledCard, nil},
-	{awaitingCard, EventCancel}:           {cancelledCard, []Command{CmdEmailCancelled}},
+	{awaitingCard, EventCancel}:           {cancelledCard, []Command{CmdExpirePayment, CmdEmailCancelled}},
 
 	{pendingCOD, EventSupplierConfirmed}: {readyCOD, []Command{CmdCreateShipment, CmdEmailConfirmed}},
 	{pendingCOD, EventSupplierRejected}:  {cancelledCOD, []Command{CmdEmailCancelled}},

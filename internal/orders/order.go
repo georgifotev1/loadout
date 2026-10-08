@@ -69,6 +69,7 @@ const (
 	CmdPlaceSupplierOrder Command = "place_supplier_order"
 	CmdCreateShipment     Command = "create_shipment"
 	CmdRefundPayment      Command = "refund_payment"
+	CmdExpirePayment      Command = "expire_payment" // close the payment page of an order cancelled unpaid
 	CmdEmailReceived      Command = "email_received"
 	CmdEmailConfirmed     Command = "email_confirmed"
 	CmdEmailShipped       Command = "email_shipped"
@@ -204,7 +205,14 @@ func (o Order) Transition(ev Event, now time.Time) (Order, []Command, error) {
 
 	case EventCancel:
 		switch o.Status {
-		case StatusAwaitingPayment, StatusSupplierPending, StatusReadyToShip:
+		case StatusAwaitingPayment:
+			if o.Payment == PaymentCard {
+				// The customer could still pay on the open page; one paying anyway is refunded.
+				to(StatusCancelled, CmdExpirePayment, CmdEmailCancelled)
+			} else {
+				to(StatusCancelled, CmdEmailCancelled)
+			}
+		case StatusSupplierPending, StatusReadyToShip:
 			cancel(CmdEmailCancelled)
 		case StatusRefunding, StatusCancelled:
 			return o, nil, nil

@@ -30,11 +30,21 @@ func (app *application) GetAdminOverview(w http.ResponseWriter, r *http.Request)
 		app.handleError(w, r, err)
 		return
 	}
+	orderCounts, err := app.orders.AdminCounts(ctx)
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
 
 	resp := AdminOverview{
 		SpecsIncomplete: queue.Total,
 		DiscardedJobs:   discarded,
 		Products:        ProductCounts{Active: products.Active, Inactive: products.Inactive},
+		Orders: AdminOrderCounts{
+			SupplierPending: orderCounts.SupplierPending,
+			Stale:           orderCounts.Stale,
+			Refunding:       orderCounts.Refunding,
+		},
 	}
 	if len(runs.Runs) > 0 {
 		last := syncRunJSON(runs.Runs[0])

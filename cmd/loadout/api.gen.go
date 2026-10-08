@@ -14,6 +14,30 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdminOrderEvent.
+const (
+	AdminOrderEventCancel            AdminOrderEvent = "cancel"
+	AdminOrderEventRefundSucceeded   AdminOrderEvent = "refund_succeeded"
+	AdminOrderEventSupplierConfirmed AdminOrderEvent = "supplier_confirmed"
+	AdminOrderEventSupplierRejected  AdminOrderEvent = "supplier_rejected"
+)
+
+// Valid indicates whether the value is a known member of the AdminOrderEvent enum.
+func (e AdminOrderEvent) Valid() bool {
+	switch e {
+	case AdminOrderEventCancel:
+		return true
+	case AdminOrderEventRefundSucceeded:
+		return true
+	case AdminOrderEventSupplierConfirmed:
+		return true
+	case AdminOrderEventSupplierRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminProductSpecsStatus.
 const (
 	AdminProductSpecsStatusApproved   AdminProductSpecsStatus = "approved"
@@ -100,6 +124,7 @@ const (
 	ErrorCodeInvalidBody          ErrorCode = "invalid_body"
 	ErrorCodeInvalidCode          ErrorCode = "invalid_code"
 	ErrorCodeInvalidCredentials   ErrorCode = "invalid_credentials"
+	ErrorCodeInvalidTransition    ErrorCode = "invalid_transition"
 	ErrorCodeNotFound             ErrorCode = "not_found"
 	ErrorCodeNotPayable           ErrorCode = "not_payable"
 	ErrorCodeSecondFactorRequired ErrorCode = "second_factor_required"
@@ -129,6 +154,8 @@ func (e ErrorCode) Valid() bool {
 	case ErrorCodeInvalidCode:
 		return true
 	case ErrorCodeInvalidCredentials:
+		return true
+	case ErrorCodeInvalidTransition:
 		return true
 	case ErrorCodeNotFound:
 		return true
@@ -572,13 +599,163 @@ func (e ListAdminProductsParamsStatus) Valid() bool {
 	}
 }
 
+// AdminOrder defines model for AdminOrder.
+type AdminOrder struct {
+	// Actions The events an admin can apply now.
+	Actions   []AdminOrderEvent `json:"actions"`
+	Address   string            `json:"address"`
+	City      string            `json:"city"`
+	CreatedAt time.Time         `json:"created_at"`
+
+	// DealerTotal What the lines cost us, VAT included.
+	DealerTotal Price `json:"dealer_total"`
+
+	// Delivery A retail price. The web app formats it; it never does price math.
+	Delivery Price              `json:"delivery"`
+	Email    string             `json:"email"`
+	Id       openapi_types.UUID `json:"id"`
+	Lines    []AdminOrderLine   `json:"lines"`
+
+	// Margin The lines' subtotal minus `dealer_total`, VAT included; delivery left out.
+	Margin Price  `json:"margin"`
+	Name   string `json:"name"`
+	Number int64  `json:"number"`
+
+	// PaidAt Missing while unpaid.
+	PaidAt *time.Time `json:"paid_at,omitempty"`
+
+	// Payment `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
+	// (cards, Apple Pay, Google Pay, … as set up in Stripe).
+	Payment  PaymentMethod `json:"payment"`
+	Phone    string        `json:"phone"`
+	Postcode string        `json:"postcode"`
+
+	// Stale Waiting for the supplier for more than a day.
+	Stale bool `json:"stale"`
+
+	// Status `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+	// `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+	Status      OrderStatus `json:"status"`
+	StatusSince time.Time   `json:"status_since"`
+
+	// Subtotal A retail price. The web app formats it; it never does price math.
+	Subtotal Price `json:"subtotal"`
+
+	// Token Opens the customer's order page.
+	Token string `json:"token,omitempty"`
+
+	// Total A retail price. The web app formats it; it never does price math.
+	Total Price `json:"total"`
+
+	// Transitions The order's history, oldest first.
+	Transitions []OrderTransition `json:"transitions"`
+
+	// UserId The account it was placed from; missing for a guest.
+	UserId *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// AdminOrderCounts defines model for AdminOrderCounts.
+type AdminOrderCounts struct {
+	Refunding int `json:"refunding"`
+
+	// Stale Of them, waiting more than a day.
+	Stale int `json:"stale"`
+
+	// SupplierPending Waiting for the supplier's answer.
+	SupplierPending int `json:"supplier_pending"`
+}
+
+// AdminOrderEvent `supplier_confirmed` / `supplier_rejected`: the supplier's answer to the order placed
+// with them. `cancel`: stop the order (a paid one is refunded). `refund_succeeded`: the
+// money went back outside Stripe, after Stripe's refund failed.
+type AdminOrderEvent string
+
+// AdminOrderEventInput defines model for AdminOrderEventInput.
+type AdminOrderEventInput struct {
+	// Event `supplier_confirmed` / `supplier_rejected`: the supplier's answer to the order placed
+	// with them. `cancel`: stop the order (a paid one is refunded). `refund_succeeded`: the
+	// money went back outside Stripe, after Stripe's refund failed.
+	Event AdminOrderEvent `json:"event"`
+
+	// Note For the order's history; the customer doesn't see it.
+	Note string `json:"note,omitempty"`
+}
+
+// AdminOrderLine defines model for AdminOrderLine.
+type AdminOrderLine struct {
+	// DealerUnit What one unit cost us at checkout, VAT included.
+	DealerUnit Price `json:"dealer_unit"`
+
+	// Image Absent when the product had none.
+	Image string `json:"image,omitempty"`
+
+	// LineTotal A retail price. The web app formats it; it never does price math.
+	LineTotal Price              `json:"line_total"`
+	Name      string             `json:"name"`
+	ProductId openapi_types.UUID `json:"product_id"`
+
+	// Provider The supplier to order it from.
+	Provider string `json:"provider"`
+	Quantity int    `json:"quantity"`
+
+	// Sku The supplier's SKU.
+	Sku  string `json:"sku"`
+	Slug string `json:"slug"`
+
+	// UnitPrice A retail price. The web app formats it; it never does price math.
+	UnitPrice Price `json:"unit_price"`
+	VatBp     int   `json:"vat_bp"`
+}
+
+// AdminOrderList defines model for AdminOrderList.
+type AdminOrderList struct {
+	Items    []AdminOrderSummary `json:"items"`
+	Page     int                 `json:"page"`
+	PageSize int                 `json:"page_size"`
+
+	// Total Matching orders over all pages.
+	Total int `json:"total"`
+}
+
+// AdminOrderSummary defines model for AdminOrderSummary.
+type AdminOrderSummary struct {
+	// Count Units over all lines.
+	Count     int                `json:"count"`
+	CreatedAt time.Time          `json:"created_at"`
+	Email     string             `json:"email"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	Number    int64              `json:"number"`
+
+	// PaidAt Missing while unpaid.
+	PaidAt *time.Time `json:"paid_at,omitempty"`
+
+	// Payment `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
+	// (cards, Apple Pay, Google Pay, … as set up in Stripe).
+	Payment PaymentMethod `json:"payment"`
+
+	// Stale Waiting for the supplier for more than a day.
+	Stale bool `json:"stale"`
+
+	// Status `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+	// `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+	Status OrderStatus `json:"status"`
+
+	// StatusSince When the order took its status.
+	StatusSince time.Time `json:"status_since"`
+
+	// Total A retail price. The web app formats it; it never does price math.
+	Total Price `json:"total"`
+}
+
 // AdminOverview defines model for AdminOverview.
 type AdminOverview struct {
 	DiscardedJobs int `json:"discarded_jobs"`
 
 	// LastSync The newest sync run; `null` before the first one.
-	LastSync *SyncRun      `json:"last_sync"`
-	Products ProductCounts `json:"products"`
+	LastSync *SyncRun         `json:"last_sync"`
+	Orders   AdminOrderCounts `json:"orders"`
+	Products ProductCounts    `json:"products"`
 
 	// SpecsIncomplete Builder parts waiting in the specs review queue.
 	SpecsIncomplete int `json:"specs_incomplete"`
@@ -1148,6 +1325,26 @@ type OrderSummary struct {
 	Total Price `json:"total"`
 }
 
+// OrderTransition defines model for OrderTransition.
+type OrderTransition struct {
+	// Actor The admin's email; empty for the system.
+	Actor string    `json:"actor"`
+	At    time.Time `json:"at"`
+
+	// Event What happened: an order event, e.g. `cod_selected`.
+	Event string `json:"event"`
+
+	// From `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+	// `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+	From OrderStatus `json:"from"`
+	Note string      `json:"note"`
+	Seq  int         `json:"seq"`
+
+	// To `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
+	// `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
+	To OrderStatus `json:"to"`
+}
+
 // Payment defines model for Payment.
 type Payment struct {
 	// Url Stripe's payment page.
@@ -1569,6 +1766,18 @@ type ListDiscardedJobsParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListAdminOrdersParams defines parameters for ListAdminOrders.
+type ListAdminOrdersParams struct {
+	// Q An order number, or part of the customer's name, email or phone.
+	Q           string      `form:"q,omitempty" json:"q,omitempty"`
+	Status      OrderStatus `form:"status,omitempty" json:"status,omitempty"`
+	NeedsAction bool        `form:"needs_action,omitempty" json:"needs_action,omitempty"`
+
+	// Page 1-based page number.
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
 // ListAdminProductsParams defines parameters for ListAdminProducts.
 type ListAdminProductsParams struct {
 	// Q Part of the name, brand or SKU, ignoring case.
@@ -1715,6 +1924,9 @@ type CreateMarkupRuleJSONRequestBody = MarkupRuleInput
 // UpdateMarkupRuleJSONRequestBody defines body for UpdateMarkupRule for application/json ContentType.
 type UpdateMarkupRuleJSONRequestBody = MarkupRuleUpdate
 
+// ApplyAdminOrderEventJSONRequestBody defines body for ApplyAdminOrderEvent for application/json ContentType.
+type ApplyAdminOrderEventJSONRequestBody = AdminOrderEventInput
+
 // UpdateProductSpecsJSONRequestBody defines body for UpdateProductSpecs for application/json ContentType.
 type UpdateProductSpecsJSONRequestBody = SpecsUpdate
 
@@ -1777,6 +1989,15 @@ type ServerInterface interface {
 	// UpdateMarkupRule Change a markup rule
 	// (PUT /admin/markup-rules/{rule_id})
 	UpdateMarkupRule(w http.ResponseWriter, r *http.Request, ruleId int64)
+	// ListAdminOrders Orders, the newest first
+	// (GET /admin/orders)
+	ListAdminOrders(w http.ResponseWriter, r *http.Request, params ListAdminOrdersParams)
+	// GetAdminOrder An order with its supplier prices, history and the admin's actions
+	// (GET /admin/orders/{order_id})
+	GetAdminOrder(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID)
+	// ApplyAdminOrderEvent Apply an admin's event to an order
+	// (POST /admin/orders/{order_id}/events)
+	ApplyAdminOrderEvent(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID)
 	// GetAdminOverview The numbers on the admin dashboard
 	// (GET /admin/overview)
 	GetAdminOverview(w http.ResponseWriter, r *http.Request)
@@ -1936,6 +2157,24 @@ func (_ Unimplemented) DeleteMarkupRule(w http.ResponseWriter, r *http.Request, 
 // UpdateMarkupRule Change a markup rule
 // (PUT /admin/markup-rules/{rule_id})
 func (_ Unimplemented) UpdateMarkupRule(w http.ResponseWriter, r *http.Request, ruleId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAdminOrders Orders, the newest first
+// (GET /admin/orders)
+func (_ Unimplemented) ListAdminOrders(w http.ResponseWriter, r *http.Request, params ListAdminOrdersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAdminOrder An order with its supplier prices, history and the admin's actions
+// (GET /admin/orders/{order_id})
+func (_ Unimplemented) GetAdminOrder(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApplyAdminOrderEvent Apply an admin's event to an order
+// (POST /admin/orders/{order_id}/events)
+func (_ Unimplemented) ApplyAdminOrderEvent(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2332,6 +2571,143 @@ func (siw *ServerInterfaceWrapper) UpdateMarkupRule(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateMarkupRule(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAdminOrders operation middleware
+func (siw *ServerInterfaceWrapper) ListAdminOrders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAdminOrdersParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "needs_action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "needs_action", r.URL.Query(), &params.NeedsAction, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "needs_action"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "needs_action", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAdminOrders(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminOrder operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "order_id" -------------
+	var orderId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "order_id", chi.URLParam(r, "order_id"), &orderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminOrder(w, r, orderId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyAdminOrderEvent operation middleware
+func (siw *ServerInterfaceWrapper) ApplyAdminOrderEvent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "order_id" -------------
+	var orderId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "order_id", chi.URLParam(r, "order_id"), &orderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyAdminOrderEvent(w, r, orderId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3813,6 +4189,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/products", wrapper.ListAdminProducts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/orders", wrapper.ListAdminOrders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/orders/{order_id}", wrapper.GetAdminOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/admin/orders/{order_id}/events", wrapper.ApplyAdminOrderEvent)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/markup-rules", wrapper.ListMarkupRules)

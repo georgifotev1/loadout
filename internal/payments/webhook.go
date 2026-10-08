@@ -101,8 +101,8 @@ func (s *Service) orderEvent(ev stripe.Event) (uuid.UUID, orders.Event, error) {
 		case stripe.RefundStatusSucceeded:
 			return id, orders.EventRefundSucceeded, nil
 		case stripe.RefundStatusFailed, stripe.RefundStatusCanceled:
-			// TODO(phase-7): an admin task when fulfillment (step 6) has them; the order stays
-			// refunding until then.
+			// The order stays refunding, in the admin's "needs action" list: they return the
+			// money another way and mark it refunded.
 			s.cfg.Logger.Error("stripe refund failed", "stripe_event", ev.ID, "refund", r.ID, "order_id", id, "status", r.Status)
 		}
 		return id, "", nil

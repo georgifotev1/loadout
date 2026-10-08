@@ -125,3 +125,47 @@ func TestBuildMessage(t *testing.T) {
 		}
 	}
 }
+
+func TestOrderConfirmed(t *testing.T) {
+	r := &recorder{}
+	s := NewService(r, "https://loadout.bg")
+	id := uuid.New()
+	if err := s.OrderConfirmed(context.Background(), Order{ID: id, Number: 1003, Token: "t", Email: "ivan@example.bg", TotalCents: 405_99, CashOnDelivery: true}); err != nil {
+		t.Fatal(err)
+	}
+	m := r.sent[0]
+	if m.To != "ivan@example.bg" || m.Subject != "Поръчка № 1003 е потвърдена" {
+		t.Errorf("to %q, subject %q", m.To, m.Subject)
+	}
+	for _, want := range []string{"платете на куриера 405,99\u00a0€", "https://loadout.bg/order/" + id.String() + "?token=t\n"} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("email doesn't contain %q:\n%s", want, m.Text)
+		}
+	}
+}
+
+func TestOrderCancelled(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		paid   bool
+		refund bool
+	}{
+		{"unpaid", false, false},
+		{"paid by card", true, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &recorder{}
+			s := NewService(r, "https://loadout.bg")
+			if err := s.OrderCancelled(context.Background(), Order{ID: uuid.New(), Number: 1004, TotalCents: 405_99, PaidByCard: tt.paid}); err != nil {
+				t.Fatal(err)
+			}
+			m := r.sent[0]
+			if m.Subject != "Поръчка № 1004 е отказана" {
+				t.Errorf("subject %q", m.Subject)
+			}
+			if got := strings.Contains(m.Text, "Връщаме 405,99\u00a0€ по картата"); got != tt.refund {
+				t.Errorf("mentions the refund: %v, want %v:\n%s", got, tt.refund, m.Text)
+			}
+		})
+	}
+}

@@ -155,13 +155,71 @@ func (s *Service) OrderReceived(ctx context.Context, o Order) error {
 		"",
 		"Следете поръчката от тук:",
 		"",
-		s.siteURL+"/order/"+o.ID.String()+"?"+url.Values{"token": {o.Token}}.Encode(),
+		s.orderLink(o),
 	)
 	return s.sender.Send(ctx, Message{
 		To:      o.Email,
 		Subject: fmt.Sprintf("Поръчка № %d е приета", o.Number),
 		Text:    lines(ls...),
 	})
+}
+
+// OrderConfirmed tells the customer the supplier has every part and the parcel is being prepared.
+func (s *Service) OrderConfirmed(ctx context.Context, o Order) error {
+	ls := []string{
+		"Здравейте, " + o.Name + ",",
+		"",
+		fmt.Sprintf("Потвърдихме поръчка № %d: всички продукти са налични.", o.Number),
+		"Подготвяме пратката и ще ви пишем, когато тръгне.",
+		"",
+	}
+	if o.CashOnDelivery {
+		ls = append(ls, "При получаване платете на куриера "+money.Format(o.TotalCents)+".", "")
+	}
+	ls = append(ls,
+		"Следете поръчката от тук:",
+		"",
+		s.orderLink(o),
+	)
+	return s.sender.Send(ctx, Message{
+		To:      o.Email,
+		Subject: fmt.Sprintf("Поръчка № %d е потвърдена", o.Number),
+		Text:    lines(ls...),
+	})
+}
+
+// OrderCancelled tells the customer their order is cancelled and, if they paid by card, that the
+// money is on its way back.
+func (s *Service) OrderCancelled(ctx context.Context, o Order) error {
+	ls := []string{
+		"Здравейте, " + o.Name + ",",
+		"",
+		fmt.Sprintf("Поръчка № %d е отказана и няма да бъде изпратена.", o.Number),
+		"",
+	}
+	if o.PaidByCard {
+		ls = append(ls,
+			"Връщаме "+money.Format(o.TotalCents)+" по картата, с която платихте. Според банката ви",
+			"парите пристигат до 5–10 работни дни.",
+			"",
+		)
+	}
+	// TODO(phase-8): how to reach us, once the contacts page exists; replies go to noreply.
+	ls = append(ls,
+		"Поръчката:",
+		"",
+		s.orderLink(o),
+	)
+	return s.sender.Send(ctx, Message{
+		To:      o.Email,
+		Subject: fmt.Sprintf("Поръчка № %d е отказана", o.Number),
+		Text:    lines(ls...),
+	})
+}
+
+// orderLink opens the order page without logging in.
+func (s *Service) orderLink(o Order) string {
+	return s.siteURL + "/order/" + o.ID.String() + "?" + url.Values{"token": {o.Token}}.Encode()
 }
 
 func (s *Service) link(path, token string) string {

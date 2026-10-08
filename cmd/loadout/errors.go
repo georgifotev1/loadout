@@ -43,6 +43,8 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 		app.writeError(w, r, http.StatusConflict, ErrorCodeDuplicateRule, "a markup rule for this target already exists")
 	case errors.Is(err, catalog.ErrDefaultRule):
 		app.writeError(w, r, http.StatusConflict, ErrorCodeDefaultRule, "the default markup rule must stay")
+	case errors.Is(err, orders.ErrInvalidTransition):
+		app.writeError(w, r, http.StatusConflict, ErrorCodeInvalidTransition, "the order can't take this event in its status")
 	case errors.Is(err, payments.ErrNotPayable):
 		app.writeError(w, r, http.StatusConflict, ErrorCodeNotPayable, "the order can't be paid by card")
 	case errors.Is(err, jobs.ErrAlreadyQueued):

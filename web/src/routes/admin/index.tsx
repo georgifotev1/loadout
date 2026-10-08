@@ -9,7 +9,6 @@ import { overviewQuery } from "#/lib/api/admin";
 import { cn } from "#/lib/utils";
 
 // /admin: the dashboard. One card per thing that can need an admin, each linking to its page.
-// TODO(phase-7): orders by state and open admin tasks.
 export const Route = createFileRoute("/admin/")({
 	loader: ({ context }) => context.queryClient.query(overviewQuery),
 	head: () => ({ meta: [{ title: m.site.title(m.admin.dashboard.title) }] }),
@@ -24,7 +23,23 @@ function Dashboard() {
 
 	return (
 		<AdminPage title={t.title} lead={t.lead}>
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+				<Card
+					label={t.orders}
+					to="/admin/orders"
+					search={{ view: "supplier_pending" }}
+					attention={data.orders.supplier_pending > 0}
+					value={data.orders.supplier_pending}
+					note={t.ordersNote(data.orders.stale)}
+				/>
+				<Card
+					label={t.refunding}
+					to="/admin/orders"
+					search={{ view: "refunding" }}
+					attention={data.orders.refunding > 0}
+					value={data.orders.refunding}
+					note={t.refundingNote(data.orders.refunding)}
+				/>
 				<Card
 					label={t.specs}
 					to="/admin/specs"
@@ -69,12 +84,14 @@ function Card({
 	value,
 	note,
 	to,
+	search,
 	attention = false,
 }: {
 	label: string;
 	value: React.ReactNode;
 	note: React.ReactNode;
 	to?: LinkProps["to"];
+	search?: LinkProps["search"];
 	attention?: boolean;
 }) {
 	const body = (
@@ -100,7 +117,7 @@ function Card({
 		to && "transition-colors hover:border-border-strong",
 	);
 	return to ? (
-		<Link to={to} className={className}>
+		<Link to={to} search={search} className={className}>
 			{body}
 		</Link>
 	) : (

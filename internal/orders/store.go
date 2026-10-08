@@ -271,9 +271,11 @@ func (store) lockOrder(ctx context.Context, q db.DBTX, id uuid.UUID) (Order, err
 }
 
 // saveTransition stores the order after a transition and the transition's audit row.
-func (store) saveTransition(ctx context.Context, q db.DBTX, from, to Order, ev Event, at time.Time) error {
+func (store) saveTransition(ctx context.Context, q db.DBTX, from, to Order, ev Event, by Actor, at time.Time) error {
 	update := `
-		UPDATE orders.orders SET status = $2, paid_at = $3, seq = $4, updated_at = $5
+		UPDATE orders.orders
+		SET status = $2, paid_at = $3, seq = $4, updated_at = $5,
+		    status_at = CASE WHEN status = $2 THEN status_at ELSE $5 END
 		WHERE id = $1`
 	if _, err := q.Exec(ctx, update,
 		to.ID,
@@ -286,8 +288,8 @@ func (store) saveTransition(ctx context.Context, q db.DBTX, from, to Order, ev E
 	}
 
 	insert := `
-		INSERT INTO orders.order_transitions (order_id, seq, event, from_status, to_status, at)
-		VALUES ($1, $2, $3, $4, $5, $6)`
+		INSERT INTO orders.order_transitions (order_id, seq, event, from_status, to_status, at, actor, note)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	if _, err := q.Exec(ctx, insert,
 		to.ID,
 		to.Seq,
@@ -295,6 +297,8 @@ func (store) saveTransition(ctx context.Context, q db.DBTX, from, to Order, ev E
 		from.Status,
 		to.Status,
 		at,
+		by.Email,
+		by.Note,
 	); err != nil {
 		return fmt.Errorf("orders: insert transition of order %s: %w", to.ID, err)
 	}
@@ -466,4 +470,173 @@ func (store) customerOrders(ctx context.Context, q db.DBTX, userID uuid.UUID, em
 		return nil, fmt.Errorf("orders: customer orders: %w", err)
 	}
 	return out, nil
+}
+
+// adminOrders returns one page of orders for the admin and the number of matches over all
+// pages. Text is an order number or part of the name, email or phone, ignoring case; strpos
+// rather than LIKE, so % and _ aren't wildcards.
+func (store) adminOrders(ctx context.Context, q db.DBTX, f AdminOrderFilter, staleBefore time.Time) ([]AdminOrderSummary, int, error) {
+	query := `
+		SELECT o.id, o.number, o.status, o.payment, o.paid_at, o.created_at, o.status_at,
+		       o.status = 'supplier_pending' AND o.status_at < $5,
+		       o.name, o.email, o.total_cents,
+		       (SELECT coalesce(sum(l.quantity), 0) FROM orders.order_lines l WHERE l.order_id = o.id),
+		       count(*) OVER ()
+		FROM orders.orders o
+		WHERE ($1 = '' OR o.number::text = $1
+		               OR strpos(lower(o.name), lower($1)) > 0
+		               OR strpos(lower(o.email), lower($1)) > 0
+		               OR strpos(o.phone, $1) > 0)
+		  AND ($2 = '' OR o.status = $2)
+		  AND (NOT $3 OR o.status = ANY($4))
+		ORDER BY
+		  CASE WHEN $3 THEN o.status_at END ASC,
+		  CASE WHEN $3 THEN o.number END ASC,
+		  o.created_at DESC, o.number DESC
+		LIMIT $6 OFFSET $7`
+
+	args := []any{
+		f.Text,
+		f.Status,
+		f.NeedsAction,
+		needsAction,
+		staleBefore,
+		f.PageSize,
+		(f.Page - 1) * f.PageSize,
+	}
+
+	rows, err := q.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("orders: admin orders: %w", err)
+	}
+	var total int
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminOrderSummary, error) {
+		var o AdminOrderSummary
+		err := row.Scan(
+			&o.ID,
+			&o.Number,
+			&o.Status,
+			&o.Payment,
+			&o.PaidAt,
+			&o.CreatedAt,
+			&o.StatusSince,
+			&o.Stale,
+			&o.Name,
+			&o.Email,
+			&o.TotalCents,
+			&o.Count,
+			&total,
+		)
+		return o, err
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("orders: admin orders: %w", err)
+	}
+	return out, total, nil
+}
+
+// adminLines returns an order's lines with the supplier's side, in their order.
+func (store) adminLines(ctx context.Context, q db.DBTX, id uuid.UUID) ([]AdminOrderLine, error) {
+	query := `
+		SELECT product_id, slug, name, image, quantity, retail_cents, provider, provider_sku,
+		       dealer_cents, vat_bp
+		FROM orders.order_lines
+		WHERE order_id = $1
+		ORDER BY position`
+
+	rows, err := q.Query(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("orders: admin lines of order %s: %w", id, err)
+	}
+	lines, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminOrderLine, error) {
+		var l AdminOrderLine
+		err := row.Scan(
+			&l.ProductID,
+			&l.Slug,
+			&l.Name,
+			&l.Image,
+			&l.Quantity,
+			&l.UnitCents,
+			&l.Provider,
+			&l.ProviderSKU,
+			&l.DealerCents,
+			&l.VATbp,
+		)
+		l.TotalCents = l.UnitCents * money.Cents(l.Quantity)
+		return l, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("orders: admin lines of order %s: %w", id, err)
+	}
+	return lines, nil
+}
+
+// transitions returns an order's history, oldest first.
+func (store) transitions(ctx context.Context, q db.DBTX, id uuid.UUID) ([]Transition, error) {
+	query := `
+		SELECT seq, event, from_status, to_status, at, actor, note
+		FROM orders.order_transitions
+		WHERE order_id = $1
+		ORDER BY seq`
+
+	rows, err := q.Query(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("orders: transitions of order %s: %w", id, err)
+	}
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Transition, error) {
+		var t Transition
+		err := row.Scan(
+			&t.Seq,
+			&t.Event,
+			&t.From,
+			&t.To,
+			&t.At,
+			&t.Actor.Email,
+			&t.Actor.Note,
+		)
+		return t, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("orders: transitions of order %s: %w", id, err)
+	}
+	return out, nil
+}
+
+// statusSince returns when an order took its status, and its seq.
+func (store) statusSince(ctx context.Context, q db.DBTX, id uuid.UUID) (time.Time, int, error) {
+	query := `SELECT status_at, seq FROM orders.orders WHERE id = $1`
+
+	var since time.Time
+	var seq int
+	err := q.QueryRow(ctx, query, id).Scan(
+		&since,
+		&seq,
+	)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return time.Time{}, 0, ErrNotFound
+	case err != nil:
+		return time.Time{}, 0, fmt.Errorf("orders: status of order %s: %w", id, err)
+	}
+	return since, seq, nil
+}
+
+func (store) adminCounts(ctx context.Context, q db.DBTX, staleBefore time.Time) (AdminCounts, error) {
+	query := `
+		SELECT count(*) FILTER (WHERE status = 'supplier_pending'),
+		       count(*) FILTER (WHERE status = 'supplier_pending' AND status_at < $1),
+		       count(*) FILTER (WHERE status = 'refunding')
+		FROM orders.orders
+		WHERE status IN ('supplier_pending', 'refunding')`
+
+	var c AdminCounts
+	err := q.QueryRow(ctx, query, staleBefore).Scan(
+		&c.SupplierPending,
+		&c.Stale,
+		&c.Refunding,
+	)
+	if err != nil {
+		return AdminCounts{}, fmt.Errorf("orders: admin counts: %w", err)
+	}
+	return c, nil
 }

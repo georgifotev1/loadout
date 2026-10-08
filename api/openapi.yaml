@@ -963,6 +963,98 @@ paths:
         "422": { $ref: "#/components/responses/ValidationFailed" }
         default: { $ref: "#/components/responses/Error" }
 
+  /admin/orders:
+    get:
+      operationId: listAdminOrders
+      summary: Orders, the newest first
+      description: |
+        With `needs_action`, only the orders waiting for an admin (`supplier_pending`,
+        `refunding`), the longest waiting first.
+      tags: [admin]
+      parameters:
+        - name: q
+          in: query
+          description: An order number, or part of the customer's name, email or phone.
+          schema: { type: string, maxLength: 200 }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/OrderStatus" }
+        - name: needs_action
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: One page of orders
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOrderList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /admin/orders/{order_id}:
+    get:
+      operationId: getAdminOrder
+      summary: An order with its supplier prices, history and the admin's actions
+      tags: [admin]
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOrder" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /admin/orders/{order_id}/events:
+    post:
+      operationId: applyAdminOrderEvent
+      summary: Apply an admin's event to an order
+      description: |
+        One of the order's `actions`. An event the order has already taken (a second click)
+        changes nothing. `invalid_transition` (409): the order can't take it in its status,
+        e.g. it was cancelled meanwhile. `refund_succeeded` needs a `note`: how the money went
+        back.
+      tags: [admin]
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminOrderEventInput" }
+      responses:
+        "200":
+          description: The order after it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOrder" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`invalid_transition`: the order can't take the event in its status."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
   /admin/markup-rules:
     get:
       operationId: listMarkupRules
@@ -1950,8 +2042,9 @@ components:
 
     AdminOverview:
       type: object
-      required: [specs_incomplete, discarded_jobs, products, last_sync]
+      required: [specs_incomplete, discarded_jobs, products, last_sync, orders]
       properties:
+        orders: { $ref: "#/components/schemas/AdminOrderCounts" }
         specs_incomplete: { type: integer, description: Builder parts waiting in the specs review queue. }
         discarded_jobs: { type: integer }
         products: { $ref: "#/components/schemas/ProductCounts" }
@@ -2108,6 +2201,166 @@ components:
         page_size: { type: integer }
         total: { type: integer, description: Matching products over all pages. }
 
+    AdminOrderEvent:
+      type: string
+      description: |
+        `supplier_confirmed` / `supplier_rejected`: the supplier's answer to the order placed
+        with them. `cancel`: stop the order (a paid one is refunded). `refund_succeeded`: the
+        money went back outside Stripe, after Stripe's refund failed.
+      enum: [supplier_confirmed, supplier_rejected, cancel, refund_succeeded]
+
+    AdminOrderEventInput:
+      type: object
+      required: [event]
+      properties:
+        event: { $ref: "#/components/schemas/AdminOrderEvent" }
+        note:
+          type: string
+          maxLength: 500
+          description: For the order's history; the customer doesn't see it.
+
+    AdminOrderSummary:
+      type: object
+      required: [id, number, status, payment, created_at, status_since, stale, name, email, count, total]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, format: int64 }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        payment: { $ref: "#/components/schemas/PaymentMethod" }
+        paid_at:
+          type: string
+          format: date-time
+          x-go-type-skip-optional-pointer: false
+          description: Missing while unpaid.
+        created_at: { type: string, format: date-time }
+        status_since: { type: string, format: date-time, description: When the order took its status. }
+        stale:
+          type: boolean
+          description: Waiting for the supplier for more than a day.
+        name: { type: string }
+        email: { type: string }
+        count: { type: integer, description: Units over all lines. }
+        total: { $ref: "#/components/schemas/Price" }
+
+    AdminOrderList:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AdminOrderSummary" }
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer, description: Matching orders over all pages. }
+
+    AdminOrderLine:
+      type: object
+      required: [product_id, slug, name, quantity, unit_price, line_total, provider, sku, dealer_unit, vat_bp]
+      properties:
+        product_id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        image: { type: string, description: Absent when the product had none. }
+        quantity: { type: integer }
+        unit_price: { $ref: "#/components/schemas/Price" }
+        line_total: { $ref: "#/components/schemas/Price" }
+        provider: { type: string, description: The supplier to order it from. }
+        sku: { type: string, description: The supplier's SKU. }
+        dealer_unit:
+          description: What one unit cost us at checkout, VAT included.
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+        vat_bp: { type: integer }
+
+    OrderTransition:
+      type: object
+      required: [seq, event, from, to, at, actor, note]
+      properties:
+        seq: { type: integer }
+        event: { type: string, description: "What happened: an order event, e.g. `cod_selected`." }
+        from: { $ref: "#/components/schemas/OrderStatus" }
+        to: { $ref: "#/components/schemas/OrderStatus" }
+        at: { type: string, format: date-time }
+        actor: { type: string, description: "The admin's email; empty for the system." }
+        note: { type: string }
+
+    AdminOrder:
+      type: object
+      required:
+        - id
+        - number
+        - status
+        - payment
+        - created_at
+        - status_since
+        - stale
+        - name
+        - email
+        - phone
+        - city
+        - postcode
+        - address
+        - lines
+        - subtotal
+        - delivery
+        - total
+        - dealer_total
+        - margin
+        - transitions
+        - actions
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, format: int64 }
+        token: { type: string, description: Opens the customer's order page. }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        payment: { $ref: "#/components/schemas/PaymentMethod" }
+        paid_at:
+          type: string
+          format: date-time
+          x-go-type-skip-optional-pointer: false
+          description: Missing while unpaid.
+        created_at: { type: string, format: date-time }
+        status_since: { type: string, format: date-time }
+        stale: { type: boolean, description: Waiting for the supplier for more than a day. }
+        user_id:
+          type: string
+          format: uuid
+          x-go-type-skip-optional-pointer: false
+          description: The account it was placed from; missing for a guest.
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        city: { type: string }
+        postcode: { type: string }
+        address: { type: string }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/AdminOrderLine" }
+        subtotal: { $ref: "#/components/schemas/Price" }
+        delivery: { $ref: "#/components/schemas/Price" }
+        total: { $ref: "#/components/schemas/Price" }
+        dealer_total:
+          description: What the lines cost us, VAT included.
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+        margin:
+          description: The lines' subtotal minus `dealer_total`, VAT included; delivery left out.
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+        transitions:
+          type: array
+          description: The order's history, oldest first.
+          items: { $ref: "#/components/schemas/OrderTransition" }
+        actions:
+          type: array
+          description: The events an admin can apply now.
+          items: { $ref: "#/components/schemas/AdminOrderEvent" }
+
+    AdminOrderCounts:
+      type: object
+      required: [supplier_pending, stale, refunding]
+      properties:
+        supplier_pending: { type: integer, description: Waiting for the supplier's answer. }
+        stale: { type: integer, description: "Of them, waiting more than a day." }
+        refunding: { type: integer }
+
     RuleScope:
       type: string
       description: What a rule matches on. A more specific scope wins.
@@ -2215,6 +2468,7 @@ components:
         - duplicate_rule
         - default_rule
         - not_payable
+        - invalid_transition
         - internal
 
     FieldError:

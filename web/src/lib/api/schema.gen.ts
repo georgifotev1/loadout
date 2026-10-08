@@ -821,6 +821,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Orders, the newest first
+         * @description With `needs_action`, only the orders waiting for an admin (`supplier_pending`,
+         *     `refunding`), the longest waiting first.
+         */
+        get: operations["listAdminOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An order with its supplier prices, history and the admin's actions */
+        get: operations["getAdminOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/orders/{order_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply an admin's event to an order
+         * @description One of the order's `actions`. An event the order has already taken (a second click)
+         *     changes nothing. `invalid_transition` (409): the order can't take it in its status,
+         *     e.g. it was cancelled meanwhile. `refund_succeeded` needs a `note`: how the money went
+         *     back.
+         */
+        post: operations["applyAdminOrderEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/markup-rules": {
         parameters: {
             query?: never;
@@ -1374,6 +1435,7 @@ export interface components {
             };
         };
         AdminOverview: {
+            orders: components["schemas"]["AdminOrderCounts"];
             /** @description Builder parts waiting in the specs review queue. */
             specs_incomplete: number;
             discarded_jobs: number;
@@ -1515,6 +1577,133 @@ export interface components {
             total: number;
         };
         /**
+         * @description `supplier_confirmed` / `supplier_rejected`: the supplier's answer to the order placed
+         *     with them. `cancel`: stop the order (a paid one is refunded). `refund_succeeded`: the
+         *     money went back outside Stripe, after Stripe's refund failed.
+         * @enum {string}
+         */
+        AdminOrderEvent: "supplier_confirmed" | "supplier_rejected" | "cancel" | "refund_succeeded";
+        AdminOrderEventInput: {
+            event: components["schemas"]["AdminOrderEvent"];
+            /** @description For the order's history; the customer doesn't see it. */
+            note?: string;
+        };
+        AdminOrderSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            number: number;
+            status: components["schemas"]["OrderStatus"];
+            payment: components["schemas"]["PaymentMethod"];
+            /**
+             * Format: date-time
+             * @description Missing while unpaid.
+             */
+            paid_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When the order took its status.
+             */
+            status_since: string;
+            /** @description Waiting for the supplier for more than a day. */
+            stale: boolean;
+            name: string;
+            email: string;
+            /** @description Units over all lines. */
+            count: number;
+            total: components["schemas"]["Price"];
+        };
+        AdminOrderList: {
+            items: components["schemas"]["AdminOrderSummary"][];
+            page: number;
+            page_size: number;
+            /** @description Matching orders over all pages. */
+            total: number;
+        };
+        AdminOrderLine: {
+            /** Format: uuid */
+            product_id: string;
+            slug: string;
+            name: string;
+            /** @description Absent when the product had none. */
+            image?: string;
+            quantity: number;
+            unit_price: components["schemas"]["Price"];
+            line_total: components["schemas"]["Price"];
+            /** @description The supplier to order it from. */
+            provider: string;
+            /** @description The supplier's SKU. */
+            sku: string;
+            /** @description What one unit cost us at checkout, VAT included. */
+            dealer_unit: components["schemas"]["Price"];
+            vat_bp: number;
+        };
+        OrderTransition: {
+            seq: number;
+            /** @description What happened: an order event, e.g. `cod_selected`. */
+            event: string;
+            from: components["schemas"]["OrderStatus"];
+            to: components["schemas"]["OrderStatus"];
+            /** Format: date-time */
+            at: string;
+            /** @description The admin's email; empty for the system. */
+            actor: string;
+            note: string;
+        };
+        AdminOrder: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            number: number;
+            /** @description Opens the customer's order page. */
+            token?: string;
+            status: components["schemas"]["OrderStatus"];
+            payment: components["schemas"]["PaymentMethod"];
+            /**
+             * Format: date-time
+             * @description Missing while unpaid.
+             */
+            paid_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            status_since: string;
+            /** @description Waiting for the supplier for more than a day. */
+            stale: boolean;
+            /**
+             * Format: uuid
+             * @description The account it was placed from; missing for a guest.
+             */
+            user_id?: string;
+            name: string;
+            email: string;
+            phone: string;
+            city: string;
+            postcode: string;
+            address: string;
+            lines: components["schemas"]["AdminOrderLine"][];
+            subtotal: components["schemas"]["Price"];
+            delivery: components["schemas"]["Price"];
+            total: components["schemas"]["Price"];
+            /** @description What the lines cost us, VAT included. */
+            dealer_total: components["schemas"]["Price"];
+            /** @description The lines' subtotal minus `dealer_total`, VAT included; delivery left out. */
+            margin: components["schemas"]["Price"];
+            /** @description The order's history, oldest first. */
+            transitions: components["schemas"]["OrderTransition"][];
+            /** @description The events an admin can apply now. */
+            actions: components["schemas"]["AdminOrderEvent"][];
+        };
+        AdminOrderCounts: {
+            /** @description Waiting for the supplier's answer. */
+            supplier_pending: number;
+            /** @description Of them, waiting more than a day. */
+            stale: number;
+            refunding: number;
+        };
+        /**
          * @description What a rule matches on. A more specific scope wins.
          * @enum {string}
          */
@@ -1585,7 +1774,7 @@ export interface components {
          * @description Stable reason the web app translates. Renaming one breaks translations.
          * @enum {string}
          */
-        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "already_queued" | "edit_conflict" | "duplicate_rule" | "default_rule" | "not_payable" | "internal";
+        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "already_queued" | "edit_conflict" | "duplicate_rule" | "default_rule" | "not_payable" | "invalid_transition" | "internal";
         FieldError: {
             field: string;
             /** @description Why the field is invalid, e.g. `required`, `out_of_range`, `unknown`, `invalid_format`. */
@@ -2850,6 +3039,106 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listAdminOrders: {
+        parameters: {
+            query?: {
+                /** @description An order number, or part of the customer's name, email or phone. */
+                q?: string;
+                status?: components["schemas"]["OrderStatus"];
+                needs_action?: boolean;
+                /** @description 1-based page number. */
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of orders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrder"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    applyAdminOrderEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOrderEventInput"];
+            };
+        };
+        responses: {
+            /** @description The order after it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrder"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `invalid_transition`: the order can't take the event in its status. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             422: components["responses"]["ValidationFailed"];
             default: components["responses"]["Error"];
         };

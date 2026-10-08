@@ -209,15 +209,9 @@ func (s *Service) Outcome(ctx context.Context, orderID uuid.UUID) (orders.Event,
 	if !found {
 		return orders.EventPaymentTimedOut, nil // the customer never got a payment page
 	}
-	cs, err := s.stripe.V1CheckoutSessions.Retrieve(ctx, c.sessionID, nil)
+	cs, err := s.expireOpen(ctx, orderID, c.sessionID)
 	if err != nil {
-		return "", fmt.Errorf("payments: retrieve the checkout session of order %s: %w", orderID, err)
-	}
-	if cs.Status == stripe.CheckoutSessionStatusOpen {
-		// Fails if the customer completes the page meanwhile; the retry sees that.
-		if cs, err = s.stripe.V1CheckoutSessions.Expire(ctx, c.sessionID, nil); err != nil {
-			return "", fmt.Errorf("payments: expire the checkout session of order %s: %w", orderID, err)
-		}
+		return "", err
 	}
 	switch {
 	case cs.Status == stripe.CheckoutSessionStatusExpired:
@@ -226,6 +220,34 @@ func (s *Service) Outcome(ctx context.Context, orderID uuid.UUID) (orders.Event,
 		return orders.EventPaymentSucceeded, nil
 	}
 	return "", nil // complete but unpaid: a bank debit on its way; its webhook settles it
+}
+
+// Expire closes an order's payment page if it's still open, for an order cancelled before it
+// was paid. A customer who completes the page first is refunded: the payment's webhook finds
+// the order cancelled.
+func (s *Service) Expire(ctx context.Context, orderID uuid.UUID) error {
+	c, found, err := s.checkout(ctx, s.pool, orderID)
+	if err != nil || !found {
+		return err
+	}
+	_, err = s.expireOpen(ctx, orderID, c.sessionID)
+	return err
+}
+
+// expireOpen retrieves a checkout session and expires it if it's open. It returns the session
+// as it is after.
+func (s *Service) expireOpen(ctx context.Context, orderID uuid.UUID, sessionID string) (*stripe.CheckoutSession, error) {
+	cs, err := s.stripe.V1CheckoutSessions.Retrieve(ctx, sessionID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("payments: retrieve the checkout session of order %s: %w", orderID, err)
+	}
+	if cs.Status == stripe.CheckoutSessionStatusOpen {
+		// Fails if the customer completes the page meanwhile; the retry sees that.
+		if cs, err = s.stripe.V1CheckoutSessions.Expire(ctx, sessionID, nil); err != nil {
+			return nil, fmt.Errorf("payments: expire the checkout session of order %s: %w", orderID, err)
+		}
+	}
+	return cs, nil
 }
 
 // Refund gives an order's payment back, all of it, with the order id as the idempotency key. It

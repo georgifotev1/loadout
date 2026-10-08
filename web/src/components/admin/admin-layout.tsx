@@ -13,6 +13,7 @@ import {
 	Package,
 	Percent,
 	RefreshCw,
+	ShoppingBag,
 	TriangleAlert,
 	UserRound,
 } from "lucide-react";
@@ -57,11 +58,22 @@ type NavItem = {
 	count?: (o: Schemas["AdminOverview"]) => number;
 };
 
-// The back office's sections. Orders get their own group in Phase 7.
+// The back office's sections. A count is what waits for an admin there.
 const nav: { title?: string; items: NavItem[] }[] = [
 	{
 		items: [
 			{ to: "/admin", label: m.admin.nav.dashboard, icon: House, exact: true },
+		],
+	},
+	{
+		title: m.admin.nav.sales,
+		items: [
+			{
+				to: "/admin/orders",
+				label: m.admin.nav.orders,
+				icon: ShoppingBag,
+				count: (o) => o.orders.supplier_pending + o.orders.refunding,
+			},
 		],
 	},
 	{

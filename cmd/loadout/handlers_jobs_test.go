@@ -11,6 +11,7 @@ import (
 	"github.com/riverqueue/river/rivertype"
 
 	"github.com/gfotev/loadout/internal/catalog"
+	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/platform/jobs"
 )
 
@@ -22,6 +23,7 @@ func newJobsApp(t *testing.T) *application {
 		t.Fatal(err)
 	}
 	app.jobs = c
+	app.orders = orders.NewService(app.db, app.catalog, c)
 	return app
 }
 
@@ -100,7 +102,8 @@ func TestJobsAdminAPI(t *testing.T) {
 
 	t.Run("overview", func(t *testing.T) {
 		body := decode[AdminOverview](t, get(t, app, "/api/admin/overview", admin), http.StatusOK)
-		if body.DiscardedJobs != 1 || body.Products.Active == 0 || body.LastSync == nil || body.LastSync.Status != SyncStatusSucceeded {
+		if body.DiscardedJobs != 1 || body.Products.Active == 0 || body.LastSync == nil || body.LastSync.Status != SyncStatusSucceeded ||
+			body.Orders != (AdminOrderCounts{}) {
 			t.Errorf("overview = %+v", body)
 		}
 		// Only builder parts with all required specs leave the queue; the fixtures have none.

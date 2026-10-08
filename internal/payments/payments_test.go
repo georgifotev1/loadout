@@ -464,6 +464,39 @@ func TestOutcome(t *testing.T) {
 	}
 }
 
+func TestExpire(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	t.Run("no payment page", func(t *testing.T) {
+		if err := f.svc.Expire(ctx, f.newOrder(t, orders.PaymentCard, f.now).ID); err != nil || len(f.stripe.calls) != 0 {
+			t.Errorf("err %v, calls %v", err, f.stripe.calls)
+		}
+	})
+
+	o := f.newOrder(t, orders.PaymentCard, f.now)
+	if _, err := f.svc.Pay(ctx, o); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Expire(ctx, o.ID); err != nil {
+		t.Fatal(err)
+	}
+	if last := f.stripe.calls[len(f.stripe.calls)-1]; last != "POST /v1/checkout/sessions/cs_test_1/expire" {
+		t.Errorf("the open page wasn't expired: %v", f.stripe.calls)
+	}
+
+	t.Run("a page paid meanwhile stays", func(t *testing.T) {
+		f.stripe.set("complete", "paid")
+		n := len(f.stripe.calls)
+		if err := f.svc.Expire(ctx, o.ID); err != nil {
+			t.Fatal(err)
+		}
+		if got := f.stripe.calls[n:]; !slices.Equal(got, []string{"GET /v1/checkout/sessions/cs_test_1"}) {
+			t.Errorf("calls %v", got)
+		}
+	})
+}
+
 func TestRefund(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()

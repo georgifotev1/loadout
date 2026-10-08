@@ -1,12 +1,10 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
 import { AdminPage, StatusDot } from "#/components/admin/admin-page";
 import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import { adminColumns, DataTable } from "#/components/admin/data-table";
+import { SearchInput } from "#/components/admin/search-input";
 import { Pagination } from "#/components/site/pagination";
-import { Input } from "#/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -14,7 +12,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
-import { useDebouncedValue } from "#/hooks/use-debounced-value";
 import { formatPercent, formatPrice, m } from "#/i18n";
 import {
 	type ProductsSearch,
@@ -205,7 +202,11 @@ function ProductsPage() {
 	return (
 		<AdminPage title={t.title} lead={t.lead}>
 			<div className="mb-3 flex flex-wrap items-center gap-2">
-				<SearchInput value={search.q ?? ""} onChange={(q) => filter({ q })} />
+				<SearchInput
+					value={search.q ?? ""}
+					onChange={(q) => filter({ q })}
+					label={t.search}
+				/>
 				<Select
 					items={categoryItems}
 					value={search.category ?? ""}
@@ -255,39 +256,5 @@ function ProductsPage() {
 				className="mt-6"
 			/>
 		</AdminPage>
-	);
-}
-
-// SearchInput puts what the admin types into the URL once they pause, and follows the URL when
-// it changes from outside (back, a cleared filter).
-function SearchInput({
-	value,
-	onChange,
-}: {
-	value: string;
-	onChange: (q: string) => void;
-}) {
-	const [text, setText] = useState(value);
-	const debounced = useDebouncedValue(text, 300);
-
-	// Keep a trailing space the admin is still typing after.
-	useEffect(() => setText((t) => (t.trim() === value ? t : value)), [value]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: only a new debounced text should navigate; onChange and value change with every navigation
-	useEffect(() => {
-		if (debounced.trim() !== value) onChange(debounced);
-	}, [debounced]);
-
-	return (
-		<div className="relative w-full sm:w-72">
-			<Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-4 text-muted-foreground" />
-			<Input
-				type="search"
-				value={text}
-				onChange={(e) => setText(e.target.value)}
-				placeholder={t.search}
-				aria-label={t.search}
-				className="bg-card pl-8"
-			/>
-		</div>
 	);
 }

@@ -34,6 +34,8 @@ func (StepArgs) InsertOpts() river.InsertOpts {
 // Mailer sends the order emails. Declared here, by the consumer: *notify.Service.
 type Mailer interface {
 	OrderReceived(ctx context.Context, o notify.Order) error
+	OrderConfirmed(ctx context.Context, o notify.Order) error
+	OrderCancelled(ctx context.Context, o notify.Order) error
 }
 
 // Payments is the card payment provider as orders needs it: *payments.Service. Declared here,
@@ -46,6 +48,8 @@ type Payments interface {
 	// Refund gives an order's card payment back, all of it. It reports whether the money is
 	// back already; if not, the provider's webhook applies EventRefundSucceeded later.
 	Refund(ctx context.Context, orderID uuid.UUID) (bool, error)
+	// Expire closes an order's payment page if it's still open, so it can't be paid any more.
+	Expire(ctx context.Context, orderID uuid.UUID) error
 }
 
 // StepWorker carries out StepArgs jobs. A job can run more than once (a retry after the work
@@ -66,7 +70,13 @@ func NewStepWorker(svc *Service, m Mailer, p Payments) *StepWorker {
 
 func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
 	switch job.Args.Command {
-	case CmdEmailReceived:
+	case CmdPlaceSupplierOrder:
+		// Placed by hand: the admin orders the lines from the supplier and applies the
+		// supplier's answer on the order's admin page.
+		// TODO(vali-api): place the order through the supplier's API, once it takes orders.
+		return nil
+
+	case CmdEmailReceived, CmdEmailConfirmed, CmdEmailCancelled:
 		o, err := w.svc.store.order(ctx, w.svc.pool, job.Args.OrderID)
 		if errors.Is(err, ErrNotFound) {
 			return nil // the order is gone
@@ -74,7 +84,23 @@ func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
 		if err != nil {
 			return err
 		}
-		return w.mailer.OrderReceived(ctx, orderEmail(o))
+		switch job.Args.Command {
+		case CmdEmailReceived:
+			return w.mailer.OrderReceived(ctx, orderEmail(o))
+		case CmdEmailConfirmed:
+			if o.Status == StatusRefunding || o.Status == StatusCancelled {
+				return nil // cancelled meanwhile: that email says so
+			}
+			return w.mailer.OrderConfirmed(ctx, orderEmail(o))
+		default:
+			return w.mailer.OrderCancelled(ctx, orderEmail(o))
+		}
+
+	case CmdExpirePayment:
+		if w.payments == nil {
+			return nil // no card payments, no payment page
+		}
+		return w.payments.Expire(ctx, job.Args.OrderID)
 
 	case CmdRefundPayment:
 		o, err := w.svc.store.order(ctx, w.svc.pool, job.Args.OrderID)
@@ -96,9 +122,8 @@ func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
 		}
 		return w.svc.Apply(ctx, o.ID, EventRefundSucceeded)
 	}
-	// TODO(phase-7): the supplier order, shipment and the other emails come with fulfillment
-	// (step 6) and Speedy (step 7). Until then their jobs are cancelled, so they show in River's
-	// UI without failing again and again.
+	// TODO(phase-7): the shipment and its emails come with Speedy (step 7). Until then their
+	// jobs are cancelled, so they show in River's UI without failing again and again.
 	return river.JobCancel(fmt.Errorf("orders: %s isn't carried out yet", job.Args.Command))
 }
 

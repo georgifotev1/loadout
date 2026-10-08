@@ -24,6 +24,10 @@ func (s *Service) Apply(ctx context.Context, id uuid.UUID, ev Event) error {
 // In the transaction it saves the new state, a transition row and one order_step job per
 // command: all of them or none. An event the order has already moved past changes nothing.
 func (s *Service) ApplyTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, ev Event) error {
+	return s.applyTx(ctx, tx, id, ev, Actor{})
+}
+
+func (s *Service) applyTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, ev Event, by Actor) error {
 	o, err := s.store.lockOrder(ctx, tx, id)
 	if err != nil {
 		return err
@@ -36,7 +40,7 @@ func (s *Service) ApplyTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, ev Event
 	if next.Seq == o.Seq {
 		return nil
 	}
-	if err := s.store.saveTransition(ctx, tx, o, next, ev, now); err != nil {
+	if err := s.store.saveTransition(ctx, tx, o, next, ev, by, now); err != nil {
 		return err
 	}
 	for _, c := range cmds {

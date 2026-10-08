@@ -403,11 +403,28 @@ func TestOrderAccess(t *testing.T) {
 	})
 }
 
-type fakeMailer struct{ sent []notify.Order }
+// fakeMailer records the emails sent, as "template" and the order.
+type fakeMailer struct {
+	sent      []notify.Order
+	templates []string
+}
+
+func (f *fakeMailer) record(tpl string, o notify.Order) error {
+	f.sent = append(f.sent, o)
+	f.templates = append(f.templates, tpl)
+	return nil
+}
 
 func (f *fakeMailer) OrderReceived(_ context.Context, o notify.Order) error {
-	f.sent = append(f.sent, o)
-	return nil
+	return f.record("received", o)
+}
+
+func (f *fakeMailer) OrderConfirmed(_ context.Context, o notify.Order) error {
+	return f.record("confirmed", o)
+}
+
+func (f *fakeMailer) OrderCancelled(_ context.Context, o notify.Order) error {
+	return f.record("cancelled", o)
 }
 
 func TestStepWorker(t *testing.T) {
@@ -436,17 +453,43 @@ func TestStepWorker(t *testing.T) {
 		t.Errorf("email %+v", e)
 	}
 
+	t.Run("the supplier order is placed by hand", func(t *testing.T) {
+		if err := work(CmdPlaceSupplierOrder); err != nil {
+			t.Error(err)
+		}
+	})
+
 	t.Run("a step that isn't built yet is cancelled", func(t *testing.T) {
 		var cancel *rivertype.JobCancelError
-		if err := work(CmdPlaceSupplierOrder); !errors.As(err, &cancel) {
+		if err := work(CmdCreateShipment); !errors.As(err, &cancel) {
 			t.Errorf("err %v, want a cancel", err)
+		}
+	})
+
+	t.Run("confirmed and cancelled emails", func(t *testing.T) {
+		if err := work(CmdEmailConfirmed); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Apply(ctx, placed.ID, EventCancel); err != nil {
+			t.Fatal(err)
+		}
+		if err := work(CmdEmailCancelled); err != nil {
+			t.Fatal(err)
+		}
+		// A confirmation that comes after the cancellation isn't sent.
+		if err := work(CmdEmailConfirmed); err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{"received", "confirmed", "cancelled"}; !slices.Equal(m.templates, want) {
+			t.Errorf("sent %v, want %v", m.templates, want)
 		}
 	})
 
 	t.Run("an order that's gone sends nothing", func(t *testing.T) {
 		job := &river.Job[StepArgs]{JobRow: &rivertype.JobRow{}, Args: StepArgs{OrderID: uuid.New(), Command: CmdEmailReceived, Seq: 1}}
-		if err := w.Work(ctx, job); err != nil || len(m.sent) != 1 {
-			t.Errorf("err %v, sent %d", err, len(m.sent))
+		n := len(m.sent)
+		if err := w.Work(ctx, job); err != nil || len(m.sent) != n {
+			t.Errorf("err %v, sent %d", err, len(m.sent)-n)
 		}
 	})
 }
@@ -458,6 +501,7 @@ type fakePayments struct {
 	refunded bool
 	err      error
 	refunds  []uuid.UUID
+	expired  []uuid.UUID
 }
 
 func (f *fakePayments) Outcome(context.Context, uuid.UUID) (Event, error) {
@@ -467,6 +511,26 @@ func (f *fakePayments) Outcome(context.Context, uuid.UUID) (Event, error) {
 func (f *fakePayments) Refund(_ context.Context, id uuid.UUID) (bool, error) {
 	f.refunds = append(f.refunds, id)
 	return f.refunded, f.err
+}
+
+func (f *fakePayments) Expire(_ context.Context, id uuid.UUID) error {
+	f.expired = append(f.expired, id)
+	return f.err
+}
+
+func TestExpirePaymentStep(t *testing.T) {
+	s := newOrderService(t)
+	ctx := context.Background()
+	id := newOrder(t, s, PaymentCard)
+	job := &river.Job[StepArgs]{JobRow: &rivertype.JobRow{}, Args: StepArgs{OrderID: id, Command: CmdExpirePayment, Seq: 1}}
+
+	p := &fakePayments{}
+	if err := NewStepWorker(s, &fakeMailer{}, p).Work(ctx, job); err != nil || !slices.Equal(p.expired, []uuid.UUID{id}) {
+		t.Errorf("err %v, expired %v", err, p.expired)
+	}
+	if err := NewStepWorker(s, &fakeMailer{}, nil).Work(ctx, job); err != nil {
+		t.Errorf("without card payments: %v", err)
+	}
 }
 
 func TestRefundStep(t *testing.T) {
