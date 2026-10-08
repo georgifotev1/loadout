@@ -13,7 +13,12 @@ LDFLAGS := -X main.version=$(VERSION)
 ## help: list the targets
 .PHONY: help
 help:
-	@grep -E '^## ' $(MAKEFILE_LIST) | sed -e 's/^## //' | column -t -s ':'
+	@sed -n 's/^## \([^:]*\): */\1\t/p' $(firstword $(MAKEFILE_LIST)) | column -t -s "$$(printf '\t')"
+
+## dev: run everything for local development in one terminal (infra, migrations, API, web, mock-vali, Stripe forwarding), logs prefixed by process
+.PHONY: dev
+dev:
+	@tools/dev.sh
 
 ## up: start local infrastructure (Postgres, Mailpit, River UI on :8082) and wait until it is healthy
 .PHONY: up
@@ -54,6 +59,12 @@ web:
 .PHONY: mock-vali
 mock-vali:
 	go run ./cmd/mock-vali $(args)
+
+## stripe: forward Stripe's test events to the local API (prints the STRIPE_WEBHOOK_SECRET for .env)
+.PHONY: stripe
+stripe:
+	stripe listen --latest --forward-to localhost:8080/api/webhooks/stripe \
+		--events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired,refund.created,refund.updated,refund.failed
 
 ## migrate: apply pending migrations, ours and River's (make migrate cmd=down|status for the others)
 .PHONY: migrate

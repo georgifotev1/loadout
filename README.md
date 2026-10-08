@@ -15,6 +15,15 @@ make run         # API on :8080  (/livez, /readyz, /api/healthz)
 make web         # web on :3000, proxies /api to :8080
 ```
 
+Card payments (optional locally; checkout offers cash on delivery without them) use a Stripe
+sandbox: put a restricted key (`rk_test_…`, with write access to Checkout Sessions and Refunds)
+in `STRIPE_SECRET_KEY`, run `make stripe` and copy the `whsec_…` it prints to
+`STRIPE_WEBHOOK_SECRET`. Pay with the test card `4242 4242 4242 4242`.
+
+Or run it all in one terminal with `make dev`: infrastructure, migrations, the API, the web
+app, mock-vali and (with Stripe keys in `.env`) Stripe's webhook forwarding, each log line
+prefixed by its process, with the addresses printed at the start. Ctrl+C stops them all.
+
 `make help` lists all targets. `make audit` runs everything CI will run.
 
 If another project already uses the Compose ports, set `POSTGRES_HOST_PORT`,

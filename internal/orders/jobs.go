@@ -36,17 +36,32 @@ type Mailer interface {
 	OrderReceived(ctx context.Context, o notify.Order) error
 }
 
-// StepWorker carries out StepArgs jobs. A job can run more than once (a retry after the work
-// was done but before the job was marked so), so an email can go out twice; that's the price of
-// never sending one from inside a transaction.
-type StepWorker struct {
-	river.WorkerDefaults[StepArgs]
-	svc    *Service
-	mailer Mailer
+// Payments is the card payment provider as orders needs it: *payments.Service. Declared here,
+// by the consumer.
+type Payments interface {
+	// Outcome is what became of an order's card payment: EventPaymentSucceeded,
+	// EventPaymentFailed or EventPaymentTimedOut, or "" while a payment method that takes days
+	// (a bank debit) is still on its way.
+	Outcome(ctx context.Context, orderID uuid.UUID) (Event, error)
+	// Refund gives an order's card payment back, all of it. It reports whether the money is
+	// back already; if not, the provider's webhook applies EventRefundSucceeded later.
+	Refund(ctx context.Context, orderID uuid.UUID) (bool, error)
 }
 
-func NewStepWorker(svc *Service, m Mailer) *StepWorker {
-	return &StepWorker{svc: svc, mailer: m}
+// StepWorker carries out StepArgs jobs. A job can run more than once (a retry after the work
+// was done but before the job was marked so), so an email can go out twice; that's the price of
+// never sending one from inside a transaction. Calls to the outside use idempotency keys.
+type StepWorker struct {
+	river.WorkerDefaults[StepArgs]
+	svc      *Service
+	mailer   Mailer
+	payments Payments
+}
+
+// NewStepWorker returns the order_step worker. payments is nil when card payments aren't set up;
+// refunds fail then, and wait in River's UI for a person.
+func NewStepWorker(svc *Service, m Mailer, p Payments) *StepWorker {
+	return &StepWorker{svc: svc, mailer: m, payments: p}
 }
 
 func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
@@ -60,11 +75,82 @@ func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
 			return err
 		}
 		return w.mailer.OrderReceived(ctx, orderEmail(o))
+
+	case CmdRefundPayment:
+		o, err := w.svc.store.order(ctx, w.svc.pool, job.Args.OrderID)
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if o.Status != StatusRefunding {
+			return nil // refunded already
+		}
+		if w.payments == nil {
+			return fmt.Errorf("orders: refund order %s: card payments aren't set up", o.ID)
+		}
+		done, err := w.payments.Refund(ctx, o.ID)
+		if err != nil || !done {
+			return err
+		}
+		return w.svc.Apply(ctx, o.ID, EventRefundSucceeded)
 	}
-	// TODO(phase-7): the supplier order, shipment, refund and the other emails come with
-	// fulfillment (step 6), Stripe (step 5) and Speedy (step 7). Until then their jobs are
-	// cancelled, so they show in River's UI without failing again and again.
+	// TODO(phase-7): the supplier order, shipment and the other emails come with fulfillment
+	// (step 6) and Speedy (step 7). Until then their jobs are cancelled, so they show in River's
+	// UI without failing again and again.
 	return river.JobCancel(fmt.Errorf("orders: %s isn't carried out yet", job.Args.Command))
+}
+
+// PaymentTimeoutArgs is the job that settles a card order still waiting for its payment once
+// PaymentWindow is over. Stripe's events normally settle it first; this catches the ones that
+// never came, and the order whose payment page was never created.
+type PaymentTimeoutArgs struct {
+	OrderID uuid.UUID `json:"order_id"`
+}
+
+func (PaymentTimeoutArgs) Kind() string { return "order_payment_timeout" }
+
+func (PaymentTimeoutArgs) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{
+		Queue:       jobs.QueueOrders,
+		MaxAttempts: 5,
+		UniqueOpts:  river.UniqueOpts{ByArgs: true},
+	}
+}
+
+// PaymentTimeoutWorker carries out PaymentTimeoutArgs jobs: it asks the payment provider what
+// became of the payment and applies that.
+type PaymentTimeoutWorker struct {
+	river.WorkerDefaults[PaymentTimeoutArgs]
+	svc      *Service
+	payments Payments
+}
+
+// NewPaymentTimeoutWorker returns the order_payment_timeout worker. payments is nil when card
+// payments aren't set up: a card order then can't have been paid, so it times out.
+func NewPaymentTimeoutWorker(svc *Service, p Payments) *PaymentTimeoutWorker {
+	return &PaymentTimeoutWorker{svc: svc, payments: p}
+}
+
+func (w *PaymentTimeoutWorker) Work(ctx context.Context, job *river.Job[PaymentTimeoutArgs]) error {
+	o, err := w.svc.store.order(ctx, w.svc.pool, job.Args.OrderID)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if o.Status != StatusAwaitingPayment {
+		return nil // settled already
+	}
+	ev := EventPaymentTimedOut
+	if w.payments != nil {
+		if ev, err = w.payments.Outcome(ctx, o.ID); err != nil || ev == "" {
+			return err
+		}
+	}
+	return w.svc.Apply(ctx, o.ID, ev)
 }
 
 func orderEmail(o OrderDetail) notify.Order {
@@ -85,5 +171,6 @@ func orderEmail(o OrderDetail) notify.Order {
 		DeliveryCents:  o.DeliveryCents,
 		TotalCents:     o.TotalCents,
 		CashOnDelivery: o.Payment == PaymentCOD,
+		PaidByCard:     o.Payment == PaymentCard && o.PaidAt != nil,
 	}
 }

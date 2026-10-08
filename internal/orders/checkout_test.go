@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -157,6 +158,44 @@ func TestCheckout(t *testing.T) {
 	})
 }
 
+// A card order waits for its payment, with a job to settle it once the payment window is over.
+func TestCheckoutByCard(t *testing.T) {
+	s, _ := newCheckoutService(t)
+	ctx := context.Background()
+	owner := guestCart(t, s, AddLine{Slug: "cpu", Quantity: 1})
+	in := checkoutInput(200_00 + DeliveryCents)
+	in.Payment = PaymentCard
+
+	placed, err := s.Checkout(ctx, owner, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o, err := s.Order(ctx, placed.ID, Viewer{Token: placed.Token})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.Status != StatusAwaitingPayment || o.Payment != PaymentCard || o.PaidAt != nil {
+		t.Errorf("order %+v", o)
+	}
+	if steps := queuedSteps(t, s, placed.ID); len(steps) != 0 {
+		t.Errorf("steps %+v, want none before the payment", steps)
+	}
+	if c, err := s.Cart(ctx, owner); err != nil || len(c.Lines) != 0 {
+		t.Errorf("cart %+v, %v; want it gone", c, err)
+	}
+
+	var at time.Time
+	err = s.pool.QueryRow(ctx, `
+		SELECT scheduled_at FROM river.river_job
+		WHERE kind = 'order_payment_timeout' AND args->>'order_id' = $1`, placed.ID.String()).Scan(&at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := s.now().Add(PaymentWindow + paymentTimeoutGrace); !at.Equal(want) {
+		t.Errorf("timeout at %v, want %v", at, want)
+	}
+}
+
 func TestCheckoutRefuses(t *testing.T) {
 	s, cat := newCheckoutService(t)
 	ctx := context.Background()
@@ -170,7 +209,7 @@ func TestCheckoutRefuses(t *testing.T) {
 			City:     "  ",
 			Postcode: "10000",
 			Address:  "x",
-			Payment:  PaymentCard,
+			Payment:  "cash",
 		}
 		_, err := s.Checkout(ctx, owner, in)
 		want := []string{
@@ -379,7 +418,7 @@ func TestStepWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := &fakeMailer{}
-	w := NewStepWorker(s, m)
+	w := NewStepWorker(s, m, nil)
 	work := func(cmd Command) error {
 		return w.Work(ctx, &river.Job[StepArgs]{JobRow: &rivertype.JobRow{}, Args: StepArgs{OrderID: placed.ID, Command: cmd, Seq: 1}})
 	}
@@ -408,6 +447,129 @@ func TestStepWorker(t *testing.T) {
 		job := &river.Job[StepArgs]{JobRow: &rivertype.JobRow{}, Args: StepArgs{OrderID: uuid.New(), Command: CmdEmailReceived, Seq: 1}}
 		if err := w.Work(ctx, job); err != nil || len(m.sent) != 1 {
 			t.Errorf("err %v, sent %d", err, len(m.sent))
+		}
+	})
+}
+
+// fakePayments answers for Stripe: outcome is what became of every payment, refunded whether a
+// refund is done at once.
+type fakePayments struct {
+	outcome  Event
+	refunded bool
+	err      error
+	refunds  []uuid.UUID
+}
+
+func (f *fakePayments) Outcome(context.Context, uuid.UUID) (Event, error) {
+	return f.outcome, f.err
+}
+
+func (f *fakePayments) Refund(_ context.Context, id uuid.UUID) (bool, error) {
+	f.refunds = append(f.refunds, id)
+	return f.refunded, f.err
+}
+
+func TestRefundStep(t *testing.T) {
+	s := newOrderService(t)
+	ctx := context.Background()
+	work := func(w *StepWorker, id uuid.UUID) error {
+		return w.Work(ctx, &river.Job[StepArgs]{JobRow: &rivertype.JobRow{}, Args: StepArgs{OrderID: id, Command: CmdRefundPayment, Seq: 2}})
+	}
+	// refunding is a card order paid, then cancelled.
+	refunding := func(t *testing.T) uuid.UUID {
+		t.Helper()
+		id := newOrder(t, s, PaymentCard)
+		for _, ev := range []Event{EventPaymentSucceeded, EventCancel} {
+			if err := s.Apply(ctx, id, ev); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return id
+	}
+
+	t.Run("a refund done at once cancels the order", func(t *testing.T) {
+		id := refunding(t)
+		p := &fakePayments{refunded: true}
+		if err := work(NewStepWorker(s, &fakeMailer{}, p), id); err != nil {
+			t.Fatal(err)
+		}
+		if o := loadOrder(t, s, id); o.Status != StatusCancelled || o.PaidAt == nil || len(p.refunds) != 1 {
+			t.Errorf("order %+v, refunds %v", o, p.refunds)
+		}
+
+		t.Run("and isn't asked for again", func(t *testing.T) {
+			if err := work(NewStepWorker(s, &fakeMailer{}, p), id); err != nil || len(p.refunds) != 1 {
+				t.Errorf("err %v, refunds %v", err, p.refunds)
+			}
+		})
+	})
+
+	t.Run("a pending refund waits for its webhook", func(t *testing.T) {
+		id := refunding(t)
+		if err := work(NewStepWorker(s, &fakeMailer{}, &fakePayments{}), id); err != nil {
+			t.Fatal(err)
+		}
+		if o := loadOrder(t, s, id); o.Status != StatusRefunding {
+			t.Errorf("status %s", o.Status)
+		}
+	})
+
+	t.Run("an error is retried", func(t *testing.T) {
+		id := refunding(t)
+		errStripe := errors.New("stripe is down")
+		if err := work(NewStepWorker(s, &fakeMailer{}, &fakePayments{err: errStripe}), id); !errors.Is(err, errStripe) {
+			t.Errorf("err %v", err)
+		}
+		if err := work(NewStepWorker(s, &fakeMailer{}, nil), id); err == nil {
+			t.Error("no error without card payments")
+		}
+	})
+}
+
+func TestPaymentTimeoutWorker(t *testing.T) {
+	s := newOrderService(t)
+	ctx := context.Background()
+	work := func(p Payments, id uuid.UUID) error {
+		w := NewPaymentTimeoutWorker(s, p)
+		return w.Work(ctx, &river.Job[PaymentTimeoutArgs]{JobRow: &rivertype.JobRow{}, Args: PaymentTimeoutArgs{OrderID: id}})
+	}
+
+	for _, tt := range []struct {
+		name     string
+		payments Payments
+		want     Status
+	}{
+		{"timed out", &fakePayments{outcome: EventPaymentTimedOut}, StatusCancelled},
+		{"paid, but the webhook never came", &fakePayments{outcome: EventPaymentSucceeded}, StatusSupplierPending},
+		{"failed", &fakePayments{outcome: EventPaymentFailed}, StatusCancelled},
+		{"a bank debit on its way", &fakePayments{}, StatusAwaitingPayment},
+		{"no card payments set up", nil, StatusCancelled},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			id := newOrder(t, s, PaymentCard)
+			if err := work(tt.payments, id); err != nil {
+				t.Fatal(err)
+			}
+			if o := loadOrder(t, s, id); o.Status != tt.want {
+				t.Errorf("status %s, want %s", o.Status, tt.want)
+			}
+		})
+	}
+
+	t.Run("an order settled already isn't asked about", func(t *testing.T) {
+		id := newOrder(t, s, PaymentCard)
+		if err := s.Apply(ctx, id, EventPaymentSucceeded); err != nil {
+			t.Fatal(err)
+		}
+		p := &fakePayments{err: errors.New("must not be called")}
+		if err := work(p, id); err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Run("an order that's gone", func(t *testing.T) {
+		if err := work(&fakePayments{}, uuid.New()); err != nil {
+			t.Error(err)
 		}
 	})
 }

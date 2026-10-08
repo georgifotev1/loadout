@@ -2,12 +2,15 @@ package orders
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/money"
@@ -18,6 +21,14 @@ import (
 // DeliveryCents is what delivery to an address costs, VAT included.
 // TODO(phase-7): Speedy's own quote replaces the flat fee, with office and APT delivery (step 7).
 const DeliveryCents money.Cents = 5_99
+
+// PaymentWindow is how long a card order waits for its payment after checkout. Stripe's payment
+// page expires then, and the order is cancelled.
+const PaymentWindow = time.Hour
+
+// paymentTimeoutGrace is how long after the window the order's timeout job looks: Stripe's own
+// expiry event usually cancels the order first.
+const paymentTimeoutGrace = 10 * time.Minute
 
 // Quote is a cart as checkout shows it: the lines, delivery and what the order would cost.
 type Quote struct {
@@ -72,9 +83,13 @@ func (s *Service) Quote(ctx context.Context, owner CartOwner) (Quote, error) {
 // it again from the catalog, stores the order and its lines, deletes the cart and applies the
 // payment's first event, which queues the order's first steps.
 //
+// A card order waits for its payment instead: the caller sends the customer to pay (payments),
+// and a PaymentTimeoutArgs job looks at it when PaymentWindow is over, in case Stripe's events
+// never came.
+//
 // It refuses (field errors) an empty cart ("cart: empty"), a product no longer for sale or out
 // of stock ("cart: unavailable"), and a total other than the one the customer saw
-// ("expected_total: changed"). Only cash on delivery for now.
+// ("expected_total: changed").
 func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInput) (Placed, error) {
 	in.trim()
 	if err := in.validate(); err != nil {
@@ -142,8 +157,16 @@ func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInpu
 		if err := s.store.deleteCart(ctx, tx, cartID); err != nil {
 			return err
 		}
-		if err := s.ApplyTx(ctx, tx, id, EventCODSelected); err != nil {
-			return err
+		switch in.Payment {
+		case PaymentCOD:
+			if err := s.ApplyTx(ctx, tx, id, EventCODSelected); err != nil {
+				return err
+			}
+		case PaymentCard:
+			opts := &river.InsertOpts{ScheduledAt: s.now().Add(PaymentWindow + paymentTimeoutGrace)}
+			if _, err := s.jobs.InsertTx(ctx, tx, PaymentTimeoutArgs{OrderID: id}, opts); err != nil {
+				return fmt.Errorf("orders: enqueue the payment timeout of order %s: %w", id, err)
+			}
 		}
 		placed = Placed{ID: id, Number: number, Token: o.Token}
 		return nil
@@ -186,8 +209,7 @@ func (in CheckoutInput) validate() error {
 	v.Check(in.Postcode != "", "postcode", "required")
 	v.Check(postcode(in.Postcode), "postcode", "invalid_postcode")
 	text("address", in.Address, 200)
-	// TODO(phase-7): card payments come with Stripe (step 5).
-	v.Check(in.Payment == PaymentCOD, "payment", "unsupported")
+	v.Check(in.Payment == PaymentCOD || in.Payment == PaymentCard, "payment", "unsupported")
 	return v.Err()
 }
 

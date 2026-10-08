@@ -109,6 +109,7 @@ type Order struct {
 	DeliveryCents  money.Cents
 	TotalCents     money.Cents
 	CashOnDelivery bool
+	PaidByCard     bool
 }
 
 // OrderLine is one product of an order email.
@@ -142,8 +143,11 @@ func (s *Service) OrderReceived(ctx context.Context, o Order) error {
 		"Общо: "+money.Format(o.TotalCents)+" (с ДДС)",
 		"",
 	)
-	if o.CashOnDelivery {
+	switch {
+	case o.CashOnDelivery:
 		ls = append(ls, "Плащане: наложен платеж, плащате на куриера при получаване.")
+	case o.PaidByCard:
+		ls = append(ls, "Плащане: с карта, получихме го.")
 	}
 	ls = append(ls,
 		"Доставка до: "+o.Address,

@@ -5,7 +5,8 @@ import {
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Banknote, Lock, TriangleAlert, Truck } from "lucide-react";
+import { Banknote, CreditCard, Lock, TriangleAlert, Truck } from "lucide-react";
+import { useState } from "react";
 import { Field } from "#/components/auth/field";
 import { CompactLines } from "#/components/order/compact-lines";
 import { Totals } from "#/components/order/totals";
@@ -14,16 +15,24 @@ import { Container } from "#/components/site/container";
 import { PageSkeleton } from "#/components/site/page-skeletons";
 import { StatusPage } from "#/components/site/status-page";
 import { Button } from "#/components/ui/button";
+import { Label } from "#/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "#/components/ui/radio-group";
 import { m } from "#/i18n";
 import { meQuery } from "#/lib/api/auth";
 import { cartQuery } from "#/lib/api/cart";
-import { type Checkout, checkoutQuery, placeOrder } from "#/lib/api/orders";
+import {
+	type Checkout,
+	checkoutQuery,
+	type PaymentMethod,
+	placeOrder,
+} from "#/lib/api/orders";
 import {
 	type CheckoutField,
 	cartChanged,
 	checkoutError,
 	checkoutFieldError,
 } from "#/lib/checkout";
+import { cn } from "#/lib/utils";
 
 const t = m.checkout;
 
@@ -74,13 +83,28 @@ function CheckoutPage() {
 	return <CheckoutForm checkout={checkout} />;
 }
 
+const paymentOptions = {
+	cod: {
+		icon: Banknote,
+		title: t.cashOnDelivery,
+		detail: t.cashOnDeliveryDetail,
+	},
+	card: { icon: CreditCard, title: t.card, detail: t.cardDetail },
+} satisfies Record<PaymentMethod, unknown>;
+
 function CheckoutForm({ checkout }: { checkout: Checkout }) {
 	const { data: me } = useSuspenseQuery(meQuery);
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
+	const [payment, setPayment] = useState<PaymentMethod>("cod");
 	const submit = useMutation({
 		mutationFn: placeOrder,
 		onSuccess: async (placed) => {
+			// A card order goes on to Stripe's page. The page stays "placing" until it unloads.
+			if (placed.payment_url) {
+				window.location.assign(placed.payment_url);
+				return;
+			}
 			await navigate({
 				to: "/order/$id",
 				params: { id: placed.id },
@@ -123,7 +147,7 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 						city: text("city"),
 						postcode: text("postcode"),
 						address: text("address"),
-						payment: "cod",
+						payment,
 						expected_total_cents: checkout.total.amount_cents,
 					});
 				}}
@@ -207,16 +231,39 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 					</Step>
 
 					<Step n={3} title={t.payment}>
-						<div className="flex items-start gap-3 rounded-lg border border-foreground p-4">
-							<Banknote className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-							<div>
-								<p className="font-medium text-sm">{t.cashOnDelivery}</p>
-								<p className="mt-0.5 text-muted-foreground text-xs">
-									{t.cashOnDeliveryDetail}
-								</p>
-							</div>
-						</div>
-						<p className="mt-2 text-muted-foreground text-xs">{t.cardSoon}</p>
+						<RadioGroup
+							value={payment}
+							onValueChange={(v) => setPayment(v as PaymentMethod)}
+							className="grid gap-3 sm:grid-cols-2"
+						>
+							{checkout.payments.map((p) => {
+								const o = paymentOptions[p];
+								return (
+									<Label
+										key={p}
+										htmlFor={`payment-${p}`}
+										className={cn(
+											"flex cursor-pointer items-start gap-3 rounded-lg border p-4 font-normal transition-colors hover:border-border-strong",
+											payment === p &&
+												"border-foreground hover:border-foreground",
+										)}
+									>
+										<RadioGroupItem
+											value={p}
+											id={`payment-${p}`}
+											className="mt-0.5"
+										/>
+										<div className="min-w-0 flex-1">
+											<p className="font-medium text-sm">{o.title}</p>
+											<p className="mt-0.5 text-muted-foreground text-xs">
+												{o.detail}
+											</p>
+										</div>
+										<o.icon className="size-5 shrink-0 text-muted-foreground" />
+									</Label>
+								);
+							})}
+						</RadioGroup>
 					</Step>
 				</div>
 
@@ -259,9 +306,16 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 						type="submit"
 						size="lg"
 						className="mt-6 h-11 w-full"
-						disabled={!checkout.orderable || submit.isPending}
+						disabled={
+							!checkout.orderable || submit.isPending || submit.isSuccess
+						}
 					>
-						<Lock /> {submit.isPending ? t.placing : t.placeOrder}
+						<Lock />{" "}
+						{submit.isPending || submit.isSuccess
+							? t.placing
+							: payment === "card"
+								? t.placeOrderAndPay
+								: t.placeOrder}
 					</Button>
 				</aside>
 			</form>

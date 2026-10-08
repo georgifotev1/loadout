@@ -81,6 +81,15 @@ type Config struct {
 		From string
 	}
 
+	Stripe struct {
+		// SecretKey calls Stripe's API: best a restricted key (rk_…) that can only write
+		// Checkout Sessions and Refunds. Empty (development only) turns card payments off.
+		SecretKey string
+		// WebhookSecret verifies the webhook's signatures (whsec_…): the endpoint's in Stripe's
+		// Dashboard, or the one `stripe listen` prints locally.
+		WebhookSecret string
+	}
+
 	Log struct {
 		Level  string // debug | info | warn | error
 		Format string // text | json
@@ -178,6 +187,20 @@ func load(getenv func(string) string) (Config, error) {
 		errs = append(errs, errors.New("MAIL_FROM: required in production"))
 	} else if _, err := mail.ParseAddress(cfg.Mail.From); err != nil {
 		errs = append(errs, fmt.Errorf("MAIL_FROM: must be an email address, got %q", cfg.Mail.From))
+	}
+
+	// Card payments need both or neither. Development can go without: checkout offers cash on
+	// delivery only then.
+	cfg.Stripe.SecretKey = str(getenv, "STRIPE_SECRET_KEY", "")
+	cfg.Stripe.WebhookSecret = str(getenv, "STRIPE_WEBHOOK_SECRET", "")
+	switch {
+	case cfg.Stripe.SecretKey == "" && cfg.Stripe.WebhookSecret == "" && cfg.Env == EnvProduction:
+		errs = append(errs, errors.New("STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET: required in production"))
+	case cfg.Stripe.SecretKey == "" && cfg.Stripe.WebhookSecret == "":
+	case !strings.HasPrefix(cfg.Stripe.SecretKey, "rk_") && !strings.HasPrefix(cfg.Stripe.SecretKey, "sk_"):
+		errs = append(errs, errors.New("STRIPE_SECRET_KEY: must be a restricted (rk_) or secret (sk_) key"))
+	case !strings.HasPrefix(cfg.Stripe.WebhookSecret, "whsec_"):
+		errs = append(errs, errors.New("STRIPE_WEBHOOK_SECRET: must be a webhook signing secret (whsec_)"))
 	}
 
 	cfg.Log.Level = strings.ToLower(str(getenv, "LOG_LEVEL", "info"))

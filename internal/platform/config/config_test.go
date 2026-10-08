@@ -51,7 +51,7 @@ func TestLoadAuth(t *testing.T) {
 	prod := func(m map[string]string) map[string]string {
 		m["ENV"] = "production"
 		m["VALI_URL"] = "https://vali.example"
-		return withMail(m)
+		return withRequired(m)
 	}
 	tests := []struct {
 		name    string
@@ -92,7 +92,7 @@ func TestLoadValiURL(t *testing.T) {
 		{"required in production", map[string]string{"ENV": "production"}, "VALI_URL: required"},
 		{"not a URL", map[string]string{"VALI_URL": "localhost:8081"}, "VALI_URL: must be an http(s) URL"},
 		{"no host", map[string]string{"VALI_URL": "http://"}, "VALI_URL: must be an http(s) URL"},
-		{"set in production", withMail(map[string]string{"ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey}), ""},
+		{"set in production", withRequired(map[string]string{"ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey}), ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -109,11 +109,40 @@ func TestLoadValiURL(t *testing.T) {
 }
 
 // withMail adds the site and mail settings production requires.
-func withMail(m map[string]string) map[string]string {
+func withRequired(m map[string]string) map[string]string {
 	m["SITE_URL"] = "https://loadout.bg"
 	m["SMTP_ADDR"] = "smtp.example:587"
 	m["MAIL_FROM"] = "Loadout <noreply@loadout.bg>"
+	m["STRIPE_SECRET_KEY"] = "rk_live_x"
+	m["STRIPE_WEBHOOK_SECRET"] = "whsec_x"
 	return m
+}
+
+func TestLoadStripe(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     map[string]string
+		wantErr string
+	}{
+		{"off in development", map[string]string{}, ""},
+		{"required in production", map[string]string{"ENV": "production"}, "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET: required"},
+		{"a key without the webhook secret", map[string]string{"STRIPE_SECRET_KEY": "rk_test_x"}, "STRIPE_WEBHOOK_SECRET: must be"},
+		{"a webhook secret without the key", map[string]string{"STRIPE_WEBHOOK_SECRET": "whsec_x"}, "STRIPE_SECRET_KEY: must be"},
+		{"a publishable key", map[string]string{"STRIPE_SECRET_KEY": "pk_test_x", "STRIPE_WEBHOOK_SECRET": "whsec_x"}, "STRIPE_SECRET_KEY: must be"},
+		{"both", map[string]string{"STRIPE_SECRET_KEY": "sk_test_x", "STRIPE_WEBHOOK_SECRET": "whsec_x"}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.env["DATABASE_URL"] = "postgres://x"
+			_, err := load(env(tt.env))
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Fatalf("err = %v", err)
+			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+				t.Fatalf("err = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestLoadMail(t *testing.T) {
@@ -147,7 +176,7 @@ func TestLoadMail(t *testing.T) {
 }
 
 func TestLoadProductionDefaultsToJSONLogs(t *testing.T) {
-	cfg, err := load(env(withMail(map[string]string{"DATABASE_URL": "postgres://x", "ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey})))
+	cfg, err := load(env(withRequired(map[string]string{"DATABASE_URL": "postgres://x", "ENV": "production", "VALI_URL": "https://vali.example", "TOTP_KEY": prodKey})))
 	if err != nil {
 		t.Fatal(err)
 	}

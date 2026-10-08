@@ -101,6 +101,7 @@ const (
 	ErrorCodeInvalidCode          ErrorCode = "invalid_code"
 	ErrorCodeInvalidCredentials   ErrorCode = "invalid_credentials"
 	ErrorCodeNotFound             ErrorCode = "not_found"
+	ErrorCodeNotPayable           ErrorCode = "not_payable"
 	ErrorCodeSecondFactorRequired ErrorCode = "second_factor_required"
 	ErrorCodeSecondFactorState    ErrorCode = "second_factor_state"
 	ErrorCodeTooManyAttempts      ErrorCode = "too_many_attempts"
@@ -130,6 +131,8 @@ func (e ErrorCode) Valid() bool {
 	case ErrorCodeInvalidCredentials:
 		return true
 	case ErrorCodeNotFound:
+		return true
+	case ErrorCodeNotPayable:
 		return true
 	case ErrorCodeSecondFactorRequired:
 		return true
@@ -313,12 +316,15 @@ func (e OrderStatus) Valid() bool {
 
 // Defines values for PaymentMethod.
 const (
-	PaymentMethodCod PaymentMethod = "cod"
+	PaymentMethodCard PaymentMethod = "card"
+	PaymentMethodCod  PaymentMethod = "cod"
 )
 
 // Valid indicates whether the value is a known member of the PaymentMethod enum.
 func (e PaymentMethod) Valid() bool {
 	switch e {
+	case PaymentMethodCard:
+		return true
 	case PaymentMethodCod:
 		return true
 	default:
@@ -775,6 +781,9 @@ type Checkout struct {
 	// Orderable Whether the cart can be ordered as it is.
 	Orderable bool `json:"orderable"`
 
+	// Payments The payment methods on offer, cash on delivery first.
+	Payments []PaymentMethod `json:"payments"`
+
 	// Total A retail price. The web app formats it; it never does price math.
 	Total Price `json:"total"`
 }
@@ -792,7 +801,8 @@ type CheckoutRequest struct {
 	// Name The recipient's full name.
 	Name string `json:"name"`
 
-	// Payment `cod`: cash on delivery, paid to the courier.
+	// Payment `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
+	// (cards, Apple Pay, Google Pay, … as set up in Stripe).
 	Payment PaymentMethod `json:"payment"`
 	Phone   string        `json:"phone"`
 
@@ -1063,7 +1073,12 @@ type Order struct {
 	Name     string             `json:"name"`
 	Number   int64              `json:"number"`
 
-	// Payment `cod`: cash on delivery, paid to the courier.
+	// PaidAt When the money came: the card payment, or the courier collecting cash on delivery.
+	// Missing while unpaid.
+	PaidAt *time.Time `json:"paid_at,omitempty"`
+
+	// Payment `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
+	// (cards, Apple Pay, Google Pay, … as set up in Stripe).
 	Payment  PaymentMethod `json:"payment"`
 	Phone    string        `json:"phone"`
 	Postcode string        `json:"postcode"`
@@ -1105,6 +1120,10 @@ type OrderPlaced struct {
 	Id     openapi_types.UUID `json:"id"`
 	Number int64              `json:"number"`
 
+	// PaymentUrl A card order's payment page on Stripe, to send the customer to. Missing if Stripe
+	// couldn't be reached: then `POST /orders/{order_id}/payment`.
+	PaymentUrl string `json:"payment_url,omitempty"`
+
 	// Token Opens the order with `GET /orders/{order_id}?token=`, without logging in.
 	Token string `json:"token"`
 }
@@ -1129,7 +1148,14 @@ type OrderSummary struct {
 	Total Price `json:"total"`
 }
 
-// PaymentMethod `cod`: cash on delivery, paid to the courier.
+// Payment defines model for Payment.
+type Payment struct {
+	// Url Stripe's payment page.
+	Url string `json:"url"`
+}
+
+// PaymentMethod `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
+// (cards, Apple Pay, Google Pay, … as set up in Stripe).
 type PaymentMethod string
 
 // Price A retail price. The web app formats it; it never does price math.
@@ -1523,6 +1549,9 @@ type InvalidCode = Error
 // NotFound defines model for NotFound.
 type NotFound = Error
 
+// NotPayable defines model for NotPayable.
+type NotPayable = Error
+
 // SecondFactorState defines model for SecondFactorState.
 type SecondFactorState = Error
 
@@ -1632,6 +1661,16 @@ type ListBuilderOptionsParams struct {
 
 // GetOrderParams defines parameters for GetOrder.
 type GetOrderParams struct {
+	Token string `form:"token,omitempty" json:"token,omitempty"`
+}
+
+// PayOrderParams defines parameters for PayOrder.
+type PayOrderParams struct {
+	Token string `form:"token,omitempty" json:"token,omitempty"`
+}
+
+// SyncOrderPaymentParams defines parameters for SyncOrderPayment.
+type SyncOrderPaymentParams struct {
 	Token string `form:"token,omitempty" json:"token,omitempty"`
 }
 
@@ -1837,6 +1876,12 @@ type ServerInterface interface {
 	// GetOrder An order, for its customer
 	// (GET /orders/{order_id})
 	GetOrder(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID, params GetOrderParams)
+	// PayOrder Stripe's payment page for a card order
+	// (POST /orders/{order_id}/payment)
+	PayOrder(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID, params PayOrderParams)
+	// SyncOrderPayment Check a card order's payment with Stripe
+	// (POST /orders/{order_id}/payment/sync)
+	SyncOrderPayment(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID, params SyncOrderPaymentParams)
 	// ListProducts List the products shoppers can see
 	// (GET /products)
 	ListProducts(w http.ResponseWriter, r *http.Request, params ListProductsParams)
@@ -2089,6 +2134,18 @@ func (_ Unimplemented) ListMyOrders(w http.ResponseWriter, r *http.Request) {
 // GetOrder An order, for its customer
 // (GET /orders/{order_id})
 func (_ Unimplemented) GetOrder(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID, params GetOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PayOrder Stripe's payment page for a card order
+// (POST /orders/{order_id}/payment)
+func (_ Unimplemented) PayOrder(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID, params PayOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SyncOrderPayment Check a card order's payment with Stripe
+// (POST /orders/{order_id}/payment/sync)
+func (_ Unimplemented) SyncOrderPayment(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID, params SyncOrderPaymentParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3215,6 +3272,90 @@ func (siw *ServerInterfaceWrapper) GetOrder(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// PayOrder operation middleware
+func (siw *ServerInterfaceWrapper) PayOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "order_id" -------------
+	var orderId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "order_id", chi.URLParam(r, "order_id"), &orderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PayOrderParams
+
+	// ------------- Optional query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PayOrder(w, r, orderId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SyncOrderPayment operation middleware
+func (siw *ServerInterfaceWrapper) SyncOrderPayment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "order_id" -------------
+	var orderId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "order_id", chi.URLParam(r, "order_id"), &orderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SyncOrderPaymentParams
+
+	// ------------- Optional query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SyncOrderPayment(w, r, orderId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProducts operation middleware
 func (siw *ServerInterfaceWrapper) ListProducts(w http.ResponseWriter, r *http.Request) {
 
@@ -3597,6 +3738,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/orders/{order_id}", wrapper.GetOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/orders/{order_id}/payment", wrapper.PayOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/orders/{order_id}/payment/sync", wrapper.SyncOrderPayment)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/login", wrapper.Login)

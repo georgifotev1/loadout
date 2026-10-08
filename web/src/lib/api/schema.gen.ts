@@ -240,7 +240,7 @@ export interface paths {
          * The cart as checkout shows it, with delivery and the total
          * @description The shopper's cart (as `GET /cart`) plus delivery and the total to send back as
          *     `expected_total_cents`. `orderable` is false for an empty cart or one with a product no
-         *     longer for sale or out of stock.
+         *     longer for sale or out of stock. `payments` lists the payment methods on offer.
          */
         get: operations["getCheckout"];
         put?: never;
@@ -250,9 +250,13 @@ export interface paths {
          *     cleared). A logged-in customer's order is theirs; a guest opens it with the returned
          *     `token`. Field errors: `name`, `city`, `address` (`required`, `too_long`); `email`
          *     (`required`, `invalid_email`); `phone` (`required`, `invalid_phone`); `postcode`
-         *     (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`); `cart`
-         *     (`empty`; `unavailable`: a product is no longer for sale or out of stock);
-         *     `expected_total_cents` (`changed`: prices moved since `GET /checkout`).
+         *     (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`: not in
+         *     `GET /checkout`'s `payments`); `cart` (`empty`; `unavailable`: a product is no longer for
+         *     sale or out of stock); `expected_total_cents` (`changed`: prices moved since
+         *     `GET /checkout`).
+         *
+         *     A card order waits for its payment: send the customer to `payment_url`. Without one
+         *     (Stripe didn't answer), the order page gets it with `POST /orders/{order_id}/payment`.
          */
         post: operations["placeOrder"];
         delete?: never;
@@ -298,6 +302,53 @@ export interface paths {
         get: operations["getOrder"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stripe's payment page for a card order
+         * @description For a card order waiting for its payment (`awaiting_payment`): the address of Stripe's
+         *     payment page to send the customer to. The same page every time, until the order's
+         *     payment window ends. Opens like `GET /orders/{order_id}`. `not_payable` (409): the order
+         *     is paid (also when Stripe says so before its webhook came; the payment is applied then),
+         *     cancelled, cash on delivery, or its payment window is over.
+         */
+        post: operations["payOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/payment/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a card order's payment with Stripe
+         * @description The order page calls it when the customer comes back from Stripe's payment page: if
+         *     Stripe says the page was paid, the payment is applied now instead of when Stripe's webhook
+         *     arrives. Returns the order as `GET /orders/{order_id}`, and opens like it. Does nothing
+         *     for an order that isn't a card order waiting for its payment.
+         */
+        post: operations["syncOrderPayment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1085,12 +1136,15 @@ export interface components {
             total: components["schemas"]["Price"];
             /** @description Whether the cart can be ordered as it is. */
             orderable: boolean;
+            /** @description The payment methods on offer, cash on delivery first. */
+            payments: components["schemas"]["PaymentMethod"][];
         };
         /**
-         * @description `cod`: cash on delivery, paid to the courier.
+         * @description `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
+         *     (cards, Apple Pay, Google Pay, … as set up in Stripe).
          * @enum {string}
          */
-        PaymentMethod: "cod";
+        PaymentMethod: "cod" | "card";
         CheckoutRequest: {
             /** @description The recipient's full name. */
             name: string;
@@ -1115,6 +1169,15 @@ export interface components {
             number: number;
             /** @description Opens the order with `GET /orders/{order_id}?token=`, without logging in. */
             token: string;
+            /**
+             * @description A card order's payment page on Stripe, to send the customer to. Missing if Stripe
+             *     couldn't be reached: then `POST /orders/{order_id}/payment`.
+             */
+            payment_url?: string;
+        };
+        Payment: {
+            /** @description Stripe's payment page. */
+            url: string;
         };
         /**
          * @description `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
@@ -1129,6 +1192,12 @@ export interface components {
             number: number;
             status: components["schemas"]["OrderStatus"];
             payment: components["schemas"]["PaymentMethod"];
+            /**
+             * Format: date-time
+             * @description When the money came: the card payment, or the courier collecting cash on delivery.
+             *     Missing while unpaid.
+             */
+            paid_at?: string;
             /** Format: date-time */
             created_at: string;
             name: string;
@@ -1516,7 +1585,7 @@ export interface components {
          * @description Stable reason the web app translates. Renaming one breaks translations.
          * @enum {string}
          */
-        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "already_queued" | "edit_conflict" | "duplicate_rule" | "default_rule" | "internal";
+        ErrorCode: "invalid_body" | "validation_failed" | "not_found" | "unauthenticated" | "forbidden" | "invalid_credentials" | "too_many_attempts" | "second_factor_required" | "invalid_code" | "second_factor_state" | "already_queued" | "edit_conflict" | "duplicate_rule" | "default_rule" | "not_payable" | "internal";
         FieldError: {
             field: string;
             /** @description Why the field is invalid, e.g. `required`, `out_of_range`, `unknown`, `invalid_format`. */
@@ -1574,6 +1643,15 @@ export interface components {
         };
         /** @description `unauthenticated`: no valid session, or `invalid_code`: a wrong, expired or used code. */
         InvalidCode: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `not_payable`: the order can't be paid by card (any more). */
+        NotPayable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -2077,6 +2155,61 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description The order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    payOrder: {
+        parameters: {
+            query?: {
+                token?: string;
+            };
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stripe's payment page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["NotPayable"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    syncOrderPayment: {
+        parameters: {
+            query?: {
+                token?: string;
+            };
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order after the check */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -12,6 +12,7 @@ import (
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/orders"
+	"github.com/gfotev/loadout/internal/payments"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/specs"
@@ -26,6 +27,7 @@ type application struct {
 	specs        *specs.Service
 	configurator *configurator.Service
 	orders       *orders.Service
+	payments     *payments.Service // nil without Stripe settings: cash on delivery only
 	jobs         *jobs.Client
 	shuttingDown atomic.Bool
 }

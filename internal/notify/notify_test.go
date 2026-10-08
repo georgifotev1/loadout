@@ -83,6 +83,18 @@ func TestOrderReceived(t *testing.T) {
 	}
 }
 
+func TestOrderReceivedPaidByCard(t *testing.T) {
+	r := &recorder{}
+	s := NewService(r, "https://loadout.bg")
+	err := s.OrderReceived(context.Background(), Order{ID: uuid.New(), Number: 1002, PaidByCard: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := r.sent[0].Text; !strings.Contains(text, "Плащане: с карта") || strings.Contains(text, "наложен платеж") {
+		t.Errorf("email:\n%s", text)
+	}
+}
+
 func TestBuildMessage(t *testing.T) {
 	from := &mail.Address{Name: "Loadout", Address: "noreply@loadout.bg"}
 	to := &mail.Address{Address: "иван@example.bg"}

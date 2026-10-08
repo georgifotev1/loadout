@@ -318,7 +318,7 @@ paths:
       description: |
         The shopper's cart (as `GET /cart`) plus delivery and the total to send back as
         `expected_total_cents`. `orderable` is false for an empty cart or one with a product no
-        longer for sale or out of stock.
+        longer for sale or out of stock. `payments` lists the payment methods on offer.
       tags: [checkout]
       responses:
         "200":
@@ -335,9 +335,13 @@ paths:
         cleared). A logged-in customer's order is theirs; a guest opens it with the returned
         `token`. Field errors: `name`, `city`, `address` (`required`, `too_long`); `email`
         (`required`, `invalid_email`); `phone` (`required`, `invalid_phone`); `postcode`
-        (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`); `cart`
-        (`empty`; `unavailable`: a product is no longer for sale or out of stock);
-        `expected_total_cents` (`changed`: prices moved since `GET /checkout`).
+        (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`: not in
+        `GET /checkout`'s `payments`); `cart` (`empty`; `unavailable`: a product is no longer for
+        sale or out of stock); `expected_total_cents` (`changed`: prices moved since
+        `GET /checkout`).
+
+        A card order waits for its payment: send the customer to `payment_url`. Without one
+        (Stripe didn't answer), the order page gets it with `POST /orders/{order_id}/payment`.
       tags: [checkout]
       requestBody:
         required: true
@@ -391,6 +395,64 @@ paths:
       responses:
         "200":
           description: The order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /orders/{order_id}/payment:
+    post:
+      operationId: payOrder
+      summary: Stripe's payment page for a card order
+      description: |
+        For a card order waiting for its payment (`awaiting_payment`): the address of Stripe's
+        payment page to send the customer to. The same page every time, until the order's
+        payment window ends. Opens like `GET /orders/{order_id}`. `not_payable` (409): the order
+        is paid (also when Stripe says so before its webhook came; the payment is applied then),
+        cancelled, cash on delivery, or its payment window is over.
+      tags: [orders]
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: token
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stripe's payment page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/NotPayable" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /orders/{order_id}/payment/sync:
+    post:
+      operationId: syncOrderPayment
+      summary: Check a card order's payment with Stripe
+      description: |
+        The order page calls it when the customer comes back from Stripe's payment page: if
+        Stripe says the page was paid, the payment is applied now instead of when Stripe's webhook
+        arrives. Returns the order as `GET /orders/{order_id}`, and opens like it. Does nothing
+        for an order that isn't a card order waiting for its payment.
+      tags: [orders]
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: token
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: The order after the check
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Order" }
@@ -1100,6 +1162,11 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    NotPayable:
+      description: "`not_payable`: the order can't be paid by card (any more)."
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     SecondFactorState:
       description: "`second_factor_state`: not possible at this session's `second_factor`."
       content:
@@ -1529,7 +1596,7 @@ components:
 
     Checkout:
       type: object
-      required: [cart, delivery, total, orderable]
+      required: [cart, delivery, total, orderable, payments]
       properties:
         cart: { $ref: "#/components/schemas/Cart" }
         delivery:
@@ -1541,11 +1608,17 @@ components:
         orderable:
           type: boolean
           description: Whether the cart can be ordered as it is.
+        payments:
+          type: array
+          description: The payment methods on offer, cash on delivery first.
+          items: { $ref: "#/components/schemas/PaymentMethod" }
 
     PaymentMethod:
       type: string
-      description: "`cod`: cash on delivery, paid to the courier."
-      enum: [cod]
+      description: |
+        `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
+        (cards, Apple Pay, Google Pay, … as set up in Stripe).
+      enum: [cod, card]
 
     CheckoutRequest:
       type: object
@@ -1572,6 +1645,17 @@ components:
         token:
           type: string
           description: Opens the order with `GET /orders/{order_id}?token=`, without logging in.
+        payment_url:
+          type: string
+          description: |
+            A card order's payment page on Stripe, to send the customer to. Missing if Stripe
+            couldn't be reached: then `POST /orders/{order_id}/payment`.
+
+    Payment:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, description: Stripe's payment page. }
 
     OrderStatus:
       type: string
@@ -1610,6 +1694,13 @@ components:
         number: { type: integer, format: int64 }
         status: { $ref: "#/components/schemas/OrderStatus" }
         payment: { $ref: "#/components/schemas/PaymentMethod" }
+        paid_at:
+          type: string
+          format: date-time
+          x-go-type-skip-optional-pointer: false
+          description: |
+            When the money came: the card payment, or the courier collecting cash on delivery.
+            Missing while unpaid.
         created_at: { type: string, format: date-time }
         name: { type: string }
         email: { type: string }
@@ -2123,6 +2214,7 @@ components:
         - edit_conflict
         - duplicate_rule
         - default_rule
+        - not_payable
         - internal
 
     FieldError:

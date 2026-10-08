@@ -18,6 +18,7 @@ import (
 	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/notify"
 	"github.com/gfotev/loadout/internal/orders"
+	"github.com/gfotev/loadout/internal/payments"
 	"github.com/gfotev/loadout/internal/platform/config"
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/jobs"
@@ -120,10 +121,25 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			Password: cfg.Mail.SMTPPassword,
 		}, cfg.SiteURL)
 		ordersSvc := orders.NewService(pool, catalogSvc, jobsInserter)
+		// Without Stripe settings (development only) there are no card payments. A nil
+		// *payments.Service must not become a non-nil orders.Payments, hence the two variables.
+		var paymentsSvc *payments.Service
+		var orderPayments orders.Payments
+		if cfg.Stripe.SecretKey != "" {
+			paymentsSvc = payments.NewService(pool, payments.NewStripeClient(cfg.Stripe.SecretKey, ""), ordersSvc, payments.Config{
+				WebhookSecret: cfg.Stripe.WebhookSecret,
+				SiteURL:       cfg.SiteURL,
+				Logger:        logger.With("component", "payments"),
+			})
+			orderPayments = paymentsSvc
+		} else {
+			logger.Warn("STRIPE_SECRET_KEY isn't set: checkout offers cash on delivery only")
+		}
 		workers := river.NewWorkers()
 		river.AddWorker(workers, catalog.NewSyncWorker(catalogSvc))
 		river.AddWorker(workers, auth.NewEmailWorker(authSvc, mailer))
-		river.AddWorker(workers, orders.NewStepWorker(ordersSvc, mailer))
+		river.AddWorker(workers, orders.NewStepWorker(ordersSvc, mailer, orderPayments))
+		river.AddWorker(workers, orders.NewPaymentTimeoutWorker(ordersSvc, orderPayments))
 		jobsClient, err := jobs.New(pool, jobs.Config{
 			Logger:  logger.With("component", "jobs"),
 			Workers: workers,
@@ -149,6 +165,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			specs:        specsSvc,
 			configurator: configurator.NewService(pool, catalogSvc, specsSvc),
 			orders:       ordersSvc,
+			payments:     paymentsSvc,
 			jobs:         jobsClient,
 		}
 		return app.serve(ctx)

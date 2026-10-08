@@ -7,6 +7,7 @@ export type Order = Schemas["Order"];
 export type OrderLine = Schemas["OrderLine"];
 export type OrderStatus = Schemas["OrderStatus"];
 export type OrderSummary = Schemas["OrderSummary"];
+export type PaymentMethod = Schemas["PaymentMethod"];
 
 // The cart with delivery and the total. Fetched in the browser only, like the cart.
 export const checkoutQuery = queryOptions({
@@ -16,6 +17,25 @@ export const checkoutQuery = queryOptions({
 
 export async function placeOrder(body: CheckoutRequest) {
 	return unwrap(await api.POST("/checkout", { body }));
+}
+
+// Stripe's payment page for a card order waiting for its payment.
+export async function payOrder(id: string, token?: string) {
+	return unwrap(
+		await api.POST("/orders/{order_id}/payment", {
+			params: { path: { order_id: id }, query: token ? { token } : {} },
+		}),
+	);
+}
+
+// Asks Stripe about a card order's payment and returns the order after: the payment counts as
+// soon as Stripe says so, without waiting for its webhook.
+export async function syncOrderPayment(id: string, token?: string) {
+	return unwrap(
+		await api.POST("/orders/{order_id}/payment/sync", {
+			params: { path: { order_id: id }, query: token ? { token } : {} },
+		}),
+	);
 }
 
 // An order, opened with its link's token or as the logged-in customer it belongs to. Private, so

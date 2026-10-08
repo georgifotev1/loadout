@@ -12,6 +12,7 @@ require (
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.48.0
 	github.com/riverqueue/river/rivertype v0.48.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+	github.com/stripe/stripe-go/v86 v86.4.0
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
 	golang.org/x/crypto v0.57.0

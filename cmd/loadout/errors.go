@@ -11,6 +11,7 @@ import (
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/orders"
+	"github.com/gfotev/loadout/internal/payments"
 	"github.com/gfotev/loadout/internal/platform/jobs"
 	"github.com/gfotev/loadout/internal/platform/validate"
 	"github.com/gfotev/loadout/internal/specs"
@@ -42,6 +43,8 @@ func (app *application) handleError(w http.ResponseWriter, r *http.Request, err 
 		app.writeError(w, r, http.StatusConflict, ErrorCodeDuplicateRule, "a markup rule for this target already exists")
 	case errors.Is(err, catalog.ErrDefaultRule):
 		app.writeError(w, r, http.StatusConflict, ErrorCodeDefaultRule, "the default markup rule must stay")
+	case errors.Is(err, payments.ErrNotPayable):
+		app.writeError(w, r, http.StatusConflict, ErrorCodeNotPayable, "the order can't be paid by card")
 	case errors.Is(err, jobs.ErrAlreadyQueued):
 		app.writeError(w, r, http.StatusConflict, ErrorCodeAlreadyQueued, "an equal job is already waiting or running")
 	case errors.Is(err, auth.ErrUnauthenticated):

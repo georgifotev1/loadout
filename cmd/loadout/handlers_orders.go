@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -8,6 +10,8 @@ import (
 	"github.com/gfotev/loadout/internal/auth"
 	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/orders"
+	"github.com/gfotev/loadout/internal/payments"
+	"github.com/gfotev/loadout/internal/platform/validate"
 )
 
 // GetCheckout handles GET /api/checkout.
@@ -22,7 +26,16 @@ func (app *application) GetCheckout(w http.ResponseWriter, r *http.Request) {
 		Delivery:  eur(q.DeliveryCents),
 		Total:     eur(q.TotalCents),
 		Orderable: q.Orderable,
+		Payments:  app.paymentMethods(),
 	})
+}
+
+// paymentMethods are the payment methods on offer: card only when Stripe is set up.
+func (app *application) paymentMethods() []PaymentMethod {
+	if app.payments == nil {
+		return []PaymentMethod{PaymentMethodCod}
+	}
+	return []PaymentMethod{PaymentMethodCod, PaymentMethodCard}
 }
 
 // PlaceOrder handles POST /api/checkout.
@@ -30,6 +43,12 @@ func (app *application) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	var in CheckoutRequest
 	if err := readJSON(w, r, &in); err != nil {
 		app.handleError(w, r, err)
+		return
+	}
+	if in.Payment == PaymentMethodCard && app.payments == nil {
+		var v validate.Validator
+		v.Add("payment", "unsupported")
+		app.handleError(w, r, v.Err())
 		return
 	}
 	owner := app.cartOwner(r)
@@ -51,7 +70,67 @@ func (app *application) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	if owner.Token != "" { // the guest cart is gone
 		app.setCartCookie(w, "")
 	}
-	app.writeJSON(w, r, http.StatusCreated, OrderPlaced{Id: placed.ID, Number: placed.Number, Token: placed.Token})
+	out := OrderPlaced{Id: placed.ID, Number: placed.Number, Token: placed.Token}
+	if in.Payment == PaymentMethodCard {
+		// The order is placed whatever Stripe says: without a payment page, the order page asks
+		// for one again.
+		if url, err := app.payPage(r, placed.ID, orders.Viewer{Token: placed.Token}); err != nil {
+			app.logger.Error("no payment page for a new order", "order_id", placed.ID, "err", err, "request_id", requestIDFrom(r.Context()))
+		} else {
+			out.PaymentUrl = url
+		}
+	}
+	app.writeJSON(w, r, http.StatusCreated, out)
+}
+
+// PayOrder handles POST /api/orders/{order_id}/payment.
+func (app *application) PayOrder(w http.ResponseWriter, r *http.Request, id uuid.UUID, params PayOrderParams) {
+	url, err := app.payPage(r, id, app.orderViewer(r, params.Token))
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	app.writeJSON(w, r, http.StatusOK, Payment{Url: url})
+}
+
+// payPage returns the address of Stripe's payment page for an order the viewer may see.
+func (app *application) payPage(r *http.Request, id uuid.UUID, v orders.Viewer) (string, error) {
+	o, err := app.orders.Order(r.Context(), id, v)
+	if err != nil {
+		return "", err
+	}
+	if app.payments == nil {
+		return "", payments.ErrNotPayable
+	}
+	return app.payments.Pay(r.Context(), o)
+}
+
+// maxWebhookBytes bounds a Stripe event. Ours are a few kilobytes.
+const maxWebhookBytes = 256 << 10
+
+// stripeWebhook handles POST /api/webhooks/stripe. It isn't in api/openapi.yaml: Stripe calls
+// it, not our clients. A 2xx tells Stripe the event is handled; anything else and it sends the
+// event again, for up to three days.
+func (app *application) stripeWebhook(w http.ResponseWriter, r *http.Request) {
+	if app.payments == nil {
+		app.notFound(w, r)
+		return
+	}
+	payload, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxWebhookBytes))
+	if err != nil {
+		app.handleError(w, r, bodyErrorf("body too large or unreadable"))
+		return
+	}
+	err = app.payments.HandleWebhook(r.Context(), payload, r.Header.Get("Stripe-Signature"))
+	switch {
+	case errors.Is(err, payments.ErrBadSignature):
+		app.logger.Warn("stripe webhook refused", "err", err, "request_id", requestIDFrom(r.Context()))
+		app.writeError(w, r, http.StatusBadRequest, ErrorCodeInvalidBody, "invalid signature")
+	case err != nil:
+		app.handleError(w, r, err)
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // ListMyOrders handles GET /api/orders.
@@ -82,15 +161,36 @@ func (app *application) ListMyOrders(w http.ResponseWriter, r *http.Request) {
 
 // GetOrder handles GET /api/orders/{order_id}.
 func (app *application) GetOrder(w http.ResponseWriter, r *http.Request, id uuid.UUID, params GetOrderParams) {
-	v := orders.Viewer{Token: params.Token}
-	if sess, ok := sessionFrom(r.Context()); ok {
-		v.UserID, v.VerifiedEmail = sess.User.ID, verifiedEmail(sess.User)
+	o, err := app.orders.Order(r.Context(), id, app.orderViewer(r, params.Token))
+	if err != nil {
+		app.handleError(w, r, err)
+		return
 	}
+	app.writeJSON(w, r, http.StatusOK, orderJSON(o))
+}
+
+// SyncOrderPayment handles POST /api/orders/{order_id}/payment/sync.
+func (app *application) SyncOrderPayment(w http.ResponseWriter, r *http.Request, id uuid.UUID, params SyncOrderPaymentParams) {
+	v := app.orderViewer(r, params.Token)
 	o, err := app.orders.Order(r.Context(), id, v)
 	if err != nil {
 		app.handleError(w, r, err)
 		return
 	}
+	if app.payments != nil {
+		if err := app.payments.Sync(r.Context(), o); err != nil {
+			app.handleError(w, r, err)
+			return
+		}
+		if o, err = app.orders.Order(r.Context(), id, v); err != nil {
+			app.handleError(w, r, err)
+			return
+		}
+	}
+	app.writeJSON(w, r, http.StatusOK, orderJSON(o))
+}
+
+func orderJSON(o orders.OrderDetail) Order {
 	lines := make([]OrderLine, len(o.Lines))
 	for i, l := range o.Lines {
 		lines[i] = OrderLine{
@@ -103,11 +203,12 @@ func (app *application) GetOrder(w http.ResponseWriter, r *http.Request, id uuid
 			LineTotal: eur(l.TotalCents),
 		}
 	}
-	app.writeJSON(w, r, http.StatusOK, Order{
+	return Order{
 		Id:        o.ID,
 		Number:    o.Number,
 		Status:    OrderStatus(o.Status),
 		Payment:   PaymentMethod(o.Payment),
+		PaidAt:    o.PaidAt,
 		CreatedAt: o.CreatedAt,
 		Name:      o.Name,
 		Email:     o.Email,
@@ -119,7 +220,16 @@ func (app *application) GetOrder(w http.ResponseWriter, r *http.Request, id uuid
 		Subtotal:  eur(o.SubtotalCents),
 		Delivery:  eur(o.DeliveryCents),
 		Total:     eur(o.TotalCents),
-	})
+	}
+}
+
+// orderViewer is who asks for an order: the link's token and the logged-in customer, if any.
+func (app *application) orderViewer(r *http.Request, token string) orders.Viewer {
+	v := orders.Viewer{Token: token}
+	if sess, ok := sessionFrom(r.Context()); ok {
+		v.UserID, v.VerifiedEmail = sess.User.ID, verifiedEmail(sess.User)
+	}
+	return v
 }
 
 // verifiedEmail is the user's email once they've verified it, else "": an unverified address
