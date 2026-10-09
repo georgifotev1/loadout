@@ -243,6 +243,24 @@ func TestCart(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("empty", func(t *testing.T) {
+		if _, err := s.SetCartAssembly(ctx, GuestCart(token), true); err != nil {
+			t.Fatal(err)
+		}
+		for range 2 { // emptying twice is fine
+			c, err := s.EmptyCart(ctx, GuestCart(token))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(c.Lines) != 0 || c.Count != 0 || c.TotalCents != 0 || c.Assembly.Requested {
+				t.Errorf("cart %+v", c)
+			}
+		}
+		if _, err := s.EmptyCart(ctx, GuestCart("")); err != nil {
+			t.Errorf("no cart: err %v", err)
+		}
+	})
 }
 
 // Two adds to one cart at once can't both pass the quantity limit: the cart row lock makes the

@@ -2171,6 +2171,9 @@ type ServerInterface interface {
 	// SetCartAssembly Ask for the cart's PC to be assembled, or no longer
 	// (PUT /cart/assembly)
 	SetCartAssembly(w http.ResponseWriter, r *http.Request)
+	// EmptyCart Take every product out of the cart
+	// (DELETE /cart/lines)
+	EmptyCart(w http.ResponseWriter, r *http.Request)
 	// AddToCart Add products to the cart
 	// (POST /cart/lines)
 	AddToCart(w http.ResponseWriter, r *http.Request)
@@ -2429,6 +2432,12 @@ func (_ Unimplemented) GetCart(w http.ResponseWriter, r *http.Request) {
 // SetCartAssembly Ask for the cart's PC to be assembled, or no longer
 // (PUT /cart/assembly)
 func (_ Unimplemented) SetCartAssembly(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EmptyCart Take every product out of the cart
+// (DELETE /cart/lines)
+func (_ Unimplemented) EmptyCart(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3602,6 +3611,20 @@ func (siw *ServerInterfaceWrapper) SetCartAssembly(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// EmptyCart operation middleware
+func (siw *ServerInterfaceWrapper) EmptyCart(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EmptyCart(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AddToCart operation middleware
 func (siw *ServerInterfaceWrapper) AddToCart(w http.ResponseWriter, r *http.Request) {
 
@@ -4211,6 +4234,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/cart", wrapper.GetCart)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/cart/lines", wrapper.EmptyCart)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/cart/lines", wrapper.AddToCart)

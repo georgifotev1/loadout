@@ -93,6 +93,16 @@ func (app *application) RemoveFromCart(w http.ResponseWriter, r *http.Request, p
 	app.writeJSON(w, r, http.StatusOK, cart(c))
 }
 
+// EmptyCart handles DELETE /api/cart/lines.
+func (app *application) EmptyCart(w http.ResponseWriter, r *http.Request) {
+	c, err := app.orders.EmptyCart(r.Context(), app.cartOwner(r))
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	app.writeJSON(w, r, http.StatusOK, cart(c))
+}
+
 func cart(c orders.Cart) Cart {
 	lines := make([]CartLine, len(c.Lines))
 	for i, l := range c.Lines {

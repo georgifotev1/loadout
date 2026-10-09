@@ -286,6 +286,17 @@ func (s *Service) RemoveFromCart(ctx context.Context, owner CartOwner, productID
 	return s.Cart(ctx, owner)
 }
 
+// EmptyCart takes every product out of the owner's cart and drops its assembly request. Emptying
+// a cart that's empty or gone is not an error.
+func (s *Service) EmptyCart(ctx context.Context, owner CartOwner) (Cart, error) {
+	if !owner.none() {
+		if err := s.store.clearCart(ctx, s.pool, owner.key()); err != nil {
+			return Cart{}, err
+		}
+	}
+	return s.Cart(ctx, owner)
+}
+
 // SetCartAssembly asks for the cart's PC to be assembled, or no longer. An owner without a cart
 // is ErrNotFound.
 func (s *Service) SetCartAssembly(ctx context.Context, owner CartOwner, on bool) (Cart, error) {

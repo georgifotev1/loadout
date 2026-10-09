@@ -273,6 +273,19 @@ paths:
         "400": { $ref: "#/components/responses/InvalidBody" }
         "422": { $ref: "#/components/responses/ValidationFailed" }
         default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: emptyCart
+      summary: Take every product out of the cart
+      description: |
+        Also no longer asks for assembly. Emptying a cart that's empty or gone isn't an error.
+      tags: [cart]
+      responses:
+        "200":
+          description: The cart after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        default: { $ref: "#/components/responses/Error" }
 
   /cart/assembly:
     put:

@@ -193,6 +193,22 @@ func (store) removeLine(ctx context.Context, q db.DBTX, k cartKey, productID uui
 	return nil
 }
 
+// clearCart deletes every line of the cart with this key and drops its assembly request.
+func (store) clearCart(ctx context.Context, q db.DBTX, k cartKey) error {
+	query := `
+		WITH c AS (
+			UPDATE orders.carts SET assembly = false, updated_at = now() WHERE user_id = $1 OR token_hash = $2 RETURNING id
+		)
+		DELETE FROM orders.cart_lines l
+		USING c
+		WHERE l.cart_id = c.id`
+
+	if _, err := q.Exec(ctx, query, k.userID, k.tokenHash); err != nil {
+		return fmt.Errorf("orders: clear cart: %w", err)
+	}
+	return nil
+}
+
 // lockCartsForMerge locks the guest cart with this token hash and the user's cart, in id order
 // so two merges can't deadlock. Either id is uuid.Nil if there's no such cart.
 func (store) lockCartsForMerge(ctx context.Context, q db.DBTX, tokenHash []byte, userID uuid.UUID) (guestID, userCartID uuid.UUID, err error) {
