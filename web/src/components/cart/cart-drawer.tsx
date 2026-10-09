@@ -23,6 +23,7 @@ import { type CartLine, maxQuantity } from "#/lib/api/cart";
 import { bySlot } from "#/lib/builder";
 import { cn } from "#/lib/utils";
 import { useCart } from "./cart-provider";
+import { EmptyCart } from "./empty-cart";
 import { LineNote, LineTitle } from "./line";
 import { Quantity } from "./quantity";
 
@@ -184,6 +185,7 @@ export function CartDrawer({
 							>
 								{m.cart.viewCart} <ArrowRight />
 							</Button>
+							<EmptyCart className="mt-2 w-full" />
 						</div>
 					) : null}
 				</DrawerContent>

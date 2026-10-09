@@ -202,7 +202,11 @@ export interface paths {
          *     `assembly: true` also asks for the cart's PC to be assembled (the builder's add to cart).
          */
         post: operations["addToCart"];
-        delete?: never;
+        /**
+         * Take every product out of the cart
+         * @description Also no longer asks for assembly. Emptying a cart that's empty or gone isn't an error.
+         */
+        delete: operations["emptyCart"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2306,6 +2310,27 @@ export interface operations {
             };
             400: components["responses"]["InvalidBody"];
             422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    emptyCart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cart after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
             default: components["responses"]["Error"];
         };
     };

@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, ShoppingCart, TriangleAlert, X } from "lucide-react";
 import { useCart } from "#/components/cart/cart-provider";
+import { EmptyCart } from "#/components/cart/empty-cart";
 import { LineNote, LineTitle } from "#/components/cart/line";
 import { Quantity } from "#/components/cart/quantity";
 import { AssemblyOption } from "#/components/order/assembly-option";
@@ -130,9 +131,12 @@ function CartPage() {
 			<h1 className="font-semibold text-3xl tracking-[-0.03em]">
 				{m.cart.title}
 			</h1>
-			<p className="mt-1 text-muted-foreground text-sm">
-				{m.cart.items(cart.count)}
-			</p>
+			<div className="mt-1 flex items-center justify-between gap-4">
+				<p className="text-muted-foreground text-sm">
+					{m.cart.items(cart.count)}
+				</p>
+				<EmptyCart className="-mr-2.5" />
+			</div>
 			{error ? (
 				<p
 					role="alert"

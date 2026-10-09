@@ -6,6 +6,7 @@ import {
 	type Cart,
 	type CartAddLine,
 	cartQuery,
+	emptyCart,
 	removeFromCart,
 	setCartAssembly,
 	setCartQuantity,
@@ -26,6 +27,9 @@ type CartContext = {
 	settingAssembly: boolean;
 	setQuantity: (productId: string, quantity: number) => void;
 	remove: (productId: string) => void;
+	// Takes every product out of the cart.
+	empty: () => Promise<Cart>;
+	emptying: boolean;
 	// The product IDs with a change on the way, to disable their controls.
 	busy: (productId: string) => boolean;
 	error: string | undefined;
@@ -90,6 +94,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 		onSuccess: settle,
 		onError: fail,
 	});
+	const emptier = useMutation({
+		mutationFn: emptyCart,
+		onSuccess: settle,
+		onError: fail,
+	});
 
 	const value: CartContext = {
 		cart,
@@ -101,7 +110,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 		setQuantity: (productId, quantity) =>
 			changer.mutate({ productId, quantity }),
 		remove: (productId) => remover.mutate(productId),
+		empty: () => emptier.mutateAsync(),
+		emptying: emptier.isPending,
 		busy: (productId) =>
+			emptier.isPending ||
 			(changer.isPending && changer.variables?.productId === productId) ||
 			(remover.isPending && remover.variables === productId),
 		error,

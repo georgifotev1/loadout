@@ -37,6 +37,10 @@ export async function setCartQuantity(productId: string, quantity: number) {
 	);
 }
 
+export async function emptyCart() {
+	return unwrap(await api.DELETE("/cart/lines"));
+}
+
 export async function removeFromCart(productId: string) {
 	return unwrap(
 		await api.DELETE("/cart/lines/{product_id}", {
