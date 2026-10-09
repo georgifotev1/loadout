@@ -90,7 +90,7 @@ func newCartService(t *testing.T) (*Service, *fakeCatalog) {
 		part("ram", 80_00, 5),
 		part("gpu", 500_00, 0),
 	}}
-	return NewService(dbtest.New(t), cat, nil), cat // the cart queues no jobs
+	return NewService(dbtest.New(t), cat, nil, nil), cat // the cart queues no jobs
 }
 
 // fieldCodes lists a validation error's fields as "field: code".
@@ -124,14 +124,14 @@ func TestCart(t *testing.T) {
 	})
 
 	// The first add starts a cart; later ones add to it, on top of what's there.
-	c, token, err := s.AddToCart(ctx, GuestCart(""), []AddLine{{Slug: "cpu", Quantity: 1}})
+	c, token, err := s.AddToCart(ctx, GuestCart(""), []AddLine{{Slug: "cpu", Quantity: 1}}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if token == "" || c.Count != 1 || c.SubtotalCents != 200_00 {
 		t.Fatalf("token %q, cart %+v", token, c)
 	}
-	c, again, err := s.AddToCart(ctx, GuestCart(token), []AddLine{{Slug: "ram", Quantity: 2}, {Slug: "cpu", Quantity: 1}})
+	c, again, err := s.AddToCart(ctx, GuestCart(token), []AddLine{{Slug: "ram", Quantity: 2}, {Slug: "cpu", Quantity: 1}}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestCart(t *testing.T) {
 	}
 
 	t.Run("an unknown token starts a new cart", func(t *testing.T) {
-		_, other, err := s.AddToCart(ctx, GuestCart("unknown"), []AddLine{{Slug: "cpu", Quantity: 1}})
+		_, other, err := s.AddToCart(ctx, GuestCart("unknown"), []AddLine{{Slug: "cpu", Quantity: 1}}, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -171,7 +171,7 @@ func TestCart(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				_, _, err := s.AddToCart(ctx, GuestCart(token), tt.lines)
+				_, _, err := s.AddToCart(ctx, GuestCart(token), tt.lines, false)
 				if got := fieldCodes(t, err); !slices.Equal(got, tt.want) {
 					t.Errorf("fields %v, want %v", got, tt.want)
 				}
@@ -250,7 +250,7 @@ func TestCart(t *testing.T) {
 func TestAddToCartConcurrently(t *testing.T) {
 	s, _ := newCartService(t)
 	ctx := context.Background()
-	_, token, err := s.AddToCart(ctx, GuestCart(""), []AddLine{{Slug: "cpu", Quantity: 1}})
+	_, token, err := s.AddToCart(ctx, GuestCart(""), []AddLine{{Slug: "cpu", Quantity: 1}}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestAddToCartConcurrently(t *testing.T) {
 	errs := make([]error, 2)
 	for i := range errs {
 		wg.Go(func() {
-			_, _, errs[i] = s.AddToCart(ctx, GuestCart(token), []AddLine{{Slug: "cpu", Quantity: 5}})
+			_, _, errs[i] = s.AddToCart(ctx, GuestCart(token), []AddLine{{Slug: "cpu", Quantity: 5}}, false)
 		})
 	}
 	wg.Wait()
@@ -288,7 +288,7 @@ func TestUserCart(t *testing.T) {
 	user := UserCart(uuid.New())
 
 	// A user's cart has no token: it's found by the user.
-	c, token, err := s.AddToCart(ctx, user, []AddLine{{Slug: "cpu", Quantity: 1}})
+	c, token, err := s.AddToCart(ctx, user, []AddLine{{Slug: "cpu", Quantity: 1}}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestMergeCart(t *testing.T) {
 	ctx := context.Background()
 	guest := func(lines ...AddLine) string {
 		t.Helper()
-		_, token, err := s.AddToCart(ctx, GuestCart(""), lines)
+		_, token, err := s.AddToCart(ctx, GuestCart(""), lines, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -340,7 +340,7 @@ func TestMergeCart(t *testing.T) {
 
 	t.Run("lines add up, to the limit", func(t *testing.T) {
 		user := UserCart(uuid.New())
-		if _, _, err := s.AddToCart(ctx, user, []AddLine{{Slug: "cpu", Quantity: 8}, {Slug: "ram", Quantity: 1}}); err != nil {
+		if _, _, err := s.AddToCart(ctx, user, []AddLine{{Slug: "cpu", Quantity: 8}, {Slug: "ram", Quantity: 1}}, false); err != nil {
 			t.Fatal(err)
 		}
 		c := merge(guest(AddLine{Slug: "cpu", Quantity: 5}, AddLine{Slug: "ram", Quantity: 2}), user)
@@ -357,7 +357,7 @@ func TestMergeCart(t *testing.T) {
 			adds = append(adds, AddLine{Slug: p.Slug, Quantity: 1})
 		}
 		user := UserCart(uuid.New())
-		if _, _, err := s.AddToCart(ctx, user, adds); err != nil {
+		if _, _, err := s.AddToCart(ctx, user, adds, false); err != nil {
 			t.Fatal(err)
 		}
 		c := merge(guest(AddLine{Slug: "cpu", Quantity: 1}), user)

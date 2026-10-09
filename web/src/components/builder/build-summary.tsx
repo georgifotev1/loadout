@@ -1,9 +1,11 @@
 import { CircleCheck } from "lucide-react";
+import { AssemblyOption } from "#/components/order/assembly-option";
 import { Price } from "#/components/product/price";
 import { m } from "#/i18n";
 import {
 	type BuildCheck,
 	type BuildStatus,
+	buildHighlights,
 	type Finding,
 	findingText,
 	hasPowerParts,
@@ -13,17 +15,23 @@ import { cn } from "#/lib/utils";
 import { SeverityIcon } from "./finding-note";
 import { findingKey, scrollToSlot } from "./slot-row";
 
-// BuildSummary is the build's total, compatibility and power at a glance, with the actions
-// (`children`) at the bottom.
+// BuildSummary is the build's total, compatibility, specs and power at a glance, the offer to
+// assemble it, and the actions (`children`) at the bottom. assembly is the shopper's choice; the
+// total includes it while the API offers assembly.
 export function BuildSummary({
 	check,
 	status,
+	assembly,
+	onAssemblyChange,
 	children,
 }: {
 	check: BuildCheck;
 	status: BuildStatus;
+	assembly: boolean;
+	onAssemblyChange: (on: boolean) => void;
 	children?: React.ReactNode;
 }) {
+	const assembled = assembly && check.assembly.offered;
 	return (
 		<div className="overflow-hidden rounded-xl border bg-card">
 			<div className="p-5">
@@ -31,12 +39,17 @@ export function BuildSummary({
 					{m.builder.summary.total}
 				</p>
 				<Price
-					cents={check.total.amount_cents}
+					cents={
+						assembled
+							? check.assembly.total.amount_cents
+							: check.total.amount_cents
+					}
 					className="mt-1 block text-3xl tracking-[-0.03em]"
 				/>
 				<p className="mt-1 text-subtle-foreground text-xs">
 					{m.builder.summary.vatIncluded} ·{" "}
 					{m.builder.summary.parts(check.parts.length)}
+					{assembled ? ` · ${m.builder.summary.withAssembly}` : null}
 				</p>
 			</div>
 
@@ -45,13 +58,53 @@ export function BuildSummary({
 				<Compatibility check={check} status={status} />
 			</div>
 
+			<Highlights check={check} />
+
 			{hasPowerParts(check) ? (
 				<div className="border-t p-5">
 					<PowerMeter check={check} />
 				</div>
 			) : null}
 
+			{check.assembly.offered ? (
+				<div className="border-t p-5">
+					<AssemblyOption
+						id="build-assembly"
+						offered
+						requested={assembly}
+						priceCents={check.assembly.price.amount_cents}
+						onChange={onAssemblyChange}
+					/>
+				</div>
+			) : null}
+
 			{children ? <div className="border-t p-5">{children}</div> : null}
+		</div>
+	);
+}
+
+// Highlights is the build's spec sheet: what it has, in a shopper's terms.
+function Highlights({ check }: { check: BuildCheck }) {
+	const lines = buildHighlights(check);
+	if (!lines.length) return null;
+	return (
+		<div className="border-t p-5">
+			<p className="text-muted-foreground text-sm">
+				{m.builder.summary.config}
+			</p>
+			<dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+				{lines.map((l) => (
+					<div key={l.slot} className="contents">
+						<dt className="text-subtle-foreground">{m.builder.slot[l.slot]}</dt>
+						<dd
+							className="min-w-0 truncate text-right font-medium"
+							title={l.value}
+						>
+							{l.value}
+						</dd>
+					</div>
+				))}
+			</dl>
 		</div>
 	);
 }
@@ -98,8 +151,15 @@ function Compatibility({
 	}
 	const unavailable = check.unavailable.length;
 	const errors = status.errors + unavailable;
+	const outOfStock = check.out_of_stock.length;
 	return (
 		<div className="mt-4 flex flex-col gap-3">
+			{outOfStock ? (
+				<p className="flex items-center gap-2 font-medium text-destructive text-sm">
+					<SeverityIcon severity="error" />
+					{m.builder.summary.outOfStock(outOfStock)}
+				</p>
+			) : null}
 			{errors === 0 ? (
 				<p className="flex items-center gap-2 font-medium text-sm text-success">
 					<CircleCheck className="size-4" />
@@ -113,8 +173,16 @@ function Compatibility({
 					{m.builder.summary.errors(errors)}
 				</p>
 			)}
-			{status.problems.length || unavailable ? (
+			{status.problems.length || unavailable || outOfStock ? (
 				<ul className="flex flex-col gap-1">
+					{check.out_of_stock.map((u) => (
+						<ProblemLink
+							key={`stock:${u.slot}:${u.slug}`}
+							slot={u.slot}
+							severity="error"
+							text={m.builder.summary.outOfStockItem(m.builder.slot[u.slot])}
+						/>
+					))}
 					{check.unavailable.map((u) => (
 						<ProblemLink
 							key={`${u.slot}:${u.slug}`}

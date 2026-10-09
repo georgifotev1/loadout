@@ -169,3 +169,46 @@ func TestOrderCancelled(t *testing.T) {
 		})
 	}
 }
+
+func TestOrderEmailsWithAssembly(t *testing.T) {
+	r := &recorder{}
+	s := NewService(r, "https://loadout.bg")
+	o := Order{
+		ID:     uuid.New(),
+		Number: 1004,
+		Lines: []OrderLine{
+			{Name: "Процесор", Quantity: 1, LineCents: 200_00, InBuild: true},
+			{Name: "Мишка", Quantity: 1, LineCents: 40_00},
+			{Name: "Памет", Quantity: 2, LineCents: 160_00, InBuild: true},
+		},
+		DeliveryCents: 5_99,
+		AssemblyCents: 35_00,
+		BuildCents:    395_00,
+		TotalCents:    440_99,
+		Assembly:      true,
+	}
+	if err := s.OrderReceived(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.OrderConfirmed(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	// The PC first, its parts under it, then the mouse on its own.
+	wantGroup := "Компютър по поръчка, сглобен: 395,00\u00a0€\n" +
+		"  1 × Процесор: 200,00\u00a0€\n" +
+		"  2 × Памет: 160,00\u00a0€\n" +
+		"  Сглобяване: 35,00\u00a0€\n" +
+		"1 × Мишка: 40,00\u00a0€\n"
+	for _, tc := range []struct {
+		email int // 0: received, 1: confirmed
+		want  string
+	}{
+		{0, wantGroup},
+		{0, "Сглобяване на компютъра: 35,00\u00a0€\n"},
+		{1, "Сглобяваме компютъра и ще ви пишем"},
+	} {
+		if text := r.sent[tc.email].Text; !strings.Contains(text, tc.want) {
+			t.Errorf("email doesn't contain %q:\n%s", tc.want, text)
+		}
+	}
+}

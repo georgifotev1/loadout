@@ -120,7 +120,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			Username: cfg.Mail.SMTPUsername,
 			Password: cfg.Mail.SMTPPassword,
 		}, cfg.SiteURL)
-		ordersSvc := orders.NewService(pool, catalogSvc, jobsInserter)
+		configuratorSvc := configurator.NewService(pool, catalogSvc, specsSvc)
+		ordersSvc := orders.NewService(pool, catalogSvc, configuratorSvc, jobsInserter)
 		// Without Stripe settings (development only) there are no card payments. A nil
 		// *payments.Service must not become a non-nil orders.Payments, hence the two variables.
 		var paymentsSvc *payments.Service
@@ -163,7 +164,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			auth:         authSvc,
 			catalog:      catalogSvc,
 			specs:        specsSvc,
-			configurator: configurator.NewService(pool, catalogSvc, specsSvc),
+			configurator: configuratorSvc,
 			orders:       ordersSvc,
 			payments:     paymentsSvc,
 			jobs:         jobsClient,

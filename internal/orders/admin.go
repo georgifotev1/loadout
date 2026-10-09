@@ -155,7 +155,7 @@ type AdminOrderDetail struct {
 	OrderDetail
 	Lines       []AdminOrderLine
 	DealerCents money.Cents // what the lines cost us, VAT included
-	MarginCents money.Cents // the lines' subtotal minus DealerCents; delivery left out
+	MarginCents money.Cents // the lines' subtotal minus DealerCents; delivery and assembly left out
 	StatusSince time.Time
 	Stale       bool
 	Transitions []Transition // oldest first

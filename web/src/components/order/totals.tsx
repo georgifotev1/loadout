@@ -6,11 +6,14 @@ import { cn } from "#/lib/utils";
 export function Totals({
 	subtotal,
 	delivery,
+	assembly,
 	total,
 	className,
 }: {
 	subtotal: number;
 	delivery: number;
+	/** The assembly fee; no row when the PC isn't assembled. */
+	assembly?: number;
 	total: number;
 	className?: string;
 }) {
@@ -28,6 +31,14 @@ export function Totals({
 					<Price cents={delivery} className="font-medium" />
 				</dd>
 			</div>
+			{assembly === undefined ? null : (
+				<div className="flex justify-between">
+					<dt className="text-muted-foreground">{m.cart.assembly}</dt>
+					<dd>
+						<Price cents={assembly} className="font-medium" />
+					</dd>
+				</div>
+			)}
 			<div className="mt-2 flex items-baseline justify-between border-t pt-4">
 				<dt className="font-medium">{m.cart.total}</dt>
 				<dd>

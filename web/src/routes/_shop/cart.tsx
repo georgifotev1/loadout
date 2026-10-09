@@ -4,6 +4,8 @@ import { ArrowRight, ShoppingCart, TriangleAlert, X } from "lucide-react";
 import { useCart } from "#/components/cart/cart-provider";
 import { LineNote, LineTitle } from "#/components/cart/line";
 import { Quantity } from "#/components/cart/quantity";
+import { AssemblyOption } from "#/components/order/assembly-option";
+import { PcGroup } from "#/components/order/pc-group";
 import { Price } from "#/components/product/price";
 import { ProductImage } from "#/components/product/product-image";
 import { Container } from "#/components/site/container";
@@ -11,7 +13,8 @@ import { PageSkeleton } from "#/components/site/page-skeletons";
 import { StatusPage } from "#/components/site/status-page";
 import { Button } from "#/components/ui/button";
 import { m } from "#/i18n";
-import { cartQuery, maxQuantity } from "#/lib/api/cart";
+import { type CartLine, cartQuery, maxQuantity } from "#/lib/api/cart";
+import { buildSearchOfParts, bySlot } from "#/lib/builder";
 import { cn } from "#/lib/utils";
 
 // /cart: the cart in full. Its data loads in the browser (see cartQuery), so the server renders
@@ -63,6 +66,65 @@ function CartPage() {
 		);
 	}
 
+	// The PC we assemble is shown as one item, its parts inside it; the rest as they are.
+	const pc = cart.lines
+		.filter((l) => l.in_build)
+		.sort(bySlot((l) => l.product?.category));
+	const rest = cart.lines.filter((l) => !l.in_build);
+	const lineItem = (line: CartLine) => (
+		<li
+			key={line.product_id}
+			aria-busy={busy(line.product_id)}
+			className="flex gap-4 p-4 sm:gap-5 sm:p-5"
+		>
+			<ProductImage
+				src={line.product?.image}
+				alt={line.name}
+				className={cn(
+					"size-20 shrink-0 rounded-lg border p-2 sm:size-24",
+					!line.product && "opacity-50",
+				)}
+			/>
+			<div className="flex min-w-0 flex-1 flex-col">
+				<div className="flex gap-4">
+					<div className="min-w-0 flex-1">
+						{line.product ? (
+							<p className="font-medium text-[11px] text-subtle-foreground uppercase tracking-wider">
+								{line.product.brand}
+							</p>
+						) : null}
+						<LineTitle
+							line={line}
+							className="mt-0.5 line-clamp-2 font-medium text-sm"
+						/>
+						<LineNote line={line} className="mt-1" />
+					</div>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						aria-label={m.cart.remove}
+						disabled={busy(line.product_id)}
+						onClick={() => remove(line.product_id)}
+						className="-mt-1 -mr-1 text-subtle-foreground"
+					>
+						<X />
+					</Button>
+				</div>
+				{line.product && line.line_total ? (
+					<div className="mt-auto flex items-end justify-between gap-4 pt-3">
+						<Quantity
+							value={line.quantity}
+							max={maxQuantity}
+							disabled={busy(line.product_id)}
+							onChange={(q) => setQuantity(line.product_id, q)}
+						/>
+						<Price cents={line.line_total.amount_cents} className="text-base" />
+					</div>
+				) : null}
+			</div>
+		</li>
+	);
+
 	return (
 		<Container className="pt-10">
 			<h1 className="font-semibold text-3xl tracking-[-0.03em]">
@@ -81,64 +143,37 @@ function CartPage() {
 			) : null}
 
 			<div className="mt-8 grid items-start gap-8 lg:grid-cols-[1fr_22rem]">
-				<ul className="divide-y rounded-xl border bg-card">
-					{cart.lines.map((line) => (
-						<li
-							key={line.product_id}
-							aria-busy={busy(line.product_id)}
-							className="flex gap-4 p-4 sm:gap-5 sm:p-5"
+				<div className="flex flex-col gap-4">
+					{pc.length && cart.assembly.build_total ? (
+						<PcGroup
+							totalCents={cart.assembly.build_total.amount_cents}
+							parts={pc.reduce((n, l) => n + l.quantity, 0)}
+							images={pc.map((l) => l.product?.image)}
+							action={
+								<Link
+									to="/builder"
+									search={buildSearchOfParts(
+										pc.map((l) => ({
+											category: l.product?.category ?? "",
+											slug: l.slug,
+											quantity: l.quantity,
+										})),
+									)}
+									className="text-muted-foreground text-xs underline-offset-4 hover:underline"
+								>
+									{m.assembly.editInBuilder}
+								</Link>
+							}
 						>
-							<ProductImage
-								src={line.product?.image}
-								alt={line.name}
-								className={cn(
-									"size-20 shrink-0 rounded-lg border p-2 sm:size-24",
-									!line.product && "opacity-50",
-								)}
-							/>
-							<div className="flex min-w-0 flex-1 flex-col">
-								<div className="flex gap-4">
-									<div className="min-w-0 flex-1">
-										{line.product ? (
-											<p className="font-medium text-[11px] text-subtle-foreground uppercase tracking-wider">
-												{line.product.brand}
-											</p>
-										) : null}
-										<LineTitle
-											line={line}
-											className="mt-0.5 line-clamp-2 font-medium text-sm"
-										/>
-										<LineNote line={line} className="mt-1" />
-									</div>
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										aria-label={m.cart.remove}
-										disabled={busy(line.product_id)}
-										onClick={() => remove(line.product_id)}
-										className="-mt-1 -mr-1 text-subtle-foreground"
-									>
-										<X />
-									</Button>
-								</div>
-								{line.product && line.line_total ? (
-									<div className="mt-auto flex items-end justify-between gap-4 pt-3">
-										<Quantity
-											value={line.quantity}
-											max={maxQuantity}
-											disabled={busy(line.product_id)}
-											onChange={(q) => setQuantity(line.product_id, q)}
-										/>
-										<Price
-											cents={line.line_total.amount_cents}
-											className="text-base"
-										/>
-									</div>
-								) : null}
-							</div>
-						</li>
-					))}
-				</ul>
+							<ul className="divide-y">{pc.map(lineItem)}</ul>
+						</PcGroup>
+					) : null}
+					{rest.length ? (
+						<ul className="divide-y rounded-xl border bg-card">
+							{rest.map(lineItem)}
+						</ul>
+					) : null}
+				</div>
 
 				<aside className="rounded-xl border bg-card p-6 lg:sticky lg:top-[calc(var(--spacing-header)+2.5rem+1.5rem)]">
 					<h2 className="font-medium">{m.cart.summary}</h2>
@@ -148,20 +183,41 @@ function CartPage() {
 							<dd>
 								<Price
 									cents={cart.subtotal.amount_cents}
-									className="text-2xl tracking-[-0.02em]"
+									className="font-medium"
 								/>
 							</dd>
 						</div>
+						{cart.assembly.requested && cart.assembly.offered ? (
+							<div className="flex justify-between">
+								<dt className="text-muted-foreground">{m.cart.assembly}</dt>
+								<dd>
+									<Price
+										cents={cart.assembly.price.amount_cents}
+										className="font-medium"
+									/>
+								</dd>
+							</div>
+						) : null}
 						<div className="flex justify-between">
 							<dt className="text-muted-foreground">{m.cart.delivery}</dt>
 							<dd className="text-muted-foreground">
 								{m.cart.deliveryAtCheckout}
 							</dd>
 						</div>
+						<div className="mt-2 flex items-baseline justify-between border-t pt-4">
+							<dt className="font-medium">{m.cart.total}</dt>
+							<dd>
+								<Price
+									cents={cart.total.amount_cents}
+									className="text-2xl tracking-[-0.02em]"
+								/>
+							</dd>
+						</div>
 						<p className="text-right text-subtle-foreground text-xs">
 							{m.cart.vatIncluded}
 						</p>
 					</dl>
+					<CartAssembly />
 					<Button
 						size="lg"
 						className="mt-6 h-11 w-full"
@@ -179,5 +235,24 @@ function CartPage() {
 				</aside>
 			</div>
 		</Container>
+	);
+}
+
+// CartAssembly offers to assemble the cart's PC, or says why the one asked for can't be.
+function CartAssembly() {
+	const { cart, setAssembly, settingAssembly } = useCart();
+	if (!cart) return null;
+	const a = cart.assembly;
+	if (!a.offered && !a.requested) return null;
+	return (
+		<div className="mt-5">
+			<AssemblyOption
+				offered={a.offered}
+				requested={a.requested}
+				priceCents={a.price.amount_cents}
+				busy={settingAssembly}
+				onChange={(on) => void setAssembly(on).catch(() => {})}
+			/>
+		</div>
 	);
 }

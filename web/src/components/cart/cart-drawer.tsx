@@ -6,6 +6,7 @@ import {
 	TriangleAlert,
 	X,
 } from "lucide-react";
+import { PcGroup } from "#/components/order/pc-group";
 import { Price } from "#/components/product/price";
 import { ProductImage } from "#/components/product/product-image";
 import { Button } from "#/components/ui/button";
@@ -18,7 +19,8 @@ import {
 } from "#/components/ui/drawer";
 import { useMediaQuery } from "#/hooks/use-media-query";
 import { m } from "#/i18n";
-import { maxQuantity } from "#/lib/api/cart";
+import { type CartLine, maxQuantity } from "#/lib/api/cart";
+import { bySlot } from "#/lib/builder";
 import { cn } from "#/lib/utils";
 import { useCart } from "./cart-provider";
 import { LineNote, LineTitle } from "./line";
@@ -44,6 +46,61 @@ export function CartDrawer({
 	const lines = cart?.lines ?? [];
 	const added = notice && "added" in notice ? notice.added : [];
 	const close = () => onOpenChange(false);
+
+	// The PC we assemble is one item with its parts inside; the rest as they are.
+	const pc = lines
+		.filter((l) => l.in_build)
+		.sort(bySlot((l) => l.product?.category));
+	const rest = lines.filter((l) => !l.in_build);
+	const lineItem = (line: CartLine) => (
+		<li
+			key={line.product_id}
+			aria-busy={busy(line.product_id)}
+			className={cn(
+				"flex gap-4 px-5 py-4 transition-colors",
+				added.includes(line.slug) && "bg-muted/60",
+			)}
+		>
+			<ProductImage
+				src={line.product?.image}
+				alt={line.name}
+				className={cn(
+					"size-18 shrink-0 rounded-lg border p-1.5",
+					!line.product && "opacity-50",
+				)}
+			/>
+			<div className="flex min-w-0 flex-1 flex-col">
+				<div className="flex gap-2">
+					<LineTitle
+						line={line}
+						onClick={close}
+						className="line-clamp-2 flex-1 text-meta"
+					/>
+					<button
+						type="button"
+						aria-label={m.cart.remove}
+						disabled={busy(line.product_id)}
+						onClick={() => remove(line.product_id)}
+						className="-mt-0.5 flex size-6 shrink-0 items-center justify-center rounded text-subtle-foreground hover:bg-muted hover:text-foreground"
+					>
+						<X className="size-3.5" />
+					</button>
+				</div>
+				<LineNote line={line} className="mt-1" />
+				{line.product && line.line_total ? (
+					<div className="mt-auto flex items-end justify-between pt-2">
+						<Quantity
+							value={line.quantity}
+							max={maxQuantity}
+							disabled={busy(line.product_id)}
+							onChange={(q) => setQuantity(line.product_id, q)}
+						/>
+						<Price cents={line.line_total.amount_cents} className="text-sm" />
+					</div>
+				) : null}
+			</div>
+		</li>
+	);
 
 	return (
 		<Drawer side={side} open={open} onOpenChange={onOpenChange}>
@@ -86,70 +143,36 @@ export function CartDrawer({
 							<p className="text-muted-foreground text-sm">{m.cart.empty}</p>
 						</div>
 					) : (
-						<ul className="min-h-0 flex-1 divide-y overflow-y-auto overscroll-contain">
-							{lines.map((line) => (
-								<li
-									key={line.product_id}
-									aria-busy={busy(line.product_id)}
-									className={cn(
-										"flex gap-4 px-5 py-4 transition-colors",
-										added.includes(line.slug) && "bg-muted/60",
-									)}
+						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+							{pc.length && cart?.assembly.build_total ? (
+								<PcGroup
+									totalCents={cart.assembly.build_total.amount_cents}
+									parts={pc.reduce((n, l) => n + l.quantity, 0)}
+									images={pc.map((l) => l.product?.image)}
+									className="m-4 mb-0"
 								>
-									<ProductImage
-										src={line.product?.image}
-										alt={line.name}
-										className={cn(
-											"size-18 shrink-0 rounded-lg border p-1.5",
-											!line.product && "opacity-50",
-										)}
-									/>
-									<div className="flex min-w-0 flex-1 flex-col">
-										<div className="flex gap-2">
-											<LineTitle
-												line={line}
-												onClick={close}
-												className="line-clamp-2 flex-1 text-meta"
-											/>
-											<button
-												type="button"
-												aria-label={m.cart.remove}
-												disabled={busy(line.product_id)}
-												onClick={() => remove(line.product_id)}
-												className="-mt-0.5 flex size-6 shrink-0 items-center justify-center rounded text-subtle-foreground hover:bg-muted hover:text-foreground"
-											>
-												<X className="size-3.5" />
-											</button>
-										</div>
-										<LineNote line={line} className="mt-1" />
-										{line.product && line.line_total ? (
-											<div className="mt-auto flex items-end justify-between pt-2">
-												<Quantity
-													value={line.quantity}
-													max={maxQuantity}
-													disabled={busy(line.product_id)}
-													onChange={(q) => setQuantity(line.product_id, q)}
-												/>
-												<Price
-													cents={line.line_total.amount_cents}
-													className="text-sm"
-												/>
-											</div>
-										) : null}
-									</div>
-								</li>
-							))}
-						</ul>
+									<ul className="divide-y">{pc.map(lineItem)}</ul>
+								</PcGroup>
+							) : null}
+							<ul className="divide-y">{rest.map(lineItem)}</ul>
+						</div>
 					)}
 
 					{cart && lines.length > 0 ? (
 						<div className="border-t bg-card px-5 pt-4 pb-5">
 							<div className="flex items-baseline justify-between">
 								<span className="text-muted-foreground text-sm">
-									{m.cart.subtotal}
+									{cart.assembly.requested && cart.assembly.offered
+										? m.cart.total
+										: m.cart.subtotal}
 								</span>
-								<Price cents={cart.subtotal.amount_cents} className="text-lg" />
+								<Price cents={cart.total.amount_cents} className="text-lg" />
 							</div>
+							{cart.assembly.requested && cart.assembly.offered ? (
+								<p className="mt-0.5 text-subtle-foreground text-xs">
+									{m.cart.withAssembly}
+								</p>
+							) : null}
 							<p className="mt-0.5 text-subtle-foreground text-xs">
 								{m.cart.vatIncluded} · {m.cart.delivery}:{" "}
 								{m.cart.deliveryAtCheckout.toLowerCase()}

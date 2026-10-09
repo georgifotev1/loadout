@@ -181,7 +181,7 @@ func (w *PaymentTimeoutWorker) Work(ctx context.Context, job *river.Job[PaymentT
 func orderEmail(o OrderDetail) notify.Order {
 	lines := make([]notify.OrderLine, len(o.Lines))
 	for i, l := range o.Lines {
-		lines[i] = notify.OrderLine{Name: l.Name, Quantity: l.Quantity, LineCents: l.TotalCents}
+		lines[i] = notify.OrderLine{Name: l.Name, Quantity: l.Quantity, LineCents: l.TotalCents, InBuild: l.InBuild}
 	}
 	return notify.Order{
 		ID:             o.ID,
@@ -194,7 +194,10 @@ func orderEmail(o OrderDetail) notify.Order {
 		Lines:          lines,
 		SubtotalCents:  o.SubtotalCents,
 		DeliveryCents:  o.DeliveryCents,
+		AssemblyCents:  o.AssemblyCents,
+		BuildCents:     o.BuildCents,
 		TotalCents:     o.TotalCents,
+		Assembly:       o.Assembly,
 		CashOnDelivery: o.Payment == PaymentCOD,
 		PaidByCard:     o.Payment == PaymentCard && o.PaidAt != nil,
 	}

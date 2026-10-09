@@ -3,6 +3,7 @@ package orders
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -13,6 +14,7 @@ import (
 	"github.com/riverqueue/river"
 
 	"github.com/gfotev/loadout/internal/catalog"
+	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/validate"
@@ -34,10 +36,21 @@ const paymentTimeoutGrace = 10 * time.Minute
 type Quote struct {
 	Cart          Cart
 	DeliveryCents money.Cents
-	TotalCents    money.Cents
+	Assembly      AssemblyQuote
+	TotalCents    money.Cents // with assembly when it's chosen and offered
 	// Orderable is whether checkout would take the cart: it has lines, and every product is for
 	// sale and in stock.
 	Orderable bool
+}
+
+// AssemblyQuote is the offer to assemble the cart's PC.
+type AssemblyQuote struct {
+	// Offered is whether the cart's PC parts make one complete, compatible build, so the
+	// supplier can assemble it.
+	Offered bool
+	// Chosen is whether the quote includes assembly: the cart asks for it and it's offered.
+	Chosen bool
+	Cents  money.Cents
 }
 
 // CheckoutInput is what the customer fills in at checkout.
@@ -63,18 +76,31 @@ type Placed struct {
 	Token  string
 }
 
-// Quote returns the owner's cart with delivery and the total.
+// Quote returns the owner's cart with delivery and the total, with assembly if the cart asks for
+// it and its PC parts can be assembled.
 func (s *Service) Quote(ctx context.Context, owner CartOwner) (Quote, error) {
 	c, err := s.Cart(ctx, owner)
 	if err != nil {
 		return Quote{}, err
 	}
-	q := Quote{Cart: c, DeliveryCents: DeliveryCents, TotalCents: c.SubtotalCents + DeliveryCents}
+	q := Quote{
+		Cart:          c,
+		DeliveryCents: DeliveryCents,
+		Assembly: AssemblyQuote{
+			Offered: c.Assembly.Offered,
+			Chosen:  c.Assembly.Chosen(),
+			Cents:   c.Assembly.Cents,
+		},
+	}
 	q.Orderable = len(c.Lines) > 0
 	for _, l := range c.Lines {
 		if l.Product == nil || l.Product.StockQty <= 0 {
 			q.Orderable = false
 		}
+	}
+	q.TotalCents = c.SubtotalCents + q.DeliveryCents
+	if q.Assembly.Chosen {
+		q.TotalCents += q.Assembly.Cents
 	}
 	return q, nil
 }
@@ -87,9 +113,12 @@ func (s *Service) Quote(ctx context.Context, owner CartOwner) (Quote, error) {
 // and a PaymentTimeoutArgs job looks at it when PaymentWindow is over, in case Stripe's events
 // never came.
 //
+// The PC is assembled if the cart asks for it and its parts make one complete, compatible build,
+// as Quote says; if not, the order has no assembly, and the total the customer saw tells which.
+//
 // It refuses (field errors) an empty cart ("cart: empty"), a product no longer for sale or out
 // of stock ("cart: unavailable"), and a total other than the one the customer saw
-// ("expected_total: changed").
+// ("expected_total_cents: changed").
 func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInput) (Placed, error) {
 	in.trim()
 	if err := in.validate(); err != nil {
@@ -132,6 +161,7 @@ func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInpu
 		}
 
 		o := draft{CheckoutInput: in, DeliveryCents: DeliveryCents}
+		build := make([]buildPart, 0, len(lines))
 		for _, l := range lines {
 			p, ok := byID[l.ProductID]
 			if !ok || p.StockQty <= 0 {
@@ -140,11 +170,31 @@ func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInpu
 			}
 			o.Lines = append(o.Lines, orderLine{SalePart: p, Quantity: l.Quantity})
 			o.SubtotalCents += p.RetailCents * money.Cents(l.Quantity)
+			build = append(build, buildPart{Category: p.Category, Slug: p.Slug, Quantity: l.Quantity})
 		}
 		if err := v.Err(); err != nil {
 			return err
 		}
-		v.Check(o.SubtotalCents+o.DeliveryCents == in.ExpectedTotalCents, "expected_total", "changed")
+		asked, err := s.store.cartAssembly(ctx, tx, owner.key())
+		if err != nil {
+			return err
+		}
+		if asked {
+			if o.Assembly, err = s.assemblable(ctx, build); err != nil {
+				return err
+			}
+		}
+		if o.Assembly {
+			o.AssemblyCents = configurator.AssemblyCents
+			for i := range o.Lines {
+				o.Lines[i].InBuild = inBuild(o.Lines[i].Category)
+			}
+			// The PC's parts first, in the builder's order, so the order reads as one PC.
+			slices.SortStableFunc(o.Lines, func(a, b orderLine) int {
+				return slotRank(a.Category) - slotRank(b.Category)
+			})
+		}
+		v.Check(o.SubtotalCents+o.DeliveryCents+o.AssemblyCents == in.ExpectedTotalCents, "expected_total_cents", "changed")
 		if err := v.Err(); err != nil {
 			return err
 		}
@@ -181,11 +231,14 @@ type draft struct {
 	Lines         []orderLine
 	SubtotalCents money.Cents
 	DeliveryCents money.Cents
+	Assembly      bool        // the supplier assembles the lines InBuild
+	AssemblyCents money.Cents // 0 without assembly
 }
 
 type orderLine struct {
 	catalog.SalePart
 	Quantity int
+	InBuild  bool // goes into the PC the supplier assembles
 }
 
 func (in *CheckoutInput) trim() {

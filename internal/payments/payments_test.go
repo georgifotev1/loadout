@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stripe/stripe-go/v86"
 
+	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/platform/db/dbtest"
 	"github.com/gfotev/loadout/internal/platform/jobs"
@@ -102,7 +103,7 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &fixture{orders: orders.NewService(pool, nil, inserter), stripe: &fakeStripe{refunded: stripe.RefundStatusSucceeded}}
+	f := &fixture{orders: orders.NewService(pool, nil, nil, inserter), stripe: &fakeStripe{refunded: stripe.RefundStatusSucceeded}}
 	srv := httptest.NewServer(f.stripe)
 	t.Cleanup(srv.Close)
 	f.svc = NewService(pool, NewStripeClient("sk_test_x", srv.URL), f.orders, Config{
@@ -597,4 +598,20 @@ func TestPaidBeforeTheWebhook(t *testing.T) {
 			t.Errorf("called Stripe: %v", f.stripe.calls)
 		}
 	})
+}
+
+func TestPayWithAssembly(t *testing.T) {
+	s := &Service{cfg: Config{SiteURL: "https://loadout.bg"}}
+	o := orders.OrderDetail{
+		ID:            uuid.New(),
+		Lines:         []orders.OrderLine{{Name: "Процесор", Quantity: 1, UnitCents: 200_00}},
+		DeliveryCents: 5_99,
+		Assembly:      true,
+		AssemblyCents: configurator.AssemblyCents,
+	}
+	items := s.sessionParams(o, time.Now()).LineItems
+	if len(items) != 3 || *items[2].PriceData.ProductData.Name != "Сглобяване на компютъра" ||
+		*items[2].PriceData.UnitAmount != int64(configurator.AssemblyCents) {
+		t.Errorf("line items %+v", items)
+	}
 }

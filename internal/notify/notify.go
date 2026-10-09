@@ -99,15 +99,19 @@ type Order struct {
 	ID     uuid.UUID
 	Number int64
 	// Token opens the order page without logging in (the link in the email).
-	Token          string
-	Email          string
-	Name           string
-	Phone          string
-	Address        string // street, postcode and city on one line
-	Lines          []OrderLine
-	SubtotalCents  money.Cents
-	DeliveryCents  money.Cents
-	TotalCents     money.Cents
+	Token         string
+	Email         string
+	Name          string
+	Phone         string
+	Address       string // street, postcode and city on one line
+	Lines         []OrderLine
+	SubtotalCents money.Cents
+	DeliveryCents money.Cents
+	AssemblyCents money.Cents // 0 unless Assembly
+	BuildCents    money.Cents // the assembled PC: its parts and the fee; 0 unless Assembly
+	TotalCents    money.Cents
+	// Assembly is whether we assemble the PC from the order's parts.
+	Assembly       bool
 	CashOnDelivery bool
 	PaidByCard     bool
 }
@@ -117,6 +121,7 @@ type OrderLine struct {
 	Name      string
 	Quantity  int
 	LineCents money.Cents
+	InBuild   bool // a part of the assembled PC
 }
 
 // OrderReceived confirms a new order: what was ordered, the totals, where it goes, and the link
@@ -133,16 +138,40 @@ func (s *Service) OrderReceived(ctx context.Context, o Order) error {
 		fmt.Sprintf("Поръчка № %d", o.Number),
 		"",
 	}
+	// The assembled PC first, as one item with its parts under it; then what ships as it is.
+	if o.Assembly {
+		ls = append(ls, "Компютър по поръчка, сглобен: "+money.Format(o.BuildCents))
+		for _, l := range o.Lines {
+			if l.InBuild {
+				ls = append(ls, fmt.Sprintf("  %d × %s: %s", l.Quantity, l.Name, money.Format(l.LineCents)))
+			}
+		}
+		ls = append(ls, "  Сглобяване: "+money.Format(o.AssemblyCents))
+	}
 	for _, l := range o.Lines {
-		ls = append(ls, fmt.Sprintf("%d × %s: %s", l.Quantity, l.Name, money.Format(l.LineCents)))
+		if !l.InBuild {
+			ls = append(ls, fmt.Sprintf("%d × %s: %s", l.Quantity, l.Name, money.Format(l.LineCents)))
+		}
 	}
 	ls = append(ls,
 		"",
 		"Междинна сума: "+money.Format(o.SubtotalCents),
 		"Доставка: "+money.Format(o.DeliveryCents),
+	)
+	if o.Assembly {
+		ls = append(ls, "Сглобяване на компютъра: "+money.Format(o.AssemblyCents))
+	}
+	ls = append(ls,
 		"Общо: "+money.Format(o.TotalCents)+" (с ДДС)",
 		"",
 	)
+	if o.Assembly {
+		ls = append(ls,
+			"Сглобяваме компютъра от частите в поръчката. Гаранциите на частите се запазват,",
+			"а кутиите им пристигат заедно с него.",
+			"",
+		)
+	}
 	switch {
 	case o.CashOnDelivery:
 		ls = append(ls, "Плащане: наложен платеж, плащате на куриера при получаване.")
@@ -170,8 +199,11 @@ func (s *Service) OrderConfirmed(ctx context.Context, o Order) error {
 		"Здравейте, " + o.Name + ",",
 		"",
 		fmt.Sprintf("Потвърдихме поръчка № %d: всички продукти са налични.", o.Number),
-		"Подготвяме пратката и ще ви пишем, когато тръгне.",
-		"",
+	}
+	if o.Assembly {
+		ls = append(ls, "Сглобяваме компютъра и ще ви пишем, когато пратката тръгне.", "")
+	} else {
+		ls = append(ls, "Подготвяме пратката и ще ви пишем, когато тръгне.", "")
 	}
 	if o.CashOnDelivery {
 		ls = append(ls, "При получаване платете на куриера "+money.Format(o.TotalCents)+".", "")

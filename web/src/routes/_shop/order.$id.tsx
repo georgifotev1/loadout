@@ -7,6 +7,7 @@ import {
 	LoaderCircle,
 	PackageCheck,
 	Truck,
+	Wrench,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CompactLines } from "#/components/order/compact-lines";
@@ -243,11 +244,20 @@ function OrderView({
 						image: l.image,
 						quantity: l.quantity,
 						cents: l.line_total.amount_cents,
+						inBuild: l.in_build,
 					}))}
+					pcTotalCents={order.build_total?.amount_cents}
 				/>
+				{order.assembly ? (
+					<p className="mt-5 flex items-start gap-2 text-muted-foreground text-sm">
+						<Wrench className="mt-0.5 size-4 shrink-0" />
+						{m.assembly.detail}
+					</p>
+				) : null}
 				<Totals
 					subtotal={order.subtotal.amount_cents}
 					delivery={order.delivery.amount_cents}
+					assembly={order.assembly?.amount_cents}
 					total={order.total.amount_cents}
 					className="mt-6 border-t pt-5"
 				/>

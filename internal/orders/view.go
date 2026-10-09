@@ -30,7 +30,12 @@ type OrderDetail struct {
 	Lines         []OrderLine
 	SubtotalCents money.Cents
 	DeliveryCents money.Cents
-	TotalCents    money.Cents
+	// Assembly is whether the supplier assembles the PC of the lines InBuild, for AssemblyCents.
+	Assembly      bool
+	AssemblyCents money.Cents
+	// BuildCents is the assembled PC's price: the lines InBuild and the fee. 0 without assembly.
+	BuildCents money.Cents
+	TotalCents money.Cents
 }
 
 // OrderLine is one product of an order, as it was sold.
@@ -42,6 +47,7 @@ type OrderLine struct {
 	Quantity   int
 	UnitCents  money.Cents
 	TotalCents money.Cents // UnitCents × Quantity
+	InBuild    bool        // goes into the assembled PC
 }
 
 // OrderSummary is an order in a customer's order history.

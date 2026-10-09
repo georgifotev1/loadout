@@ -135,12 +135,15 @@ func (s *Service) sessionParams(o orders.OrderDetail, expiresAt time.Time) *stri
 		}
 	}
 	// Prices include VAT, as on the order; Stripe Tax isn't used.
-	items := make([]*stripe.CheckoutSessionCreateLineItemParams, 0, len(o.Lines)+1)
+	items := make([]*stripe.CheckoutSessionCreateLineItemParams, 0, len(o.Lines)+2)
 	for _, l := range o.Lines {
 		items = append(items, item(l.Name, int64(l.UnitCents), l.Quantity))
 	}
 	if o.DeliveryCents > 0 {
 		items = append(items, item("Доставка", int64(o.DeliveryCents), 1))
+	}
+	if o.Assembly {
+		items = append(items, item("Сглобяване на компютъра", int64(o.AssemblyCents), 1))
 	}
 
 	page := s.cfg.SiteURL + "/order/" + o.ID.String() + "?" + url.Values{"token": {o.Token}}.Encode()

@@ -3,7 +3,6 @@ import { Check, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Price } from "#/components/product/price";
 import { ProductImage } from "#/components/product/product-image";
-import { Stock } from "#/components/product/stock";
 import { Button } from "#/components/ui/button";
 import {
 	Drawer,
@@ -263,7 +262,6 @@ function OptionRow({
 				className={cn(
 					"grid w-full grid-cols-[3.5rem_1fr_auto] items-start gap-x-4 px-5 py-4 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none",
 					current && "bg-muted/40",
-					!p.in_stock && "[&_img]:opacity-60",
 				)}
 			>
 				<ProductImage
@@ -304,7 +302,6 @@ function OptionRow({
 							))}
 						</div>
 					) : null}
-					{!p.in_stock ? <Stock inStock={false} className="mt-2" /> : null}
 				</div>
 				<div className="flex flex-col items-end gap-1">
 					<Price cents={p.price.amount_cents} className="text-sm" />

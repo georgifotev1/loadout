@@ -26,7 +26,6 @@ import { ApiError } from "#/lib/api/client";
 import {
 	type BuildSearch,
 	buildStatus,
-	canOrder,
 	hasPowerParts,
 	isEmptyBuild,
 	parseBuildSearch,
@@ -79,6 +78,8 @@ function BuilderPage() {
 	const [target, setTarget] = useState<PickerTarget>();
 	const [pickerOpen, setPickerOpen] = useState(false);
 	const [cleared, setCleared] = useState<BuildSearch>();
+	// The shopper's choice; the API says whether the build can be assembled.
+	const [assembly, setAssembly] = useState(false);
 
 	// Each pick replaces the history entry: Back leaves the builder rather than stepping
 	// through every part tried.
@@ -129,7 +130,7 @@ function BuilderPage() {
 	};
 
 	const empty = isEmptyBuild(build);
-	const orderable = canOrder(check, status);
+	const assembled = assembly && check.assembly.offered;
 
 	return (
 		<Container className="pt-6 pb-28 lg:pb-0">
@@ -193,16 +194,26 @@ function BuilderPage() {
 					id="summary"
 					className="scroll-mt-[calc(var(--spacing-header)+2.5rem+1rem)] lg:sticky lg:top-[calc(var(--spacing-header)+2.5rem+1.5rem)] lg:self-start"
 				>
-					<BuildSummary check={check} status={status}>
-						<AddBuildToCart check={check} orderable={orderable} />
+					<BuildSummary
+						check={check}
+						status={status}
+						assembly={assembly}
+						onAssemblyChange={setAssembly}
+					>
+						<AddBuildToCart check={check} assembly={assembly} />
 					</BuildSummary>
 				</aside>
 			</div>
 
 			<MobileSummaryBar
-				totalCents={check.total.amount_cents}
+				totalCents={
+					assembled
+						? check.assembly.total.amount_cents
+						: check.total.amount_cents
+				}
 				missing={status.missing.length}
 				errors={status.errors + check.unavailable.length}
+				outOfStock={check.out_of_stock.length}
 				warnings={status.warnings}
 				onNext={
 					status.next ? () => scrollToSlot(status.next as Slot) : undefined
@@ -227,12 +238,14 @@ function MobileSummaryBar({
 	totalCents,
 	missing,
 	errors,
+	outOfStock,
 	warnings,
 	onNext,
 }: {
 	totalCents: number;
 	missing: number;
 	errors: number;
+	outOfStock: number;
 	warnings: number;
 	onNext?: () => void;
 }) {
@@ -262,6 +275,11 @@ function MobileSummaryBar({
 							<>
 								<SeverityIcon severity="error" className="size-3.5" />
 								{m.builder.summary.errors(errors)}
+							</>
+						) : outOfStock ? (
+							<>
+								<SeverityIcon severity="error" className="size-3.5" />
+								{m.builder.summary.outOfStock(outOfStock)}
 							</>
 						) : warnings ? (
 							<>

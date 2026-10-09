@@ -108,9 +108,10 @@ export interface paths {
         };
         /**
          * The parts that fit a slot of a PC build
-         * @description Builder-eligible parts for `slot` that fit the rest of the build, cheapest first. A part
-         *     fits if picking it in place of the slot's current parts causes no error involving the
-         *     slot. Parts the build still needs (a cooler for a tray CPU) don't count against it.
+         * @description Builder-eligible parts for `slot` that are in stock and fit the rest of the build,
+         *     cheapest first. A part fits if picking it in place of the slot's current parts causes no
+         *     error involving the slot. Parts the build still needs (a cooler for a tray CPU) don't
+         *     count against it. Parts out of stock aren't offered.
          */
         get: operations["listBuilderOptions"];
         put?: never;
@@ -198,8 +199,29 @@ export interface paths {
          *     Field errors name `lines[i].slug` (`unavailable`: not for sale; `out_of_stock`) or
          *     `lines[i].quantity` (`out_of_range`; `too_many`: over 10 of one product with what's in
          *     the cart), or `lines` (`too_many`: over 50 products in the cart).
+         *     `assembly: true` also asks for the cart's PC to be assembled (the builder's add to cart).
          */
         post: operations["addToCart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cart/assembly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ask for the cart's PC to be assembled, or no longer
+         * @description Checkout assembles only while the cart's `assembly.offered`. 404 without a cart.
+         */
+        put: operations["setCartAssembly"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -241,6 +263,8 @@ export interface paths {
          * @description The shopper's cart (as `GET /cart`) plus delivery and the total to send back as
          *     `expected_total_cents`. `orderable` is false for an empty cart or one with a product no
          *     longer for sale or out of stock. `payments` lists the payment methods on offer.
+         *     `assembly` says whether the cart's PC parts can be assembled; the total includes it when
+         *     the cart asks for it (`PUT /cart/assembly`).
          */
         get: operations["getCheckout"];
         put?: never;
@@ -252,8 +276,8 @@ export interface paths {
          *     (`required`, `invalid_email`); `phone` (`required`, `invalid_phone`); `postcode`
          *     (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`: not in
          *     `GET /checkout`'s `payments`); `cart` (`empty`; `unavailable`: a product is no longer for
-         *     sale or out of stock); `expected_total_cents` (`changed`: prices moved since
-         *     `GET /checkout`).
+         *     sale or out of stock); `expected_total_cents` (`changed`: prices or the assembly offer
+         *     moved since `GET /checkout`). The PC is assembled as `GET /checkout` said.
          *
          *     A card order waits for its payment: send the customer to `payment_url`. Without one
          *     (Stripe didn't answer), the order page gets it with `POST /orders/{order_id}/payment`.
@@ -1104,6 +1128,8 @@ export interface components {
             parts: components["schemas"]["BuildPart"][];
             /** @description Picked slugs that aren't for sale (any more). */
             unavailable: components["schemas"]["UnavailablePart"][];
+            /** @description Picked parts for sale but not in stock, once each. They must be replaced to order. */
+            out_of_stock: components["schemas"]["UnavailablePart"][];
             errors: components["schemas"]["Finding"][];
             warnings: components["schemas"]["Finding"][];
             info: components["schemas"]["Finding"][];
@@ -1111,6 +1137,23 @@ export interface components {
             estimated_power_w: number;
             /** @description The estimate plus 30%, rounded up to the next 50 W. */
             recommended_psu_w: number;
+            total: components["schemas"]["Price"];
+            /**
+             * @description The build can go in the cart: complete, without compatibility errors, every part for
+             *     sale and in stock.
+             */
+            orderable: boolean;
+            assembly: components["schemas"]["BuildAssembly"];
+        };
+        /**
+         * @description Assembly of the build by us, for a fee. Offered for a complete build without
+         *     compatibility errors, every part for sale. The parts' warranties stay, and their boxes
+         *     come with the PC.
+         */
+        BuildAssembly: {
+            offered: boolean;
+            price: components["schemas"]["Price"];
+            /** @description The build's total with assembly. */
             total: components["schemas"]["Price"];
         };
         BuilderOption: {
@@ -1164,6 +1207,31 @@ export interface components {
             count: number;
             /** @description The lines still for sale, at today's prices. Delivery comes at checkout. */
             subtotal: components["schemas"]["Price"];
+            assembly: components["schemas"]["CartAssembly"];
+            /** @description The subtotal, with assembly when it's requested and offered. */
+            total: components["schemas"]["Price"];
+        };
+        /**
+         * @description Assembly of the cart's PC by us, for a fee. The parts' warranties stay, and their boxes
+         *     come with the PC.
+         */
+        CartAssembly: {
+            /**
+             * @description Whether the cart's PC parts (for sale and in stock) make one complete, compatible
+             *     build. Peripherals don't count.
+             */
+            offered: boolean;
+            /** @description The shopper asked for it. The order is assembled only while it's also offered. */
+            requested: boolean;
+            price: components["schemas"]["Price"];
+            /**
+             * @description The assembled PC as one item: the lines `in_build` and the fee. Present while
+             *     assembly is requested and offered.
+             */
+            build_total?: components["schemas"]["Price"];
+        };
+        CartAssemblyRequest: {
+            assembly: boolean;
         };
         CartLine: {
             /** Format: uuid */
@@ -1179,12 +1247,16 @@ export interface components {
             product?: components["schemas"]["ProductSummary"];
             /** @description The price now × quantity. Absent when the product is no longer for sale. */
             line_total?: components["schemas"]["Price"];
+            /** @description Goes into the PC we assemble (assembly requested and offered). */
+            in_build: boolean;
         };
         CartAdd: {
             lines: {
                 slug: string;
                 quantity: number;
             }[];
+            /** @description Also ask for the cart's PC to be assembled. Without it, an earlier request stays. */
+            assembly?: boolean;
         };
         CartQuantity: {
             quantity: number;
@@ -1193,12 +1265,27 @@ export interface components {
             cart: components["schemas"]["Cart"];
             /** @description Delivery to an address. */
             delivery: components["schemas"]["Price"];
-            /** @description The subtotal and delivery. Send it back as `expected_total_cents`. */
+            assembly: components["schemas"]["AssemblyOffer"];
+            /**
+             * @description The subtotal, delivery and, when `assembly.chosen`, assembly. Send it back as
+             *     `expected_total_cents`.
+             */
             total: components["schemas"]["Price"];
             /** @description Whether the cart can be ordered as it is. */
             orderable: boolean;
             /** @description The payment methods on offer, cash on delivery first. */
             payments: components["schemas"]["PaymentMethod"][];
+        };
+        /**
+         * @description Assembly of the PC the cart's parts make: offered when they're one complete, compatible
+         *     build (peripherals ship as they are). The parts' warranties stay, and their boxes come
+         *     with the PC.
+         */
+        AssemblyOffer: {
+            offered: boolean;
+            /** @description The cart asks for it and it's offered, so the total includes it. */
+            chosen: boolean;
+            price: components["schemas"]["Price"];
         };
         /**
          * @description `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
@@ -1270,6 +1357,13 @@ export interface components {
             lines: components["schemas"]["OrderLine"][];
             subtotal: components["schemas"]["Price"];
             delivery: components["schemas"]["Price"];
+            /** @description The assembly fee. Absent when the PC isn't assembled. */
+            assembly?: components["schemas"]["Price"];
+            /**
+             * @description The assembled PC as one item: the lines `in_build` and the fee. Absent when the PC
+             *     isn't assembled.
+             */
+            build_total?: components["schemas"]["Price"];
             total: components["schemas"]["Price"];
         };
         /** @description A product as it was sold. */
@@ -1283,6 +1377,8 @@ export interface components {
             quantity: number;
             unit_price: components["schemas"]["Price"];
             line_total: components["schemas"]["Price"];
+            /** @description Goes into the assembled PC. */
+            in_build: boolean;
         };
         OrderSummary: {
             /** Format: uuid */
@@ -1632,6 +1728,8 @@ export interface components {
             quantity: number;
             unit_price: components["schemas"]["Price"];
             line_total: components["schemas"]["Price"];
+            /** @description Goes into the PC the supplier assembles. */
+            in_build: boolean;
             /** @description The supplier to order it from. */
             provider: string;
             /** @description The supplier's SKU. */
@@ -1686,10 +1784,15 @@ export interface components {
             lines: components["schemas"]["AdminOrderLine"][];
             subtotal: components["schemas"]["Price"];
             delivery: components["schemas"]["Price"];
+            /**
+             * @description The assembly fee, passed on at what the supplier charges. Absent when the PC isn't
+             *     assembled.
+             */
+            assembly?: components["schemas"]["Price"];
             total: components["schemas"]["Price"];
             /** @description What the lines cost us, VAT included. */
             dealer_total: components["schemas"]["Price"];
-            /** @description The lines' subtotal minus `dealer_total`, VAT included; delivery left out. */
+            /** @description The lines' subtotal minus `dealer_total`, VAT included; delivery and assembly left out. */
             margin: components["schemas"]["Price"];
             /** @description The order's history, oldest first. */
             transitions: components["schemas"]["OrderTransition"][];
@@ -2203,6 +2306,33 @@ export interface operations {
             };
             400: components["responses"]["InvalidBody"];
             422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setCartAssembly: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CartAssemblyRequest"];
+            };
+        };
+        responses: {
+            /** @description The cart after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            400: components["responses"]["InvalidBody"];
+            404: components["responses"]["NotFound"];
             default: components["responses"]["Error"];
         };
     };

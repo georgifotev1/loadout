@@ -119,6 +119,35 @@ func TestBuilderAPI(t *testing.T) {
 		}
 	})
 
+	t.Run("a complete build can be ordered and assembled", func(t *testing.T) {
+		body := decodeBody[BuildCheck](t, "/api/builder/check?"+good.Encode(), app)
+		if !body.Orderable || len(body.OutOfStock) != 0 || !body.Assembly.Offered ||
+			body.Assembly.Total.AmountCents != body.Total.AmountCents+int64(configurator.AssemblyCents) {
+			t.Errorf("orderable %v, out of stock %v, assembly %+v", body.Orderable, body.OutOfStock, body.Assembly)
+		}
+	})
+
+	t.Run("a part out of stock", func(t *testing.T) {
+		ctx := context.Background()
+		set := func(qty int) {
+			t.Helper()
+			_, err := app.db.Exec(ctx, `
+				UPDATE catalog.stock SET qty = $2
+				WHERE product_id = (SELECT id FROM catalog.products WHERE slug = $1)`, good.Get("gpu"), qty)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		set(0)
+		defer set(5)
+		body := decodeBody[BuildCheck](t, "/api/builder/check?"+good.Encode(), app)
+		want := []UnavailablePart{{Slot: SlotGpu, Slug: good.Get("gpu")}}
+		// Still compatible and assemblable, but it can't be ordered until the GPU is replaced.
+		if body.Orderable || !slices.Equal(body.OutOfStock, want) || !body.Assembly.Offered || len(body.Errors) != 0 {
+			t.Errorf("orderable %v, out of stock %v, assembly %+v", body.Orderable, body.OutOfStock, body.Assembly)
+		}
+	})
+
 	t.Run("Ryzen 3 4100 without a GPU", func(t *testing.T) {
 		q := with(with(good, "cpu", slug["AMD-AM4-R3-RYZ-4100-BOX"]), "gpu")
 		body := decodeBody[BuildCheck](t, "/api/builder/check?"+q.Encode(), app)
@@ -187,6 +216,24 @@ func TestBuilderAPI(t *testing.T) {
 	t.Run("options: every CPU for an empty build, including ones that need a GPU", func(t *testing.T) {
 		got := optionSKUs(t, url.Values{"slot": {"cpu"}})
 		if len(got) != 7 || !slices.Contains(got, "AMD-AM4-R3-RYZ-4100-BOX") {
+			t.Errorf("options %v", got)
+		}
+	})
+
+	t.Run("options: not a part out of stock", func(t *testing.T) {
+		ctx := context.Background()
+		set := func(qty int) {
+			t.Helper()
+			_, err := app.db.Exec(ctx, `
+				UPDATE catalog.stock SET qty = $2
+				WHERE product_id = (SELECT id FROM catalog.products WHERE slug = $1)`, slug["AMD-AM4-R3-RYZ-4100-BOX"], qty)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		set(0)
+		defer set(5)
+		if got := optionSKUs(t, url.Values{"slot": {"cpu"}}); len(got) != 6 || slices.Contains(got, "AMD-AM4-R3-RYZ-4100-BOX") {
 			t.Errorf("options %v", got)
 		}
 	})

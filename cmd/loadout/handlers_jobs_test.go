@@ -11,6 +11,7 @@ import (
 	"github.com/riverqueue/river/rivertype"
 
 	"github.com/gfotev/loadout/internal/catalog"
+	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/platform/jobs"
 )
@@ -23,7 +24,7 @@ func newJobsApp(t *testing.T) *application {
 		t.Fatal(err)
 	}
 	app.jobs = c
-	app.orders = orders.NewService(app.db, app.catalog, c)
+	app.orders = orders.NewService(app.db, app.catalog, configurator.NewService(app.db, app.catalog, app.specs), c)
 	return app
 }
 

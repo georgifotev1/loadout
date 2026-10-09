@@ -73,12 +73,32 @@ type Unavailable struct {
 	Slug string
 }
 
+// AssemblyCents is what assembling a build costs the customer, VAT included: the supplier's
+// own fee, passed on at cost. The supplier ships the PC with the parts' boxes.
+const AssemblyCents money.Cents = 35_00
+
 // Validation is a checked build.
 type Validation struct {
 	Result
 	Parts       []Picked // in slot order; a part bought twice is listed twice
 	Unavailable []Unavailable
-	TotalCents  money.Cents
+	// OutOfStock are picked parts for sale but not in stock: the build can't be ordered until
+	// they're replaced.
+	OutOfStock []Unavailable
+	TotalCents money.Cents
+	// Orderable is whether the build can go in the cart as it is: complete, without
+	// compatibility errors, every part for sale and in stock.
+	Orderable bool
+	Assembly  Assembly
+}
+
+// Assembly is the offer to assemble a build.
+type Assembly struct {
+	// Offered is whether the build can be assembled: complete, without compatibility errors and
+	// every part for sale. Stock doesn't matter here; it decides whether the build can be ordered.
+	Offered    bool
+	Cents      money.Cents
+	TotalCents money.Cents // the build's total with assembly
 }
 
 // Option is a part that fits the build in the slot asked for.
@@ -110,13 +130,24 @@ func (s *Service) Validate(ctx context.Context, sel Selection) (Validation, erro
 	}
 	for _, p := range picked {
 		v.TotalCents += p.Part.RetailCents
+		out := Unavailable{Slot: p.Slot, Slug: p.Part.Slug}
+		if p.Part.StockQty <= 0 && !slices.Contains(v.OutOfStock, out) { // a kit bought twice is listed once
+			v.OutOfStock = append(v.OutOfStock, out)
+		}
 	}
+	v.Assembly = Assembly{
+		Offered:    v.OK() && len(unavailable) == 0,
+		Cents:      AssemblyCents,
+		TotalCents: v.TotalCents + AssemblyCents,
+	}
+	v.Orderable = v.Assembly.Offered && len(v.OutOfStock) == 0
 	return v, nil
 }
 
-// CompatibleOptions returns the builder-eligible parts for slot that fit the rest of the build,
-// cheapest first. A part fits if picking it in place of the slot's current parts adds no error
-// involving the slot. Warnings don't rule a part out; they come with it.
+// CompatibleOptions returns the builder-eligible parts for slot that are in stock and fit the
+// rest of the build, cheapest first. A part fits if picking it in place of the slot's current
+// parts adds no error involving the slot. Warnings don't rule a part out; they come with it. A
+// part out of stock isn't offered: the build couldn't be ordered with it.
 func (s *Service) CompatibleOptions(ctx context.Context, sel Selection, slot Slot) ([]Option, error) {
 	if !slices.Contains(Slots, slot) {
 		var v validate.Validator
@@ -152,7 +183,7 @@ func (s *Service) CompatibleOptions(ctx context.Context, sel Selection, slot Slo
 	options := []Option{}
 	for _, ps := range eligible {
 		part, ok := visible[ps.ProductID]
-		if !ok {
+		if !ok || part.StockQty <= 0 {
 			continue
 		}
 		b := rest

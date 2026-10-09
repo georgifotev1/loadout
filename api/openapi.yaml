@@ -160,9 +160,10 @@ paths:
       operationId: listBuilderOptions
       summary: The parts that fit a slot of a PC build
       description: |
-        Builder-eligible parts for `slot` that fit the rest of the build, cheapest first. A part
-        fits if picking it in place of the slot's current parts causes no error involving the
-        slot. Parts the build still needs (a cooler for a tray CPU) don't count against it.
+        Builder-eligible parts for `slot` that are in stock and fit the rest of the build,
+        cheapest first. A part fits if picking it in place of the slot's current parts causes no
+        error involving the slot. Parts the build still needs (a cooler for a tray CPU) don't
+        count against it. Parts out of stock aren't offered.
       tags: [builder]
       parameters:
         - name: slot
@@ -256,6 +257,7 @@ paths:
         Field errors name `lines[i].slug` (`unavailable`: not for sale; `out_of_stock`) or
         `lines[i].quantity` (`out_of_range`; `too_many`: over 10 of one product with what's in
         the cart), or `lines` (`too_many`: over 50 products in the cart).
+        `assembly: true` also asks for the cart's PC to be assembled (the builder's add to cart).
       tags: [cart]
       requestBody:
         required: true
@@ -270,6 +272,28 @@ paths:
               schema: { $ref: "#/components/schemas/Cart" }
         "400": { $ref: "#/components/responses/InvalidBody" }
         "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /cart/assembly:
+    put:
+      operationId: setCartAssembly
+      summary: Ask for the cart's PC to be assembled, or no longer
+      description: |
+        Checkout assembles only while the cart's `assembly.offered`. 404 without a cart.
+      tags: [cart]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CartAssemblyRequest" }
+      responses:
+        "200":
+          description: The cart after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Error" }
 
   /cart/lines/{product_id}:
@@ -319,6 +343,8 @@ paths:
         The shopper's cart (as `GET /cart`) plus delivery and the total to send back as
         `expected_total_cents`. `orderable` is false for an empty cart or one with a product no
         longer for sale or out of stock. `payments` lists the payment methods on offer.
+        `assembly` says whether the cart's PC parts can be assembled; the total includes it when
+        the cart asks for it (`PUT /cart/assembly`).
       tags: [checkout]
       responses:
         "200":
@@ -337,8 +363,8 @@ paths:
         (`required`, `invalid_email`); `phone` (`required`, `invalid_phone`); `postcode`
         (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`: not in
         `GET /checkout`'s `payments`); `cart` (`empty`; `unavailable`: a product is no longer for
-        sale or out of stock); `expected_total_cents` (`changed`: prices moved since
-        `GET /checkout`).
+        sale or out of stock); `expected_total_cents` (`changed`: prices or the assembly offer
+        moved since `GET /checkout`). The PC is assembled as `GET /checkout` said.
 
         A card order waits for its payment: send the customer to `payment_url`. Without one
         (Stripe didn't answer), the order page gets it with `POST /orders/{order_id}/payment`.
@@ -1533,7 +1559,7 @@ components:
 
     BuildCheck:
       type: object
-      required: [parts, unavailable, errors, warnings, info, estimated_power_w, recommended_psu_w, total]
+      required: [parts, unavailable, out_of_stock, errors, warnings, info, estimated_power_w, recommended_psu_w, total, orderable, assembly]
       properties:
         parts:
           type: array
@@ -1542,6 +1568,10 @@ components:
         unavailable:
           type: array
           description: Picked slugs that aren't for sale (any more).
+          items: { $ref: "#/components/schemas/UnavailablePart" }
+        out_of_stock:
+          type: array
+          description: Picked parts for sale but not in stock, once each. They must be replaced to order.
           items: { $ref: "#/components/schemas/UnavailablePart" }
         errors:
           type: array
@@ -1559,6 +1589,26 @@ components:
           type: integer
           description: The estimate plus 30%, rounded up to the next 50 W.
         total: { $ref: "#/components/schemas/Price" }
+        orderable:
+          type: boolean
+          description: |
+            The build can go in the cart: complete, without compatibility errors, every part for
+            sale and in stock.
+        assembly: { $ref: "#/components/schemas/BuildAssembly" }
+
+    BuildAssembly:
+      type: object
+      description: |
+        Assembly of the build by us, for a fee. Offered for a complete build without
+        compatibility errors, every part for sale. The parts' warranties stay, and their boxes
+        come with the PC.
+      required: [offered, price, total]
+      properties:
+        offered: { type: boolean }
+        price: { $ref: "#/components/schemas/Price" }
+        total:
+          $ref: "#/components/schemas/Price"
+          description: The build's total with assembly.
 
     BuilderOption:
       type: object
@@ -1631,7 +1681,7 @@ components:
 
     Cart:
       type: object
-      required: [lines, count, subtotal]
+      required: [lines, count, subtotal, assembly, total]
       properties:
         lines:
           type: array
@@ -1643,10 +1693,43 @@ components:
         subtotal:
           $ref: "#/components/schemas/Price"
           description: The lines still for sale, at today's prices. Delivery comes at checkout.
+        assembly: { $ref: "#/components/schemas/CartAssembly" }
+        total:
+          $ref: "#/components/schemas/Price"
+          description: The subtotal, with assembly when it's requested and offered.
+
+    CartAssembly:
+      type: object
+      description: |
+        Assembly of the cart's PC by us, for a fee. The parts' warranties stay, and their boxes
+        come with the PC.
+      required: [offered, requested, price]
+      properties:
+        offered:
+          type: boolean
+          description: |
+            Whether the cart's PC parts (for sale and in stock) make one complete, compatible
+            build. Peripherals don't count.
+        requested:
+          type: boolean
+          description: The shopper asked for it. The order is assembled only while it's also offered.
+        price: { $ref: "#/components/schemas/Price" }
+        build_total:
+          description: |
+            The assembled PC as one item: the lines `in_build` and the fee. Present while
+            assembly is requested and offered.
+          x-go-type-skip-optional-pointer: false
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+
+    CartAssemblyRequest:
+      type: object
+      required: [assembly]
+      properties:
+        assembly: { type: boolean }
 
     CartLine:
       type: object
-      required: [product_id, slug, name, quantity]
+      required: [product_id, slug, name, quantity, in_build]
       properties:
         product_id: { type: string, format: uuid }
         slug:
@@ -1664,6 +1747,9 @@ components:
           description: The price now × quantity. Absent when the product is no longer for sale.
           x-go-type-skip-optional-pointer: false
           allOf: [{ $ref: "#/components/schemas/Price" }]
+        in_build:
+          type: boolean
+          description: Goes into the PC we assemble (assembly requested and offered).
 
     CartAdd:
       type: object
@@ -1679,6 +1765,9 @@ components:
             properties:
               slug: { type: string }
               quantity: { type: integer, minimum: 1, maximum: 10 }
+        assembly:
+          type: boolean
+          description: Also ask for the cart's PC to be assembled. Without it, an earlier request stays.
 
     CartQuantity:
       type: object
@@ -1688,15 +1777,18 @@ components:
 
     Checkout:
       type: object
-      required: [cart, delivery, total, orderable, payments]
+      required: [cart, delivery, assembly, total, orderable, payments]
       properties:
         cart: { $ref: "#/components/schemas/Cart" }
         delivery:
           $ref: "#/components/schemas/Price"
           description: Delivery to an address.
+        assembly: { $ref: "#/components/schemas/AssemblyOffer" }
         total:
           $ref: "#/components/schemas/Price"
-          description: The subtotal and delivery. Send it back as `expected_total_cents`.
+          description: |
+            The subtotal, delivery and, when `assembly.chosen`, assembly. Send it back as
+            `expected_total_cents`.
         orderable:
           type: boolean
           description: Whether the cart can be ordered as it is.
@@ -1704,6 +1796,20 @@ components:
           type: array
           description: The payment methods on offer, cash on delivery first.
           items: { $ref: "#/components/schemas/PaymentMethod" }
+
+    AssemblyOffer:
+      type: object
+      description: |
+        Assembly of the PC the cart's parts make: offered when they're one complete, compatible
+        build (peripherals ship as they are). The parts' warranties stay, and their boxes come
+        with the PC.
+      required: [offered, chosen, price]
+      properties:
+        offered: { type: boolean }
+        chosen:
+          type: boolean
+          description: The cart asks for it and it's offered, so the total includes it.
+        price: { $ref: "#/components/schemas/Price" }
 
     PaymentMethod:
       type: string
@@ -1805,12 +1911,22 @@ components:
           items: { $ref: "#/components/schemas/OrderLine" }
         subtotal: { $ref: "#/components/schemas/Price" }
         delivery: { $ref: "#/components/schemas/Price" }
+        assembly:
+          description: The assembly fee. Absent when the PC isn't assembled.
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+          x-go-type-skip-optional-pointer: false
+        build_total:
+          description: |
+            The assembled PC as one item: the lines `in_build` and the fee. Absent when the PC
+            isn't assembled.
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+          x-go-type-skip-optional-pointer: false
         total: { $ref: "#/components/schemas/Price" }
 
     OrderLine:
       type: object
       description: A product as it was sold.
-      required: [product_id, slug, name, quantity, unit_price, line_total]
+      required: [product_id, slug, name, quantity, unit_price, line_total, in_build]
       properties:
         product_id: { type: string, format: uuid }
         slug: { type: string }
@@ -1821,6 +1937,7 @@ components:
         quantity: { type: integer }
         unit_price: { $ref: "#/components/schemas/Price" }
         line_total: { $ref: "#/components/schemas/Price" }
+        in_build: { type: boolean, description: Goes into the assembled PC. }
 
     OrderSummary:
       type: object
@@ -2255,7 +2372,7 @@ components:
 
     AdminOrderLine:
       type: object
-      required: [product_id, slug, name, quantity, unit_price, line_total, provider, sku, dealer_unit, vat_bp]
+      required: [product_id, slug, name, quantity, unit_price, line_total, in_build, provider, sku, dealer_unit, vat_bp]
       properties:
         product_id: { type: string, format: uuid }
         slug: { type: string }
@@ -2264,6 +2381,7 @@ components:
         quantity: { type: integer }
         unit_price: { $ref: "#/components/schemas/Price" }
         line_total: { $ref: "#/components/schemas/Price" }
+        in_build: { type: boolean, description: Goes into the PC the supplier assembles. }
         provider: { type: string, description: The supplier to order it from. }
         sku: { type: string, description: The supplier's SKU. }
         dealer_unit:
@@ -2337,12 +2455,18 @@ components:
           items: { $ref: "#/components/schemas/AdminOrderLine" }
         subtotal: { $ref: "#/components/schemas/Price" }
         delivery: { $ref: "#/components/schemas/Price" }
+        assembly:
+          description: |
+            The assembly fee, passed on at what the supplier charges. Absent when the PC isn't
+            assembled.
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+          x-go-type-skip-optional-pointer: false
         total: { $ref: "#/components/schemas/Price" }
         dealer_total:
           description: What the lines cost us, VAT included.
           allOf: [{ $ref: "#/components/schemas/Price" }]
         margin:
-          description: The lines' subtotal minus `dealer_total`, VAT included; delivery left out.
+          description: The lines' subtotal minus `dealer_total`, VAT included; delivery and assembly left out.
           allOf: [{ $ref: "#/components/schemas/Price" }]
         transitions:
           type: array

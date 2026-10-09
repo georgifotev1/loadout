@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/gfotev/loadout/internal/catalog"
+	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/platform/db"
 	"github.com/gfotev/loadout/internal/platform/validate"
@@ -34,6 +35,9 @@ type CartLine struct {
 	// happened, but it isn't counted in the subtotal and can't be ordered.
 	Product   *catalog.ProductSummary
 	LineCents money.Cents // the price now × quantity; 0 when not for sale
+	// InBuild is whether the line goes into the PC we assemble: assembly is chosen, and it's a
+	// PC part for sale and in stock.
+	InBuild bool
 }
 
 // Cart is a shopper's cart at today's prices.
@@ -41,7 +45,25 @@ type Cart struct {
 	Lines         []CartLine // the last added first
 	Count         int        // units over all lines
 	SubtotalCents money.Cents
+	Assembly      CartAssembly
+	TotalCents    money.Cents // the subtotal, with assembly when it's Chosen
 }
+
+// CartAssembly is the offer to assemble the cart's PC.
+type CartAssembly struct {
+	// Offered is whether the cart's PC parts (for sale and in stock) make one complete,
+	// compatible build.
+	Offered bool
+	// Requested is whether the shopper asked for assembly. Checkout assembles only while it's
+	// also offered.
+	Requested bool
+	Cents     money.Cents
+	// BuildCents is the assembled PC's price: its parts and the fee. 0 unless Chosen.
+	BuildCents money.Cents
+}
+
+// Chosen is whether the cart's PC will be assembled: asked for and offered.
+func (a CartAssembly) Chosen() bool { return a.Requested && a.Offered }
 
 // CartOwner says whose cart: a logged-in user's (UserID), or else the one of the browser's cart
 // cookie (Token). An owner with neither has no cart.
@@ -77,9 +99,13 @@ type AddLine struct {
 // Cart returns the owner's cart at today's prices. An owner without a cart has an empty one.
 func (s *Service) Cart(ctx context.Context, owner CartOwner) (Cart, error) {
 	if owner.none() {
-		return Cart{Lines: []CartLine{}}, nil
+		return Cart{Lines: []CartLine{}, Assembly: CartAssembly{Cents: configurator.AssemblyCents}}, nil
 	}
 	lines, err := s.store.cartLines(ctx, s.pool, owner.key())
+	if err != nil {
+		return Cart{}, err
+	}
+	requested, err := s.store.cartAssembly(ctx, s.pool, owner.key())
 	if err != nil {
 		return Cart{}, err
 	}
@@ -107,16 +133,33 @@ func (s *Service) Cart(ctx context.Context, owner CartOwner) (Cart, error) {
 			c.SubtotalCents += l.LineCents
 		}
 	}
+	c.Assembly = CartAssembly{Requested: requested, Cents: configurator.AssemblyCents}
+	if c.Assembly.Offered, err = s.assemblable(ctx, cartParts(c)); err != nil {
+		return Cart{}, err
+	}
+	c.TotalCents = c.SubtotalCents
+	if c.Assembly.Chosen() {
+		c.TotalCents += c.Assembly.Cents
+		c.Assembly.BuildCents = c.Assembly.Cents
+		for i := range c.Lines {
+			l := &c.Lines[i]
+			if l.Product != nil && l.Product.StockQty > 0 && inBuild(l.Product.Category) {
+				l.InBuild = true
+				c.Assembly.BuildCents += l.LineCents
+			}
+		}
+	}
 	return c, nil
 }
 
 // AddToCart adds products to the owner's cart, on top of what's there, all or none. An owner
 // without a cart gets a new one. It returns the cart and, for a guest, its token: owner.Token,
-// or the new cart's.
+// or the new cart's. With assembly, the shopper also asks to have the cart's PC assembled (the
+// builder's "add to cart"); without, an earlier request stays.
 //
 // Only products for sale and in stock can be added, and a product's quantity can't go over
 // MaxQuantity. Field errors name the slug or quantity of lines[i].
-func (s *Service) AddToCart(ctx context.Context, owner CartOwner, lines []AddLine) (Cart, string, error) {
+func (s *Service) AddToCart(ctx context.Context, owner CartOwner, lines []AddLine, assembly bool) (Cart, string, error) {
 	var v validate.Validator
 	v.Check(len(lines) > 0, "lines", "required")
 	v.Check(len(lines) <= MaxCartLines, "lines", "too_many")
@@ -196,6 +239,11 @@ func (s *Service) AddToCart(ctx context.Context, owner CartOwner, lines []AddLin
 				return err
 			}
 		}
+		if assembly {
+			if _, err := s.store.setAssembly(ctx, tx, owner.key(), true); err != nil {
+				return err
+			}
+		}
 		return s.store.touchCart(ctx, tx, cartID)
 	})
 	if err != nil {
@@ -238,9 +286,25 @@ func (s *Service) RemoveFromCart(ctx context.Context, owner CartOwner, productID
 	return s.Cart(ctx, owner)
 }
 
+// SetCartAssembly asks for the cart's PC to be assembled, or no longer. An owner without a cart
+// is ErrNotFound.
+func (s *Service) SetCartAssembly(ctx context.Context, owner CartOwner, on bool) (Cart, error) {
+	if owner.none() {
+		return Cart{}, ErrNotFound
+	}
+	ok, err := s.store.setAssembly(ctx, s.pool, owner.key(), on)
+	if err != nil {
+		return Cart{}, err
+	}
+	if !ok {
+		return Cart{}, ErrNotFound
+	}
+	return s.Cart(ctx, owner)
+}
+
 // MergeCart moves the guest cart of token into the user's cart when they log in, so what they
 // added before logging in isn't lost. Quantities of a product in both add up to MaxQuantity, and
-// past MaxCartLines the oldest lines go. The guest cart is gone afterwards; with no cart of its
+// past MaxCartLines the oldest lines go; assembly asked for in either stays asked for. The guest cart is gone afterwards; with no cart of its
 // own, the user simply takes it over.
 func (s *Service) MergeCart(ctx context.Context, token string, userID uuid.UUID) error {
 	if token == "" {

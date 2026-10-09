@@ -5,6 +5,7 @@ import { AdminPage } from "#/components/admin/admin-page";
 import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import { OrderActions } from "#/components/admin/order-actions";
 import { OrderStatusDot } from "#/components/admin/order-status";
+import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
 	Table,
@@ -164,6 +165,11 @@ function StatusPanel({ order: o }: { order: AdminOrder }) {
 				{todo ? (
 					<p className="mt-2 text-muted-foreground text-sm">{todo}</p>
 				) : null}
+				{o.assembly && o.status === "supplier_pending" ? (
+					<p className="mt-2 text-muted-foreground text-sm">
+						{t.todo.assembly}
+					</p>
+				) : null}
 			</div>
 			<OrderActions order={o} />
 		</section>
@@ -189,6 +195,11 @@ function Lines({ order: o }: { order: AdminOrder }) {
 						<TableRow key={l.product_id}>
 							<TableCell className="min-w-56 whitespace-normal">
 								{l.name}
+								{o.assembly && l.in_build ? (
+									<Badge variant="secondary" className="ml-2 font-normal">
+										{t.inBuild}
+									</Badge>
+								) : null}
 							</TableCell>
 							<TableCell className="font-mono text-xs">
 								{l.sku}
@@ -215,6 +226,9 @@ function Lines({ order: o }: { order: AdminOrder }) {
 			<dl className="ml-auto flex max-w-sm flex-col gap-2 border-t p-5 text-sm">
 				<Sum label={t.subtotal} cents={o.subtotal.amount_cents} />
 				<Sum label={t.delivery} cents={o.delivery.amount_cents} />
+				{o.assembly ? (
+					<Sum label={t.assembly} cents={o.assembly.amount_cents} />
+				) : null}
 				<Sum label={t.grandTotal} cents={o.total.amount_cents} strong />
 				<div className="mt-2 flex flex-col gap-2 border-t pt-3">
 					<Sum

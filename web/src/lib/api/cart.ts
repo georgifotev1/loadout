@@ -15,8 +15,17 @@ export const cartQuery = queryOptions({
 	queryFn: async ({ signal }) => unwrap(await api.GET("/cart", { signal })),
 });
 
-export async function addToCart(lines: CartAddLine[]) {
-	return unwrap(await api.POST("/cart/lines", { body: { lines } }));
+// With assembly, the shopper also asks for the cart's PC to be assembled (the builder).
+export async function addToCart(lines: CartAddLine[], assembly?: boolean) {
+	return unwrap(
+		await api.POST("/cart/lines", {
+			body: assembly ? { lines, assembly } : { lines },
+		}),
+	);
+}
+
+export async function setCartAssembly(assembly: boolean) {
+	return unwrap(await api.PUT("/cart/assembly", { body: { assembly } }));
 }
 
 export async function setCartQuantity(productId: string, quantity: number) {

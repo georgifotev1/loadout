@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
 	type BuildCheck,
 	type BuildPart,
+	buildHighlights,
+	buildSearchOfParts,
 	buildStatus,
 	cartLinesOf,
+	cpuModel,
 	type Finding,
 	findingText,
 	groupSlugs,
@@ -109,12 +112,15 @@ function check(c: Partial<BuildCheck>): BuildCheck {
 	return {
 		parts: [],
 		unavailable: [],
+		out_of_stock: [],
 		errors: [],
 		warnings: [],
 		info: [],
 		estimated_power_w: 0,
 		recommended_psu_w: 0,
 		total: eur(0),
+		orderable: false,
+		assembly: { offered: false, price: eur(3500), total: eur(3500) },
 		...c,
 	};
 }
@@ -297,5 +303,74 @@ describe("cartLinesOf", () => {
 			{ slug: "c", quantity: 1 },
 			{ slug: "r", quantity: 2 },
 		]);
+	});
+});
+
+describe("buildHighlights", () => {
+	it("sums the build up", () => {
+		const cpu = part("cpu", "r5", { igpu: false, cooler_included: true });
+		cpu.product.name = "Процесор AMD RYZEN 5 7600, 6-Core, 3.8 GHz, AM5, BOX";
+		const lines = buildHighlights(
+			check({
+				parts: [
+					cpu,
+					part("motherboard", "b650", { chipset: "B650", form_factor: "ATX" }),
+					part("ram", "kit", {
+						type: "DDR5",
+						capacity_gb_total: 32,
+						speed_mhz: 6000,
+					}),
+					part("ram", "kit", {
+						type: "DDR5",
+						capacity_gb_total: 32,
+						speed_mhz: 6000,
+					}),
+					part("gpu", "rtx", { chipset: "GeForce RTX 5070", vram_gb: 12 }),
+					part("storage", "ssd", { capacity_gb: 1000, interface: "nvme" }),
+					part("storage", "ssd", { capacity_gb: 1000, interface: "nvme" }),
+					part("storage", "hdd", { capacity_gb: 2000, interface: "sata" }),
+					part("psu", "psu", { wattage_w: 750 }),
+				],
+			}),
+		);
+		expect(lines).toEqual([
+			{ slot: "cpu", value: "AMD RYZEN 5 7600" },
+			{ slot: "gpu", value: "GeForce RTX 5070 · 12 GB" },
+			{ slot: "ram", value: "64 GB · DDR5 · 6000 MHz" },
+			{ slot: "storage", value: "2 × 1 TB · NVMe + 2 TB · SATA" },
+			{ slot: "motherboard", value: "B650 · ATX" },
+			{ slot: "psu", value: "750 W" },
+			{ slot: "cooler", value: "Охладителят на процесора" },
+		]);
+	});
+
+	it("says when graphics are in the processor, and leaves out what isn't known", () => {
+		const lines = buildHighlights(
+			check({ parts: [part("cpu", "apu", { igpu: true }), part("psu", "p")] }),
+		);
+		expect(lines.map((l) => l.slot)).toEqual(["cpu", "gpu"]);
+		expect(lines[1].value).toBe("Вградена в процесора");
+	});
+});
+
+describe("cpuModel", () => {
+	it("keeps the model", () => {
+		expect(
+			cpuModel("Процесор Intel Core Ultra 5 245K, 14-Core (6P+8E) 3.6 GHz"),
+		).toBe("Intel Core Ultra 5 245K");
+		expect(cpuModel("AMD Ryzen 7 7800X3D")).toBe("AMD Ryzen 7 7800X3D");
+	});
+});
+
+describe("buildSearchOfParts", () => {
+	it("puts each part in its slot, RAM and drives once per unit", () => {
+		expect(
+			buildSearchOfParts([
+				{ category: "cpu", slug: "r5", quantity: 1 },
+				{ category: "ram", slug: "kit", quantity: 2 },
+				{ category: "storage", slug: "ssd", quantity: 1 },
+				{ category: "peripheral.mouse", slug: "mouse", quantity: 1 },
+			]),
+		).toEqual({ cpu: "r5", ram: ["kit", "kit"], storage: ["ssd"] });
 	});
 });

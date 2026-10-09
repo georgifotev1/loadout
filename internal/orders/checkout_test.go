@@ -32,7 +32,7 @@ func newCheckoutService(t *testing.T) (*Service, *fakeCatalog) {
 // guestCart starts a guest cart with lines and returns its owner.
 func guestCart(t *testing.T, s *Service, lines ...AddLine) CartOwner {
 	t.Helper()
-	_, token, err := s.AddToCart(context.Background(), GuestCart(""), lines)
+	_, token, err := s.AddToCart(context.Background(), GuestCart(""), lines, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestCheckout(t *testing.T) {
 	s, _ := newCheckoutService(t)
 	ctx := context.Background()
 	owner := guestCart(t, s, AddLine{Slug: "cpu", Quantity: 2})
-	if _, _, err := s.AddToCart(ctx, owner, []AddLine{{Slug: "ram", Quantity: 1}}); err != nil {
+	if _, _, err := s.AddToCart(ctx, owner, []AddLine{{Slug: "ram", Quantity: 1}}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -139,7 +139,7 @@ func TestCheckout(t *testing.T) {
 	t.Run("a logged-in customer's order is theirs", func(t *testing.T) {
 		user := uuid.New()
 		owner := UserCart(user)
-		if _, _, err := s.AddToCart(ctx, owner, []AddLine{{Slug: "ram", Quantity: 1}}); err != nil {
+		if _, _, err := s.AddToCart(ctx, owner, []AddLine{{Slug: "ram", Quantity: 1}}, false); err != nil {
 			t.Fatal(err)
 		}
 		in := checkoutInput(80_00 + DeliveryCents)
@@ -249,7 +249,7 @@ func TestCheckoutRefuses(t *testing.T) {
 			cat.update("cpu", func(p *catalog.Part) { p.RetailCents = 210_00 })
 			t.Cleanup(func() { cat.update("cpu", func(p *catalog.Part) { p.RetailCents = 200_00 }) })
 			return owner, total
-		}, "expected_total: changed"},
+		}, "expected_total_cents: changed"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			owner, expected := tt.setup(t)
@@ -340,7 +340,7 @@ func TestOrderAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.AddToCart(ctx, UserCart(user), []AddLine{{Slug: "ram", Quantity: 3}}); err != nil {
+	if _, _, err := s.AddToCart(ctx, UserCart(user), []AddLine{{Slug: "ram", Quantity: 3}}, false); err != nil {
 		t.Fatal(err)
 	}
 	in := checkoutInput(240_00 + DeliveryCents)

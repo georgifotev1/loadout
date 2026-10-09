@@ -22,8 +22,13 @@ func (app *application) GetCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	app.writeJSON(w, r, http.StatusOK, Checkout{
-		Cart:      cart(q.Cart),
-		Delivery:  eur(q.DeliveryCents),
+		Cart:     cart(q.Cart),
+		Delivery: eur(q.DeliveryCents),
+		Assembly: AssemblyOffer{
+			Offered: q.Assembly.Offered,
+			Chosen:  q.Assembly.Chosen,
+			Price:   eur(q.Assembly.Cents),
+		},
 		Total:     eur(q.TotalCents),
 		Orderable: q.Orderable,
 		Payments:  app.paymentMethods(),
@@ -201,26 +206,38 @@ func orderJSON(o orders.OrderDetail) Order {
 			Quantity:  l.Quantity,
 			UnitPrice: eur(l.UnitCents),
 			LineTotal: eur(l.TotalCents),
+			InBuild:   l.InBuild,
 		}
 	}
 	return Order{
-		Id:        o.ID,
-		Number:    o.Number,
-		Status:    OrderStatus(o.Status),
-		Payment:   PaymentMethod(o.Payment),
-		PaidAt:    o.PaidAt,
-		CreatedAt: o.CreatedAt,
-		Name:      o.Name,
-		Email:     o.Email,
-		Phone:     o.Phone,
-		City:      o.City,
-		Postcode:  o.Postcode,
-		Address:   o.Address,
-		Lines:     lines,
-		Subtotal:  eur(o.SubtotalCents),
-		Delivery:  eur(o.DeliveryCents),
-		Total:     eur(o.TotalCents),
+		Id:         o.ID,
+		Number:     o.Number,
+		Status:     OrderStatus(o.Status),
+		Payment:    PaymentMethod(o.Payment),
+		PaidAt:     o.PaidAt,
+		CreatedAt:  o.CreatedAt,
+		Name:       o.Name,
+		Email:      o.Email,
+		Phone:      o.Phone,
+		City:       o.City,
+		Postcode:   o.Postcode,
+		Address:    o.Address,
+		Lines:      lines,
+		Subtotal:   eur(o.SubtotalCents),
+		Delivery:   eur(o.DeliveryCents),
+		Assembly:   optionalEUR(o.Assembly, o.AssemblyCents),
+		BuildTotal: optionalEUR(o.Assembly, o.BuildCents),
+		Total:      eur(o.TotalCents),
 	}
+}
+
+// optionalEUR is an amount the API leaves out (nil) unless present.
+func optionalEUR(present bool, c money.Cents) *Price {
+	if !present {
+		return nil
+	}
+	p := eur(c)
+	return &p
 }
 
 // orderViewer is who asks for an order: the link's token and the logged-in customer, if any.

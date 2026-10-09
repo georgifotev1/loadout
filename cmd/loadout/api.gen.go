@@ -602,10 +602,14 @@ func (e ListAdminProductsParamsStatus) Valid() bool {
 // AdminOrder defines model for AdminOrder.
 type AdminOrder struct {
 	// Actions The events an admin can apply now.
-	Actions   []AdminOrderEvent `json:"actions"`
-	Address   string            `json:"address"`
-	City      string            `json:"city"`
-	CreatedAt time.Time         `json:"created_at"`
+	Actions []AdminOrderEvent `json:"actions"`
+	Address string            `json:"address"`
+
+	// Assembly The assembly fee, passed on at what the supplier charges. Absent when the PC isn't
+	// assembled.
+	Assembly  *Price    `json:"assembly,omitempty"`
+	City      string    `json:"city"`
+	CreatedAt time.Time `json:"created_at"`
 
 	// DealerTotal What the lines cost us, VAT included.
 	DealerTotal Price `json:"dealer_total"`
@@ -616,7 +620,7 @@ type AdminOrder struct {
 	Id       openapi_types.UUID `json:"id"`
 	Lines    []AdminOrderLine   `json:"lines"`
 
-	// Margin The lines' subtotal minus `dealer_total`, VAT included; delivery left out.
+	// Margin The lines' subtotal minus `dealer_total`, VAT included; delivery and assembly left out.
 	Margin Price  `json:"margin"`
 	Name   string `json:"name"`
 	Number int64  `json:"number"`
@@ -688,6 +692,9 @@ type AdminOrderLine struct {
 
 	// Image Absent when the product had none.
 	Image string `json:"image,omitempty"`
+
+	// InBuild Goes into the PC the supplier assembles.
+	InBuild bool `json:"in_build"`
 
 	// LineTotal A retail price. The web app formats it; it never does price math.
 	LineTotal Price              `json:"line_total"`
@@ -821,13 +828,49 @@ type AdminProductList struct {
 	Total int `json:"total"`
 }
 
+// AssemblyOffer Assembly of the PC the cart's parts make: offered when they're one complete, compatible
+// build (peripherals ship as they are). The parts' warranties stay, and their boxes come
+// with the PC.
+type AssemblyOffer struct {
+	// Chosen The cart asks for it and it's offered, so the total includes it.
+	Chosen  bool `json:"chosen"`
+	Offered bool `json:"offered"`
+
+	// Price A retail price. The web app formats it; it never does price math.
+	Price Price `json:"price"`
+}
+
+// BuildAssembly Assembly of the build by us, for a fee. Offered for a complete build without
+// compatibility errors, every part for sale. The parts' warranties stay, and their boxes
+// come with the PC.
+type BuildAssembly struct {
+	Offered bool `json:"offered"`
+
+	// Price A retail price. The web app formats it; it never does price math.
+	Price Price `json:"price"`
+
+	// Total A retail price. The web app formats it; it never does price math.
+	Total Price `json:"total"`
+}
+
 // BuildCheck defines model for BuildCheck.
 type BuildCheck struct {
-	Errors []Finding `json:"errors"`
+	// Assembly Assembly of the build by us, for a fee. Offered for a complete build without
+	// compatibility errors, every part for sale. The parts' warranties stay, and their boxes
+	// come with the PC.
+	Assembly BuildAssembly `json:"assembly"`
+	Errors   []Finding     `json:"errors"`
 
 	// EstimatedPowerW Estimated peak draw: CPU TDP × 1.5 + GPU TDP + 50 W + 10 W per drive. 0 for an empty build.
 	EstimatedPowerW int       `json:"estimated_power_w"`
 	Info            []Finding `json:"info"`
+
+	// Orderable The build can go in the cart: complete, without compatibility errors, every part for
+	// sale and in stock.
+	Orderable bool `json:"orderable"`
+
+	// OutOfStock Picked parts for sale but not in stock, once each. They must be replaced to order.
+	OutOfStock []UnavailablePart `json:"out_of_stock"`
 
 	// Parts The picked parts in slot order. A part bought twice is listed twice.
 	Parts []BuildPart `json:"parts"`
@@ -890,6 +933,10 @@ type BuilderOptions struct {
 
 // Cart defines model for Cart.
 type Cart struct {
+	// Assembly Assembly of the cart's PC by us, for a fee. The parts' warranties stay, and their boxes
+	// come with the PC.
+	Assembly CartAssembly `json:"assembly"`
+
 	// Count Units over all lines, for the header badge.
 	Count int `json:"count"`
 
@@ -898,18 +945,49 @@ type Cart struct {
 
 	// Subtotal A retail price. The web app formats it; it never does price math.
 	Subtotal Price `json:"subtotal"`
+
+	// Total A retail price. The web app formats it; it never does price math.
+	Total Price `json:"total"`
 }
 
 // CartAdd defines model for CartAdd.
 type CartAdd struct {
-	Lines []struct {
+	// Assembly Also ask for the cart's PC to be assembled. Without it, an earlier request stays.
+	Assembly bool `json:"assembly,omitempty"`
+	Lines    []struct {
 		Quantity int    `json:"quantity"`
 		Slug     string `json:"slug"`
 	} `json:"lines"`
 }
 
+// CartAssembly Assembly of the cart's PC by us, for a fee. The parts' warranties stay, and their boxes
+// come with the PC.
+type CartAssembly struct {
+	// BuildTotal The assembled PC as one item: the lines `in_build` and the fee. Present while
+	// assembly is requested and offered.
+	BuildTotal *Price `json:"build_total,omitempty"`
+
+	// Offered Whether the cart's PC parts (for sale and in stock) make one complete, compatible
+	// build. Peripherals don't count.
+	Offered bool `json:"offered"`
+
+	// Price A retail price. The web app formats it; it never does price math.
+	Price Price `json:"price"`
+
+	// Requested The shopper asked for it. The order is assembled only while it's also offered.
+	Requested bool `json:"requested"`
+}
+
+// CartAssemblyRequest defines model for CartAssemblyRequest.
+type CartAssemblyRequest struct {
+	Assembly bool `json:"assembly"`
+}
+
 // CartLine defines model for CartLine.
 type CartLine struct {
+	// InBuild Goes into the PC we assemble (assembly requested and offered).
+	InBuild bool `json:"in_build"`
+
 	// LineTotal The price now × quantity. Absent when the product is no longer for sale.
 	LineTotal *Price `json:"line_total,omitempty"`
 	Name      string `json:"name"`
@@ -950,7 +1028,11 @@ type ChangePasswordRequest struct {
 
 // Checkout defines model for Checkout.
 type Checkout struct {
-	Cart Cart `json:"cart"`
+	// Assembly Assembly of the PC the cart's parts make: offered when they're one complete, compatible
+	// build (peripherals ship as they are). The parts' warranties stay, and their boxes come
+	// with the PC.
+	Assembly AssemblyOffer `json:"assembly"`
+	Cart     Cart          `json:"cart"`
 
 	// Delivery A retail price. The web app formats it; it never does price math.
 	Delivery Price `json:"delivery"`
@@ -1238,9 +1320,16 @@ type Me struct {
 
 // Order defines model for Order.
 type Order struct {
-	Address   string    `json:"address"`
-	City      string    `json:"city"`
-	CreatedAt time.Time `json:"created_at"`
+	Address string `json:"address"`
+
+	// Assembly The assembly fee. Absent when the PC isn't assembled.
+	Assembly *Price `json:"assembly,omitempty"`
+
+	// BuildTotal The assembled PC as one item: the lines `in_build` and the fee. Absent when the PC
+	// isn't assembled.
+	BuildTotal *Price    `json:"build_total,omitempty"`
+	City       string    `json:"city"`
+	CreatedAt  time.Time `json:"created_at"`
 
 	// Delivery A retail price. The web app formats it; it never does price math.
 	Delivery Price              `json:"delivery"`
@@ -1275,6 +1364,9 @@ type Order struct {
 type OrderLine struct {
 	// Image Absent when the product had none.
 	Image string `json:"image,omitempty"`
+
+	// InBuild Goes into the assembled PC.
+	InBuild bool `json:"in_build"`
 
 	// LineTotal A retail price. The web app formats it; it never does price math.
 	LineTotal Price              `json:"line_total"`
@@ -1957,6 +2049,9 @@ type VerifyEmailJSONRequestBody = TokenRequest
 // SaveBuildJSONRequestBody defines body for SaveBuild for application/json ContentType.
 type SaveBuildJSONRequestBody = BuildSelection
 
+// SetCartAssemblyJSONRequestBody defines body for SetCartAssembly for application/json ContentType.
+type SetCartAssemblyJSONRequestBody = CartAssemblyRequest
+
 // AddToCartJSONRequestBody defines body for AddToCart for application/json ContentType.
 type AddToCartJSONRequestBody = CartAdd
 
@@ -2073,6 +2168,9 @@ type ServerInterface interface {
 	// GetCart The shopper's cart at today's prices
 	// (GET /cart)
 	GetCart(w http.ResponseWriter, r *http.Request)
+	// SetCartAssembly Ask for the cart's PC to be assembled, or no longer
+	// (PUT /cart/assembly)
+	SetCartAssembly(w http.ResponseWriter, r *http.Request)
 	// AddToCart Add products to the cart
 	// (POST /cart/lines)
 	AddToCart(w http.ResponseWriter, r *http.Request)
@@ -2325,6 +2423,12 @@ func (_ Unimplemented) GetBuild(w http.ResponseWriter, r *http.Request, slug str
 // GetCart The shopper's cart at today's prices
 // (GET /cart)
 func (_ Unimplemented) GetCart(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetCartAssembly Ask for the cart's PC to be assembled, or no longer
+// (PUT /cart/assembly)
+func (_ Unimplemented) SetCartAssembly(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3484,6 +3588,20 @@ func (siw *ServerInterfaceWrapper) GetCart(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
+// SetCartAssembly operation middleware
+func (siw *ServerInterfaceWrapper) SetCartAssembly(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetCartAssembly(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AddToCart operation middleware
 func (siw *ServerInterfaceWrapper) AddToCart(w http.ResponseWriter, r *http.Request) {
 
@@ -4096,6 +4214,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/cart/lines", wrapper.AddToCart)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/cart/assembly", wrapper.SetCartAssembly)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/cart/lines/{product_id}", wrapper.RemoveFromCart)

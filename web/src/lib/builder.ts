@@ -154,12 +154,10 @@ export function cartLinesOf(check: BuildCheck): CartAddLine[] {
 
 // canOrder says whether a build can go into the cart: complete, without compatibility errors,
 // and every part still for sale.
-export function canOrder(check: BuildCheck, status: BuildStatus): boolean {
-	return (
-		status.missing.length === 0 &&
-		status.errors === 0 &&
-		check.unavailable.length === 0
-	);
+// canOrder says whether the build can go in the cart as it is, as the API decides: complete,
+// compatible, every part for sale and in stock.
+export function canOrder(check: BuildCheck): boolean {
+	return check.orderable;
 }
 
 // The findings that only say a part is still missing. The builder shows them on the empty slot
@@ -412,4 +410,136 @@ export function recommendedPSU(
 			Number(o.specs.wattage_w) >= recommendedW &&
 			!o.findings.some((f) => f.severity !== "info"),
 	)?.product.slug;
+}
+
+// Highlight is one line of the build's spec sheet in the summary.
+export type Highlight = { slot: Slot; value: string };
+
+// buildHighlights sums the build up the way a shopper compares PCs: processor, graphics, memory,
+// storage, board, power and cooling. A line is left out when its values are unknown.
+export function buildHighlights(check: BuildCheck): Highlight[] {
+	const t = m.builder.spec;
+	const of = (slot: Slot) => check.parts.filter((p) => p.slot === slot);
+	const num = (s: Specs, k: string) =>
+		typeof s[k] === "number" ? (s[k] as number) : undefined;
+	const str = (s: Specs, k: string) =>
+		typeof s[k] === "string" && s[k] !== "" ? (s[k] as string) : undefined;
+	const join = (...v: (string | undefined | false)[]) =>
+		v.filter((x): x is string => typeof x === "string" && x !== "").join(" · ");
+	const out: Highlight[] = [];
+	const add = (slot: Slot, value: string) => {
+		if (value) out.push({ slot, value });
+	};
+
+	const cpu = of("cpu")[0];
+	if (cpu) add("cpu", cpuModel(cpu.product.name));
+
+	const gpu = of("gpu")[0];
+	if (gpu) {
+		const vram = num(gpu.specs, "vram_gb");
+		add(
+			"gpu",
+			join(str(gpu.specs, "chipset"), vram !== undefined && `${vram} GB`),
+		);
+	} else if (cpu?.specs.igpu === true) {
+		add("gpu", t.integrated);
+	}
+
+	const ram = of("ram");
+	if (ram.length) {
+		const gb = ram.reduce(
+			(sum, p) => sum + (num(p.specs, "capacity_gb_total") ?? 0),
+			0,
+		);
+		const mhz = num(ram[0].specs, "speed_mhz");
+		add(
+			"ram",
+			join(
+				gb > 0 && `${gb} GB`,
+				str(ram[0].specs, "type"),
+				mhz !== undefined && `${mhz} MHz`,
+			),
+		);
+	}
+
+	const drives = groupSlugs(of("storage").map((p) => p.product.slug)).map(
+		({ slug, count }) => {
+			const s = (
+				of("storage").find((p) => p.product.slug === slug) as BuildPart
+			).specs;
+			const gb = num(s, "capacity_gb");
+			const label = join(
+				gb !== undefined && capacityLabel(gb),
+				{ nvme: "NVMe", sata: "SATA" }[str(s, "interface") ?? ""],
+			);
+			return count > 1 && label ? `${count} × ${label}` : label;
+		},
+	);
+	add("storage", drives.filter(Boolean).join(" + "));
+
+	const mb = of("motherboard")[0];
+	if (mb)
+		add(
+			"motherboard",
+			join(str(mb.specs, "chipset"), str(mb.specs, "form_factor")),
+		);
+
+	const psu = of("psu")[0];
+	const watts = psu && num(psu.specs, "wattage_w");
+	if (watts !== undefined) add("psu", `${watts} W`);
+
+	const cooler = of("cooler")[0];
+	if (cooler) {
+		const mm = num(cooler.specs, "radiator_mm");
+		add(
+			"cooler",
+			cooler.specs.type === "aio"
+				? join(t.aioCooler, mm !== undefined && `${mm} mm`)
+				: cooler.specs.type === "air"
+					? t.airCooler
+					: "",
+		);
+	} else if (cpu?.specs.cooler_included === true) {
+		add("cooler", t.boxCoolerIncluded);
+	}
+	return out;
+}
+
+// cpuModel shortens a processor's product name to its model for the spec sheet: the part before
+// the first comma, without the leading "Процесор" ("Процесор AMD Ryzen 3 4100, AM4 …" → "AMD
+// Ryzen 3 4100"). Display only; a name without either comes back whole.
+// TODO(vali-api): use a model field if the supplier's API has one.
+export function cpuModel(name: string): string {
+	return name
+		.split(",")[0]
+		.replace(/^процесор\s+/i, "")
+		.trim();
+}
+
+// buildSearchOfParts turns a cart's PC parts back into the builder's URL state, to edit the PC:
+// a part's category is its slot, and RAM and drives repeat once per unit.
+export function buildSearchOfParts(
+	parts: { category: string; slug: string; quantity: number }[],
+): BuildSearch {
+	let b: BuildSearch = {};
+	for (const p of parts) {
+		const slot = p.category as Slot;
+		if (!slotOrder.includes(slot)) continue;
+		b = isMultiSlot(slot)
+			? {
+					...b,
+					[slot]: [...(b[slot] ?? []), ...Array(p.quantity).fill(p.slug)],
+				}
+			: { ...b, [slot]: p.slug };
+	}
+	return b;
+}
+
+// bySlot orders a PC's parts the way the builder lists them, processor first.
+export function bySlot<T>(category: (item: T) => string | undefined) {
+	const rank = (item: T) => {
+		const i = slotOrder.indexOf(category(item) as Slot);
+		return i === -1 ? slotOrder.length : i;
+	};
+	return (a: T, b: T) => rank(a) - rank(b);
 }

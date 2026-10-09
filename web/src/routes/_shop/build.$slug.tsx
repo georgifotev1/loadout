@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { Pencil, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 import { AddBuildToCart } from "#/components/builder/add-to-cart";
 import { BuildSummary } from "#/components/builder/build-summary";
 import { BuildSlots } from "#/components/builder/slot-row";
@@ -12,7 +13,7 @@ import { Button } from "#/components/ui/button";
 import { formatPrice, formatShortDate, m } from "#/i18n";
 import { savedBuildQuery } from "#/lib/api/builder";
 import { ApiError, type Schemas } from "#/lib/api/client";
-import { buildStatus, canOrder, selectionOf } from "#/lib/builder";
+import { buildStatus, selectionOf } from "#/lib/builder";
 
 // /build/{slug}: a saved build as its share link shows it, checked again at today's parts and
 // prices. Read-only; "edit" opens it in the builder.
@@ -48,6 +49,7 @@ function SavedBuildPage() {
 	const { data: saved } = useSuspenseQuery(savedBuildQuery(slug));
 	const { check } = saved;
 	const status = buildStatus(check);
+	const [assembly, setAssembly] = useState(false);
 
 	const edit = (
 		<Button
@@ -89,8 +91,13 @@ function SavedBuildPage() {
 			<div className="mt-6 grid gap-8 lg:grid-cols-[1fr_22rem] lg:gap-10">
 				<BuildSlots check={check} status={status} />
 				<aside className="lg:sticky lg:top-[calc(var(--spacing-header)+2.5rem+1.5rem)] lg:self-start">
-					<BuildSummary check={check} status={status}>
-						<AddBuildToCart check={check} orderable={canOrder(check, status)} />
+					<BuildSummary
+						check={check}
+						status={status}
+						assembly={assembly}
+						onAssemblyChange={setAssembly}
+					>
+						<AddBuildToCart check={check} assembly={assembly} />
 					</BuildSummary>
 				</aside>
 			</div>

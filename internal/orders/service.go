@@ -37,11 +37,13 @@ type Service struct {
 	pool    *pgxpool.Pool
 	store   store
 	catalog Catalog
+	builds  Builds
 	jobs    Inserter
 	now     func() time.Time
 }
 
-// NewService returns the orders service. jobs enqueues the orders' steps (StepArgs).
-func NewService(pool *pgxpool.Pool, c Catalog, jobs Inserter) *Service {
-	return &Service{pool: pool, catalog: c, jobs: jobs, now: time.Now}
+// NewService returns the orders service. b checks the builds offered assembly; jobs enqueues
+// the orders' steps (StepArgs).
+func NewService(pool *pgxpool.Pool, c Catalog, b Builds, jobs Inserter) *Service {
+	return &Service{pool: pool, catalog: c, builds: b, jobs: jobs, now: time.Now}
 }

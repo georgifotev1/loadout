@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v86"
 
+	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/payments"
 	"github.com/gfotev/loadout/internal/platform/jobs"
@@ -28,7 +29,7 @@ func newOrdersApp(t *testing.T) *application {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app.orders = orders.NewService(app.db, app.catalog, inserter)
+	app.orders = orders.NewService(app.db, app.catalog, configurator.NewService(app.db, app.catalog, app.specs), inserter)
 	return app
 }
 
@@ -77,8 +78,9 @@ func TestCheckoutAPI(t *testing.T) {
 
 	t.Run("a stale total is refused", func(t *testing.T) {
 		rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents-1), guest)
-		if rec.Code != http.StatusUnprocessableEntity {
-			t.Errorf("status %d: %s", rec.Code, rec.Body)
+		e := decodeJSON[Error](t, rec, http.StatusUnprocessableEntity)
+		if len(e.Error.Fields) != 1 || e.Error.Fields[0].Field != "expected_total_cents" {
+			t.Errorf("fields %+v, want the request's expected_total_cents", e.Error.Fields)
 		}
 	})
 
@@ -109,6 +111,98 @@ func TestCheckoutAPI(t *testing.T) {
 			t.Errorf("status %d: %s", rec.Code, rec.Body)
 		}
 	})
+}
+
+// A complete build that fits is offered assembly; the fee is in the total and the order, and a
+// mouse in the same cart ships as it is.
+func TestCheckoutAssemblyAPI(t *testing.T) {
+	app := newBuilderApp(t)
+	inserter, err := jobs.New(app.db, jobs.Config{Logger: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.orders = orders.NewService(app.db, app.catalog, app.configurator, inserter)
+	slug := slugs(t, app)
+	var mouse string
+	if err := app.db.QueryRow(context.Background(), `SELECT slug FROM catalog.products WHERE category = 'peripheral.mouse' LIMIT 1`).Scan(&mouse); err != nil {
+		t.Fatal(err)
+	}
+	build := []string{
+		slug["AMD-AM5-R5-7600-BOX"],
+		slug["GA-MB-B650-EAGLE-AX"],
+		slug["KIN-RAM-KF560C40BBK2-32"],
+		slug["GA-VC-N5070WF3-12GD"],
+		slug["KIN-SSD-SNV3S-1000G"],
+		slug["CRS-PSU-9020296-EU"],
+		slug["LL-CASE-GELI-216X"],
+		slug["ARCTIC-FAN-ACFRE00123A"],
+	}
+	var lines []string
+	for _, s := range append(build[1:], mouse) {
+		lines = append(lines, `{"slug":"`+s+`","quantity":1}`)
+	}
+	guest := cookieNamed(cartRequest(t, app, http.MethodPost, "/api/cart/lines", `{"lines":[`+strings.Join(lines, ",")+`]}`), "cart")
+
+	t.Run("not without a CPU", func(t *testing.T) {
+		co := decodeJSON[Checkout](t, get(t, app, "/api/checkout", guest), http.StatusOK)
+		if co.Assembly.Offered || co.Assembly.Chosen {
+			t.Errorf("assembly %+v", co.Assembly)
+		}
+	})
+
+	// The builder's add to cart asks for assembly.
+	c := decodeJSON[Cart](t, cartRequest(t, app, http.MethodPost, "/api/cart/lines", `{"lines":[{"slug":"`+build[0]+`","quantity":1}], "assembly": true}`, guest), http.StatusOK)
+	fee := int64(configurator.AssemblyCents)
+	if !c.Assembly.Requested || !c.Assembly.Offered || c.Total.AmountCents != c.Subtotal.AmountCents+fee {
+		t.Fatalf("cart assembly %+v, total %+v", c.Assembly, c.Total)
+	}
+	// The PC is everything but the mouse, with the fee.
+	var mouseCents int64
+	for _, l := range c.Lines {
+		if l.InBuild == (l.Slug == mouse) {
+			t.Errorf("%s: in build %v", l.Slug, l.InBuild)
+		}
+		if l.Slug == mouse {
+			mouseCents = l.LineTotal.AmountCents
+		}
+	}
+	if c.Assembly.BuildTotal == nil || c.Assembly.BuildTotal.AmountCents != c.Total.AmountCents-mouseCents {
+		t.Errorf("build total %+v, cart total %d, mouse %d", c.Assembly.BuildTotal, c.Total.AmountCents, mouseCents)
+	}
+	co := decodeJSON[Checkout](t, get(t, app, "/api/checkout", guest), http.StatusOK)
+	if !co.Assembly.Chosen || co.Total.AmountCents != c.Total.AmountCents+co.Delivery.AmountCents {
+		t.Fatalf("checkout assembly %+v, total %d", co.Assembly, co.Total.AmountCents)
+	}
+
+	t.Run("it can be turned off and on", func(t *testing.T) {
+		off := decodeJSON[Cart](t, cartRequest(t, app, http.MethodPut, "/api/cart/assembly", `{"assembly": false}`, guest), http.StatusOK)
+		if off.Assembly.Requested || !off.Assembly.Offered || off.Total != off.Subtotal {
+			t.Errorf("off: %+v", off)
+		}
+		decodeJSON[Cart](t, cartRequest(t, app, http.MethodPut, "/api/cart/assembly", `{"assembly": true}`, guest), http.StatusOK)
+		if rec := cartRequest(t, app, http.MethodPut, "/api/cart/assembly", `{"assembly": true}`); rec.Code != http.StatusNotFound {
+			t.Errorf("without a cart: status %d", rec.Code)
+		}
+	})
+
+	placed := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents), guest), http.StatusCreated)
+	o := decodeJSON[Order](t, get(t, app, "/api/orders/"+placed.Id.String()+"?token="+placed.Token), http.StatusOK)
+	if o.Assembly == nil || o.Assembly.AmountCents != fee || o.Total != co.Total {
+		t.Errorf("order assembly %+v, total %+v", o.Assembly, o.Total)
+	}
+	var built []string
+	for _, l := range o.Lines {
+		if l.InBuild {
+			built = append(built, l.Slug)
+		} else if l.Slug != mouse {
+			t.Errorf("%s isn't in the build", l.Slug)
+		}
+	}
+	slices.Sort(built)
+	slices.Sort(build)
+	if !slices.Equal(built, build) {
+		t.Errorf("in the build %v, want %v", built, build)
+	}
 }
 
 func TestCustomerOrdersAPI(t *testing.T) {

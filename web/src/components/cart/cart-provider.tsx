@@ -7,6 +7,7 @@ import {
 	type CartAddLine,
 	cartQuery,
 	removeFromCart,
+	setCartAssembly,
 	setCartQuantity,
 } from "#/lib/api/cart";
 import { ApiError } from "#/lib/api/client";
@@ -16,9 +17,13 @@ type CartContext = {
 	// undefined while it loads, and if loading failed (loadFailed).
 	cart: Cart | undefined;
 	loadFailed: boolean;
-	// Adds products and opens the drawer, which says what was added or why it wasn't.
-	add: (lines: CartAddLine[]) => void;
+	// Adds products and opens the drawer, which says what was added or why it wasn't. With
+	// assembly, also asks for the cart's PC to be assembled.
+	add: (lines: CartAddLine[], opts?: { assembly?: boolean }) => void;
 	adding: boolean;
+	// Asks for the cart's PC to be assembled, or no longer.
+	setAssembly: (on: boolean) => Promise<Cart>;
+	settingAssembly: boolean;
 	setQuantity: (productId: string, quantity: number) => void;
 	remove: (productId: string) => void;
 	// The product IDs with a change on the way, to disable their controls.
@@ -60,10 +65,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 	};
 
 	const adder = useMutation({
-		mutationFn: addToCart,
-		onSuccess: (c, lines) => {
+		mutationFn: (v: { lines: CartAddLine[]; assembly?: boolean }) =>
+			addToCart(v.lines, v.assembly),
+		onSuccess: (c, v) => {
 			settle(c);
-			setNotice({ added: lines.map((l) => l.slug) });
+			setNotice({ added: v.lines.map((l) => l.slug) });
 		},
 		onError: (err) => setNotice({ error: cartError(err) }),
 		onSettled: () => setOpen(true),
@@ -71,6 +77,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 	const changer = useMutation({
 		mutationFn: (v: { productId: string; quantity: number }) =>
 			setCartQuantity(v.productId, v.quantity),
+		onSuccess: settle,
+		onError: fail,
+	});
+	const assembler = useMutation({
+		mutationFn: setCartAssembly,
 		onSuccess: settle,
 		onError: fail,
 	});
@@ -83,8 +94,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 	const value: CartContext = {
 		cart,
 		loadFailed,
-		add: (lines) => adder.mutate(lines),
+		add: (lines, opts) => adder.mutate({ lines, assembly: opts?.assembly }),
 		adding: adder.isPending,
+		setAssembly: (on) => assembler.mutateAsync(on),
+		settingAssembly: assembler.isPending,
 		setQuantity: (productId, quantity) =>
 			changer.mutate({ productId, quantity }),
 		remove: (productId) => remover.mutate(productId),

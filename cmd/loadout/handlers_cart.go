@@ -34,7 +34,7 @@ func (app *application) AddToCart(w http.ResponseWriter, r *http.Request) {
 	for i, l := range in.Lines {
 		lines[i] = orders.AddLine{Slug: l.Slug, Quantity: l.Quantity}
 	}
-	c, token, err := app.orders.AddToCart(r.Context(), app.cartOwner(r), lines)
+	c, token, err := app.orders.AddToCart(r.Context(), app.cartOwner(r), lines, in.Assembly)
 	if err != nil {
 		app.handleError(w, r, err)
 		return
@@ -64,6 +64,25 @@ func (app *application) SetCartQuantity(w http.ResponseWriter, r *http.Request, 
 	app.writeJSON(w, r, http.StatusOK, cart(c))
 }
 
+// SetCartAssembly handles PUT /api/cart/assembly.
+func (app *application) SetCartAssembly(w http.ResponseWriter, r *http.Request) {
+	var in CartAssemblyRequest
+	if err := readJSON(w, r, &in); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	owner := app.cartOwner(r)
+	c, err := app.orders.SetCartAssembly(r.Context(), owner, in.Assembly)
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	if owner.Token != "" {
+		app.setCartCookie(w, owner.Token)
+	}
+	app.writeJSON(w, r, http.StatusOK, cart(c))
+}
+
 // RemoveFromCart handles DELETE /api/cart/lines/{product_id}.
 func (app *application) RemoveFromCart(w http.ResponseWriter, r *http.Request, productID uuid.UUID) {
 	c, err := app.orders.RemoveFromCart(r.Context(), app.cartOwner(r), productID)
@@ -82,13 +101,25 @@ func cart(c orders.Cart) Cart {
 			Slug:      l.Slug,
 			Name:      l.Name,
 			Quantity:  l.Quantity,
+			InBuild:   l.InBuild,
 		}
 		if l.Product != nil {
 			p, total := summary(*l.Product), eur(l.LineCents)
 			lines[i].Product, lines[i].LineTotal = &p, &total
 		}
 	}
-	return Cart{Lines: lines, Count: c.Count, Subtotal: eur(c.SubtotalCents)}
+	return Cart{
+		Lines:    lines,
+		Count:    c.Count,
+		Subtotal: eur(c.SubtotalCents),
+		Assembly: CartAssembly{
+			Offered:    c.Assembly.Offered,
+			Requested:  c.Assembly.Requested,
+			Price:      eur(c.Assembly.Cents),
+			BuildTotal: optionalEUR(c.Assembly.Chosen(), c.Assembly.BuildCents),
+		},
+		Total: eur(c.TotalCents),
+	}
 }
 
 // cartOwner is the logged-in user, or else the browser's cart cookie.

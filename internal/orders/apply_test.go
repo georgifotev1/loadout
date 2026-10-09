@@ -26,7 +26,7 @@ func newOrderService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewService(pool, &fakeCatalog{}, jobsClient)
+	s := NewService(pool, &fakeCatalog{}, nil, jobsClient)
 	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	s.now = func() time.Time { return now }
 	return s

@@ -8,6 +8,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Banknote, CreditCard, Lock, TriangleAlert, Truck } from "lucide-react";
 import { useState } from "react";
 import { Field } from "#/components/auth/field";
+import { AssemblyOption } from "#/components/order/assembly-option";
 import { CompactLines } from "#/components/order/compact-lines";
 import { Totals } from "#/components/order/totals";
 import { Price } from "#/components/product/price";
@@ -19,13 +20,14 @@ import { Label } from "#/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "#/components/ui/radio-group";
 import { m } from "#/i18n";
 import { meQuery } from "#/lib/api/auth";
-import { cartQuery } from "#/lib/api/cart";
+import { cartQuery, setCartAssembly } from "#/lib/api/cart";
 import {
 	type Checkout,
 	checkoutQuery,
 	type PaymentMethod,
 	placeOrder,
 } from "#/lib/api/orders";
+import { bySlot } from "#/lib/builder";
 import {
 	type CheckoutField,
 	cartChanged,
@@ -96,6 +98,14 @@ const paymentOptions = {
 function CheckoutForm({ checkout }: { checkout: Checkout }) {
 	const { data: me } = useSuspenseQuery(meQuery);
 	const queryClient = useQueryClient();
+	// Assembly is the cart's: changing it reprices the checkout, and the order waits for that.
+	const assembly = useMutation({
+		mutationFn: async (on: boolean) => {
+			queryClient.setQueryData(cartQuery.queryKey, await setCartAssembly(on));
+			await queryClient.refetchQueries({ queryKey: checkoutQuery.queryKey });
+		},
+	});
+	const repricing = assembly.isPending;
 	const navigate = useNavigate();
 	const [payment, setPayment] = useState<PaymentMethod>("cod");
 	const submit = useMutation({
@@ -129,7 +139,9 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 		Partial<Record<CheckoutField, string>>
 	>({});
 	const err = submit.error;
-	const formError = checkoutError(err);
+	const formError =
+		checkoutError(err) ??
+		(assembly.isError ? m.checkout.errors.generic : undefined);
 	const field = (name: CheckoutField) => ({
 		name,
 		error: mistakes[name] ?? checkoutFieldError(err, name),
@@ -255,7 +267,19 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 						</div>
 					</Step>
 
-					<Step n={3} title={t.payment}>
+					{checkout.assembly.offered ? (
+						<Step n={3} title={t.assembly}>
+							<AssemblyOption
+								offered
+								requested={checkout.assembly.chosen}
+								priceCents={checkout.assembly.price.amount_cents}
+								busy={repricing}
+								onChange={(on) => assembly.mutate(on)}
+							/>
+						</Step>
+					) : null}
+
+					<Step n={checkout.assembly.offered ? 4 : 3} title={t.payment}>
 						<RadioGroup
 							value={payment}
 							onValueChange={(v) => setPayment(v as PaymentMethod)}
@@ -296,18 +320,29 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 					<h2 className="font-medium">{t.yourOrder}</h2>
 					<div className="mt-5">
 						<CompactLines
-							lines={checkout.cart.lines.map((l) => ({
-								key: l.product_id,
-								name: l.name,
-								image: l.product?.image,
-								quantity: l.quantity,
-								cents: l.line_total?.amount_cents,
-							}))}
+							lines={[...checkout.cart.lines]
+								.sort(
+									bySlot((l) => (l.in_build ? l.product?.category : undefined)),
+								)
+								.map((l) => ({
+									key: l.product_id,
+									name: l.name,
+									image: l.product?.image,
+									quantity: l.quantity,
+									cents: l.line_total?.amount_cents,
+									inBuild: l.in_build,
+								}))}
+							pcTotalCents={checkout.cart.assembly.build_total?.amount_cents}
 						/>
 					</div>
 					<Totals
 						subtotal={checkout.cart.subtotal.amount_cents}
 						delivery={checkout.delivery.amount_cents}
+						assembly={
+							checkout.assembly.chosen
+								? checkout.assembly.price.amount_cents
+								: undefined
+						}
 						total={checkout.total.amount_cents}
 						className="mt-6 border-t pt-5"
 					/>
@@ -332,7 +367,10 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 						size="lg"
 						className="mt-6 h-11 w-full"
 						disabled={
-							!checkout.orderable || submit.isPending || submit.isSuccess
+							!checkout.orderable ||
+							repricing ||
+							submit.isPending ||
+							submit.isSuccess
 						}
 					>
 						<Lock />{" "}

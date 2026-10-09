@@ -96,12 +96,19 @@ func buildCheck(v configurator.Validation) BuildCheck {
 	resp := BuildCheck{
 		Parts:           make([]BuildPart, 0, len(v.Parts)),
 		Unavailable:     make([]UnavailablePart, 0, len(v.Unavailable)),
+		OutOfStock:      make([]UnavailablePart, 0, len(v.OutOfStock)),
 		Errors:          findings(v.Errors),
 		Warnings:        findings(v.Warnings),
 		Info:            findings(v.Info),
 		EstimatedPowerW: v.EstimatedPowerW,
 		RecommendedPsuW: v.RecommendedPSUW,
 		Total:           eur(v.TotalCents),
+		Orderable:       v.Orderable,
+		Assembly: BuildAssembly{
+			Offered: v.Assembly.Offered,
+			Price:   eur(v.Assembly.Cents),
+			Total:   eur(v.Assembly.TotalCents),
+		},
 	}
 	for _, p := range v.Parts {
 		resp.Parts = append(resp.Parts, BuildPart{
@@ -112,6 +119,9 @@ func buildCheck(v configurator.Validation) BuildCheck {
 	}
 	for _, u := range v.Unavailable {
 		resp.Unavailable = append(resp.Unavailable, UnavailablePart{Slot: Slot(u.Slot), Slug: u.Slug})
+	}
+	for _, u := range v.OutOfStock {
+		resp.OutOfStock = append(resp.OutOfStock, UnavailablePart{Slot: Slot(u.Slot), Slug: u.Slug})
 	}
 	return resp
 }

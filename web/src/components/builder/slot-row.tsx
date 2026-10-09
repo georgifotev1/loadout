@@ -124,8 +124,11 @@ function SlotRow({
 	actions?: SlotActions;
 }) {
 	const required = status.required.includes(slot);
+	const outOfStock = check.out_of_stock.some((u) => u.slot === slot);
 	const severity =
-		unavailable.length > 0 ? "error" : worstSeverity(status.problems, slot);
+		unavailable.length > 0 || outOfStock
+			? "error"
+			: worstSeverity(status.problems, slot);
 	const filled = parts.length > 0 || unavailable.length > 0;
 	const groups = groupSlugs(parts.map((p) => p.product.slug)).map((g) => ({
 		...g,

@@ -52,6 +52,34 @@ func (store) cartLines(ctx context.Context, q db.DBTX, k cartKey) ([]CartLine, e
 	return lines, nil
 }
 
+// cartAssembly reports whether the cart with this key asks for assembly; false if there's no
+// such cart.
+func (store) cartAssembly(ctx context.Context, q db.DBTX, k cartKey) (bool, error) {
+	query := `SELECT assembly FROM orders.carts WHERE user_id = $1 OR token_hash = $2`
+
+	var on bool
+	err := q.QueryRow(ctx, query, k.userID, k.tokenHash).Scan(&on)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return false, nil
+	case err != nil:
+		return false, fmt.Errorf("orders: cart assembly: %w", err)
+	}
+	return on, nil
+}
+
+// setAssembly sets whether the cart with this key asks for assembly. It reports false if there's
+// no such cart.
+func (store) setAssembly(ctx context.Context, q db.DBTX, k cartKey, on bool) (bool, error) {
+	query := `UPDATE orders.carts SET assembly = $3, updated_at = now() WHERE user_id = $1 OR token_hash = $2`
+
+	tag, err := q.Exec(ctx, query, k.userID, k.tokenHash, on)
+	if err != nil {
+		return false, fmt.Errorf("orders: set cart assembly: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // lockCart finds the cart with this key and locks it until the transaction ends, so two adds to
 // one cart don't both pass the limits. It reports false if there's no such cart.
 func (store) lockCart(ctx context.Context, q db.DBTX, k cartKey) (uuid.UUID, bool, error) {
@@ -240,11 +268,16 @@ func (store) mergeCart(ctx context.Context, q db.DBTX, from, into uuid.UUID, max
 		return fmt.Errorf("orders: trim merged cart: %w", err)
 	}
 
+	query = `
+		UPDATE orders.carts
+		SET assembly = assembly OR (SELECT assembly FROM orders.carts WHERE id = $1),
+		    updated_at = now()
+		WHERE id = $2`
+	if _, err := q.Exec(ctx, query, from, into); err != nil {
+		return fmt.Errorf("orders: touch merged cart: %w", err)
+	}
 	if _, err := q.Exec(ctx, `DELETE FROM orders.carts WHERE id = $1`, from); err != nil {
 		return fmt.Errorf("orders: delete merged cart: %w", err)
-	}
-	if _, err := q.Exec(ctx, `UPDATE orders.carts SET updated_at = now() WHERE id = $1`, into); err != nil {
-		return fmt.Errorf("orders: touch merged cart: %w", err)
 	}
 	return nil
 }
@@ -322,9 +355,9 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 	insert := `
 		INSERT INTO orders.orders (
 			status, payment, token, user_id, email, name, phone, city, postcode, address,
-			subtotal_cents, delivery_cents, total_cents
+			subtotal_cents, delivery_cents, assembly, assembly_cents, total_cents
 		)
-		VALUES ('awaiting_payment', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		VALUES ('awaiting_payment', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id, number`
 
 	var id uuid.UUID
@@ -341,7 +374,9 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 		o.Address,
 		o.SubtotalCents,
 		o.DeliveryCents,
-		o.SubtotalCents+o.DeliveryCents,
+		o.Assembly,
+		o.AssemblyCents,
+		o.SubtotalCents+o.DeliveryCents+o.AssemblyCents,
 	).Scan(
 		&id,
 		&number,
@@ -353,9 +388,9 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 	lineInsert := `
 		INSERT INTO orders.order_lines (
 			order_id, position, product_id, provider, provider_sku, slug, name, image, quantity,
-			dealer_cents, retail_cents, vat_bp
+			dealer_cents, retail_cents, vat_bp, in_build
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
 	for i, l := range o.Lines {
 		if _, err := q.Exec(ctx, lineInsert,
 			id,
@@ -370,6 +405,7 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 			l.DealerCents,
 			l.RetailCents,
 			l.VATbp,
+			l.InBuild,
 		); err != nil {
 			return uuid.Nil, 0, fmt.Errorf("orders: insert order line: %w", err)
 		}
@@ -381,7 +417,8 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 func (store) order(ctx context.Context, q db.DBTX, id uuid.UUID) (OrderDetail, error) {
 	query := `
 		SELECT id, number, token, status, payment, paid_at, created_at, user_id, email, name, phone,
-		       city, postcode, address, subtotal_cents, delivery_cents, total_cents
+		       city, postcode, address, subtotal_cents, delivery_cents, assembly, assembly_cents,
+		       total_cents
 		FROM orders.orders
 		WHERE id = $1`
 
@@ -403,6 +440,8 @@ func (store) order(ctx context.Context, q db.DBTX, id uuid.UUID) (OrderDetail, e
 		&o.Address,
 		&o.SubtotalCents,
 		&o.DeliveryCents,
+		&o.Assembly,
+		&o.AssemblyCents,
 		&o.TotalCents,
 	)
 	switch {
@@ -413,7 +452,7 @@ func (store) order(ctx context.Context, q db.DBTX, id uuid.UUID) (OrderDetail, e
 	}
 
 	query = `
-		SELECT product_id, slug, name, image, quantity, retail_cents
+		SELECT product_id, slug, name, image, quantity, retail_cents, in_build
 		FROM orders.order_lines
 		WHERE order_id = $1
 		ORDER BY position`
@@ -430,12 +469,21 @@ func (store) order(ctx context.Context, q db.DBTX, id uuid.UUID) (OrderDetail, e
 			&l.Image,
 			&l.Quantity,
 			&l.UnitCents,
+			&l.InBuild,
 		)
 		l.TotalCents = l.UnitCents * money.Cents(l.Quantity)
 		return l, err
 	})
 	if err != nil {
 		return OrderDetail{}, fmt.Errorf("orders: lines of order %s: %w", id, err)
+	}
+	if o.Assembly {
+		o.BuildCents = o.AssemblyCents
+		for _, l := range o.Lines {
+			if l.InBuild {
+				o.BuildCents += l.TotalCents
+			}
+		}
 	}
 	return o, nil
 }
@@ -538,8 +586,8 @@ func (store) adminOrders(ctx context.Context, q db.DBTX, f AdminOrderFilter, sta
 // adminLines returns an order's lines with the supplier's side, in their order.
 func (store) adminLines(ctx context.Context, q db.DBTX, id uuid.UUID) ([]AdminOrderLine, error) {
 	query := `
-		SELECT product_id, slug, name, image, quantity, retail_cents, provider, provider_sku,
-		       dealer_cents, vat_bp
+		SELECT product_id, slug, name, image, quantity, retail_cents, in_build, provider,
+		       provider_sku, dealer_cents, vat_bp
 		FROM orders.order_lines
 		WHERE order_id = $1
 		ORDER BY position`
@@ -557,6 +605,7 @@ func (store) adminLines(ctx context.Context, q db.DBTX, id uuid.UUID) ([]AdminOr
 			&l.Image,
 			&l.Quantity,
 			&l.UnitCents,
+			&l.InBuild,
 			&l.Provider,
 			&l.ProviderSKU,
 			&l.DealerCents,
