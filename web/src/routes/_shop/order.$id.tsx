@@ -4,6 +4,7 @@ import {
 	Check,
 	CircleX,
 	CreditCard,
+	ExternalLink,
 	LoaderCircle,
 	PackageCheck,
 	Truck,
@@ -232,6 +233,24 @@ function OrderView({
 							</li>
 						))}
 					</ol>
+					{order.shipment ? (
+						<p className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-5 text-sm">
+							<span className="font-mono">
+								{t.waybill(order.shipment.number)}
+							</span>
+							{order.shipment.tracking_url ? (
+								<a
+									href={order.shipment.tracking_url}
+									target="_blank"
+									rel="noreferrer"
+									className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-muted-foreground"
+								>
+									{t.track}
+									<ExternalLink className="size-3.5" />
+								</a>
+							) : null}
+						</p>
+					) : null}
 				</section>
 			)}
 

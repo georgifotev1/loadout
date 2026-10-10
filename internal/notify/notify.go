@@ -114,6 +114,10 @@ type Order struct {
 	Assembly       bool
 	CashOnDelivery bool
 	PaidByCard     bool
+	// TrackingNumber is the courier's waybill, "" before it's made; TrackingURL follows it, ""
+	// if the courier has no such page.
+	TrackingNumber string
+	TrackingURL    string
 }
 
 // OrderLine is one product of an order email.
@@ -246,6 +250,52 @@ func (s *Service) OrderCancelled(ctx context.Context, o Order) error {
 		To:      o.Email,
 		Subject: fmt.Sprintf("Поръчка № %d е отказана", o.Number),
 		Text:    lines(ls...),
+	})
+}
+
+// OrderShipped tells the customer the courier has their parcel, and how to follow it.
+func (s *Service) OrderShipped(ctx context.Context, o Order) error {
+	ls := []string{
+		"Здравейте, " + o.Name + ",",
+		"",
+		fmt.Sprintf("Поръчка № %d пътува към вас: куриерът взе пратката.", o.Number),
+		"",
+		"Товарителница: " + o.TrackingNumber,
+	}
+	if o.TrackingURL != "" {
+		ls = append(ls, "Проследете пратката: "+o.TrackingURL)
+	}
+	ls = append(ls, "", "Доставка до: "+o.Address)
+	if o.CashOnDelivery {
+		ls = append(ls, "При получаване платете на куриера "+money.Format(o.TotalCents)+".")
+	}
+	ls = append(ls,
+		"",
+		"Поръчката:",
+		"",
+		s.orderLink(o),
+	)
+	return s.sender.Send(ctx, Message{
+		To:      o.Email,
+		Subject: fmt.Sprintf("Поръчка № %d е изпратена", o.Number),
+		Text:    lines(ls...),
+	})
+}
+
+// OrderDelivered thanks the customer once the courier has handed the parcel over.
+func (s *Service) OrderDelivered(ctx context.Context, o Order) error {
+	return s.sender.Send(ctx, Message{
+		To:      o.Email,
+		Subject: fmt.Sprintf("Поръчка № %d е доставена", o.Number),
+		Text: lines(
+			"Здравейте, "+o.Name+",",
+			"",
+			fmt.Sprintf("Поръчка № %d е доставена. Благодарим, че пазарувахте в Loadout!", o.Number),
+			"",
+			"Поръчката:",
+			"",
+			s.orderLink(o),
+		),
 	})
 }
 

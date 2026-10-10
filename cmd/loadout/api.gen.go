@@ -634,6 +634,9 @@ type AdminOrder struct {
 	Phone    string        `json:"phone"`
 	Postcode string        `json:"postcode"`
 
+	// Shipment The courier's waybill. Absent until it's made, once the order is confirmed.
+	Shipment *Shipment `json:"shipment,omitempty"`
+
 	// Stale Waiting for the supplier for more than a day.
 	Stale bool `json:"stale"`
 
@@ -1349,6 +1352,9 @@ type Order struct {
 	Phone    string        `json:"phone"`
 	Postcode string        `json:"postcode"`
 
+	// Shipment The courier's waybill. Absent until it's made, once the order is confirmed.
+	Shipment *Shipment `json:"shipment,omitempty"`
+
 	// Status `awaiting_payment`; `supplier_pending`: we're confirming the parts with the supplier;
 	// `ready_to_ship`; `shipped`; `delivered`; `refunding`; `cancelled`.
 	Status OrderStatus `json:"status"`
@@ -1666,6 +1672,18 @@ type SearchSort string
 // `enroll`: an admin who must set up TOTP. `verify`: an admin who must enter a code.
 // `verified`: done; the admin API is open.
 type SecondFactor string
+
+// Shipment defines model for Shipment.
+type Shipment struct {
+	// Carrier The courier: `speedy`, or `mock` in development.
+	Carrier string `json:"carrier"`
+
+	// Number The waybill number.
+	Number string `json:"number"`
+
+	// TrackingUrl The courier's page that follows the parcel. Absent if it has none.
+	TrackingUrl string `json:"tracking_url,omitempty"`
+}
 
 // Slot A part of a PC build, named after its catalog category.
 type Slot string
@@ -2093,6 +2111,9 @@ type ServerInterface interface {
 	// ApplyAdminOrderEvent Apply an admin's event to an order
 	// (POST /admin/orders/{order_id}/events)
 	ApplyAdminOrderEvent(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID)
+	// GetAdminOrderLabel The order's waybill to print, from the courier
+	// (GET /admin/orders/{order_id}/label)
+	GetAdminOrderLabel(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID)
 	// GetAdminOverview The numbers on the admin dashboard
 	// (GET /admin/overview)
 	GetAdminOverview(w http.ResponseWriter, r *http.Request)
@@ -2276,6 +2297,12 @@ func (_ Unimplemented) GetAdminOrder(w http.ResponseWriter, r *http.Request, ord
 // ApplyAdminOrderEvent Apply an admin's event to an order
 // (POST /admin/orders/{order_id}/events)
 func (_ Unimplemented) ApplyAdminOrderEvent(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAdminOrderLabel The order's waybill to print, from the courier
+// (GET /admin/orders/{order_id}/label)
+func (_ Unimplemented) GetAdminOrderLabel(w http.ResponseWriter, r *http.Request, orderId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2821,6 +2848,32 @@ func (siw *ServerInterfaceWrapper) ApplyAdminOrderEvent(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ApplyAdminOrderEvent(w, r, orderId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminOrderLabel operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminOrderLabel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "order_id" -------------
+	var orderId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "order_id", chi.URLParam(r, "order_id"), &orderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminOrderLabel(w, r, orderId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4345,6 +4398,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/admin/orders/{order_id}/events", wrapper.ApplyAdminOrderEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/admin/orders/{order_id}/label", wrapper.GetAdminOrderLabel)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/admin/markup-rules", wrapper.ListMarkupRules)

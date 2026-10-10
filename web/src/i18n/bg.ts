@@ -498,6 +498,8 @@ export const bg = {
 		stepShippedDetail: "Получавате номер за проследяване",
 		stepDelivered: "Доставка",
 		stepDeliveredDetail: "До 2 работни дни",
+		waybill: (number: string) => `Товарителница ${number}`,
+		track: "Проследете пратката",
 		stopped:
 			"Поръчката е отказана. Ако сте платили, връщаме парите по същия начин.",
 		paymentExpired:
@@ -777,7 +779,7 @@ export const bg = {
 				payment_timed_out: "Времето за плащане изтече",
 				supplier_confirmed: "Потвърдена от доставчика",
 				supplier_rejected: "Отказана от доставчика",
-				shipment_created: "Изпратена",
+				picked_up: "Взета от куриера",
 				delivered: "Доставена",
 				refund_succeeded: "Парите са върнати",
 				cancel: "Отказана",
@@ -820,7 +822,18 @@ export const bg = {
 					"Клиентът иска компютърът да е сглобен: поискайте от доставчика сглобяване на продуктите, отбелязани „В компютъра“, и кутиите им да дойдат с него.",
 				refunding:
 					"Връщаме плащането през Stripe. Обикновено отнема минути. Ако в Stripe връщането е неуспешно, върнете парите по друг начин и го отбележете тук.",
+				ready_to_ship:
+					"Разпечатайте товарителницата и я сложете на пратката. Поръчката става „Изпратена“, когато куриерът вземе пратката.",
+				ready_to_ship_no_waybill:
+					"Правим товарителницата при куриера. Ако не се появи до няколко минути, проверете неуспешните задачи.",
 			} as Partial<Record<string, string>>,
+			shipment: "Пратка",
+			carriers: {
+				mock: "Тестов куриер (не е истинска пратка)",
+				speedy: "Speedy",
+			} as Record<string, string | undefined>,
+			label: "Товарителница (PDF)",
+			track: "Проследяване",
 			actions: {
 				supplier_confirmed: "Доставчикът потвърди",
 				supplier_rejected: "Доставчикът отказа",

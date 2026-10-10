@@ -36,6 +36,7 @@ type OrderDetail struct {
 	// BuildCents is the assembled PC's price: the lines InBuild and the fee. 0 without assembly.
 	BuildCents money.Cents
 	TotalCents money.Cents
+	Shipment   *Shipment // nil until the waybill is made
 }
 
 // OrderLine is one product of an order, as it was sold.

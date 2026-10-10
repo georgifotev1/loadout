@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -86,6 +87,29 @@ func (app *application) ApplyAdminOrderEvent(w http.ResponseWriter, r *http.Requ
 	app.writeJSON(w, r, http.StatusOK, adminOrderJSON(o))
 }
 
+// GetAdminOrderLabel handles GET /api/admin/orders/{order_id}/label: the courier's PDF, fetched
+// each time it's printed.
+func (app *application) GetAdminOrderLabel(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	s, err := app.orders.Shipment(r.Context(), id)
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	if s.Carrier != app.carrier.Name() {
+		app.handleError(w, r, fmt.Errorf("label of order %s: its shipment is with %s, not %s", id, s.Carrier, app.carrier.Name()))
+		return
+	}
+	pdf, err := app.carrier.Label(r.Context(), s.Number)
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", "waybill-"+s.Number+".pdf"))
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(pdf)
+}
+
 func adminOrderJSON(o orders.AdminOrderDetail) AdminOrder {
 	lines := make([]AdminOrderLine, len(o.Lines))
 	for i, l := range o.Lines {
@@ -146,5 +170,6 @@ func adminOrderJSON(o orders.AdminOrderDetail) AdminOrder {
 		Margin:      eur(o.MarginCents),
 		Transitions: transitions,
 		Actions:     actions,
+		Shipment:    shipmentJSON(o.Shipment),
 	}
 }

@@ -1094,6 +1094,32 @@ paths:
         "422": { $ref: "#/components/responses/ValidationFailed" }
         default: { $ref: "#/components/responses/Error" }
 
+  /admin/orders/{order_id}/label:
+    get:
+      operationId: getAdminOrderLabel
+      summary: The order's waybill to print, from the courier
+      tags: [admin]
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The label
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: No such order, or it has no waybill yet.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
   /admin/markup-rules:
     get:
       operationId: listMarkupRules
@@ -1935,6 +1961,20 @@ components:
           allOf: [{ $ref: "#/components/schemas/Price" }]
           x-go-type-skip-optional-pointer: false
         total: { $ref: "#/components/schemas/Price" }
+        shipment:
+          description: The courier's waybill. Absent until it's made, once the order is confirmed.
+          allOf: [{ $ref: "#/components/schemas/Shipment" }]
+          x-go-type-skip-optional-pointer: false
+
+    Shipment:
+      type: object
+      required: [carrier, number]
+      properties:
+        carrier: { type: string, description: "The courier: `speedy`, or `mock` in development." }
+        number: { type: string, description: The waybill number. }
+        tracking_url:
+          type: string
+          description: The courier's page that follows the parcel. Absent if it has none.
 
     OrderLine:
       type: object
@@ -2489,6 +2529,10 @@ components:
           type: array
           description: The events an admin can apply now.
           items: { $ref: "#/components/schemas/AdminOrderEvent" }
+        shipment:
+          description: The courier's waybill. Absent until it's made, once the order is confirmed.
+          allOf: [{ $ref: "#/components/schemas/Shipment" }]
+          x-go-type-skip-optional-pointer: false
 
     AdminOrderCounts:
       type: object

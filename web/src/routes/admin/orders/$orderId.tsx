@@ -1,12 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Printer } from "lucide-react";
 import { AdminPage } from "#/components/admin/admin-page";
 import { AdminError, AdminNotFound } from "#/components/admin/admin-status";
 import { OrderActions } from "#/components/admin/order-actions";
 import { OrderStatusDot } from "#/components/admin/order-status";
 import { Badge } from "#/components/ui/badge";
-import { Button } from "#/components/ui/button";
+import { Button, buttonVariants } from "#/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -123,6 +123,7 @@ function OrderPage() {
 							{o.postcode} {o.city}
 						</p>
 					</Panel>
+					<ShipmentPanel order={o} />
 					<Panel title={t.paymentTitle}>
 						<p>{t.payments[o.payment]}</p>
 						<p className="text-muted-foreground">
@@ -141,7 +142,9 @@ function OrderPage() {
 function StatusPanel({ order: o }: { order: AdminOrder }) {
 	const todo = o.stale
 		? t.todo.supplier_pending_stale
-		: (t.todo[o.status] ?? null);
+		: o.status === "ready_to_ship" && !o.shipment
+			? t.todo.ready_to_ship_no_waybill
+			: (t.todo[o.status] ?? null);
 	// The same statuses as the list's "needs action" view.
 	const waiting = o.status === "supplier_pending" || o.status === "refunding";
 	return (
@@ -173,6 +176,43 @@ function StatusPanel({ order: o }: { order: AdminOrder }) {
 			</div>
 			<OrderActions order={o} />
 		</section>
+	);
+}
+
+// ShipmentPanel is the courier's waybill: its number, tracking and the label to print, which the
+// API fetches from the courier each time.
+function ShipmentPanel({ order: o }: { order: AdminOrder }) {
+	const s = o.shipment;
+	if (!s) return null;
+	return (
+		<Panel title={t.shipment}>
+			<p className="font-mono">{s.number}</p>
+			<p className="text-muted-foreground">
+				{t.carriers[s.carrier] ?? s.carrier}
+			</p>
+			<div className="mt-3 flex flex-wrap gap-2">
+				<a
+					href={`/api/admin/orders/${o.id}/label`}
+					target="_blank"
+					rel="noreferrer"
+					className={buttonVariants({ variant: "outline", size: "sm" })}
+				>
+					<Printer />
+					{t.label}
+				</a>
+				{s.tracking_url ? (
+					<a
+						href={s.tracking_url}
+						target="_blank"
+						rel="noreferrer"
+						className={buttonVariants({ variant: "ghost", size: "sm" })}
+					>
+						<ExternalLink />
+						{t.track}
+					</a>
+				) : null}
+			</div>
+		</Panel>
 	);
 }
 

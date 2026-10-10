@@ -1,11 +1,18 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
+
+	"github.com/gfotev/loadout/internal/carrier"
+	"github.com/gfotev/loadout/internal/orders"
 )
 
 func TestAdminOrdersAPI(t *testing.T) {
@@ -47,6 +54,28 @@ func TestAdminOrdersAPI(t *testing.T) {
 		}
 	})
 
+	t.Run("label", func(t *testing.T) {
+		if rec := get(t, app, target+"/label", admin); rec.Code != http.StatusNotFound {
+			t.Fatalf("before the waybill: status %d", rec.Code)
+		}
+		app.carrier = carrier.NewMock()
+		job := &river.Job[orders.StepArgs]{JobRow: &rivertype.JobRow{}, Args: orders.StepArgs{OrderID: placed.Id, Command: orders.CmdCreateShipment}}
+		if err := orders.NewStepWorker(app.orders, nil, nil, app.carrier).Work(context.Background(), job); err != nil {
+			t.Fatal(err)
+		}
+		o := decode[AdminOrder](t, get(t, app, target, admin), http.StatusOK)
+		if o.Shipment == nil || o.Shipment.Carrier != "mock" || !strings.HasSuffix(o.Shipment.Number, "-"+strconv.FormatInt(placed.Number, 10)) {
+			t.Fatalf("shipment %+v", o.Shipment)
+		}
+		rec := get(t, app, target+"/label", admin)
+		if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/pdf" || !strings.HasPrefix(rec.Body.String(), "%PDF-") {
+			t.Errorf("status %d, type %q", rec.Code, rec.Header().Get("Content-Type"))
+		}
+		if rec := get(t, app, target+"/label", guest); rec.Code != http.StatusUnauthorized {
+			t.Errorf("guest: status %d", rec.Code)
+		}
+	})
+
 	t.Run("an event the order can't take", func(t *testing.T) {
 		rec := send(t, app, http.MethodPost, target+"/events", `{"event": "supplier_rejected"}`, admin)
 		if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), `"invalid_transition"`) {
@@ -55,7 +84,7 @@ func TestAdminOrdersAPI(t *testing.T) {
 	})
 
 	t.Run("refused", func(t *testing.T) {
-		for _, body := range []string{`{"event": "shipment_created"}`, `{"event": "refund_succeeded"}`} {
+		for _, body := range []string{`{"event": "picked_up"}`, `{"event": "refund_succeeded"}`} {
 			if rec := send(t, app, http.MethodPost, target+"/events", body, admin); rec.Code != http.StatusUnprocessableEntity {
 				t.Errorf("%s: status %d: %s", body, rec.Code, rec.Body)
 			}

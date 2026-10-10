@@ -65,7 +65,7 @@ func TestAdminApply(t *testing.T) {
 			by   Actor
 			want string
 		}{
-			{EventShipmentCreated, by, "event: unknown"},
+			{EventPickedUp, by, "event: unknown"},
 			{EventPaymentSucceeded, by, "event: unknown"},
 			{EventRefundSucceeded, Actor{Note: "   "}, "note: required"},
 			{EventCancel, long, "note: too_long"},
@@ -103,7 +103,7 @@ func TestStatusAt(t *testing.T) {
 
 	shipped := start.Add(time.Hour)
 	s.now = func() time.Time { return shipped }
-	for _, ev := range []Event{EventSupplierConfirmed, EventShipmentCreated} {
+	for _, ev := range []Event{EventSupplierConfirmed, EventPickedUp} {
 		if err := s.Apply(ctx, id, ev); err != nil {
 			t.Fatal(err)
 		}

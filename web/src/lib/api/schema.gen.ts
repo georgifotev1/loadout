@@ -910,6 +910,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/orders/{order_id}/label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The order's waybill to print, from the courier */
+        get: operations["getAdminOrderLabel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/markup-rules": {
         parameters: {
             query?: never;
@@ -1369,6 +1386,16 @@ export interface components {
              */
             build_total?: components["schemas"]["Price"];
             total: components["schemas"]["Price"];
+            /** @description The courier's waybill. Absent until it's made, once the order is confirmed. */
+            shipment?: components["schemas"]["Shipment"];
+        };
+        Shipment: {
+            /** @description The courier: `speedy`, or `mock` in development. */
+            carrier: string;
+            /** @description The waybill number. */
+            number: string;
+            /** @description The courier's page that follows the parcel. Absent if it has none. */
+            tracking_url?: string;
         };
         /** @description A product as it was sold. */
         OrderLine: {
@@ -1802,6 +1829,8 @@ export interface components {
             transitions: components["schemas"]["OrderTransition"][];
             /** @description The events an admin can apply now. */
             actions: components["schemas"]["AdminOrderEvent"][];
+            /** @description The courier's waybill. Absent until it's made, once the order is confirmed. */
+            shipment?: components["schemas"]["Shipment"];
         };
         AdminOrderCounts: {
             /** @description Waiting for the supplier's answer. */
@@ -3287,6 +3316,41 @@ export interface operations {
             404: components["responses"]["NotFound"];
             /** @description `invalid_transition`: the order can't take the event in its status. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminOrderLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The label */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            /** @description No such order, or it has no waybill yet. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

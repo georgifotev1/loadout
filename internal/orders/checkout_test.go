@@ -427,6 +427,14 @@ func (f *fakeMailer) OrderCancelled(_ context.Context, o notify.Order) error {
 	return f.record("cancelled", o)
 }
 
+func (f *fakeMailer) OrderShipped(_ context.Context, o notify.Order) error {
+	return f.record("shipped", o)
+}
+
+func (f *fakeMailer) OrderDelivered(_ context.Context, o notify.Order) error {
+	return f.record("delivered", o)
+}
+
 func TestStepWorker(t *testing.T) {
 	s, _ := newCheckoutService(t)
 	ctx := context.Background()
@@ -435,7 +443,7 @@ func TestStepWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := &fakeMailer{}
-	w := NewStepWorker(s, m, nil)
+	w := NewStepWorker(s, m, nil, nil)
 	work := func(cmd Command) error {
 		return w.Work(ctx, &river.Job[StepArgs]{JobRow: &rivertype.JobRow{}, Args: StepArgs{OrderID: placed.ID, Command: cmd, Seq: 1}})
 	}
@@ -459,9 +467,9 @@ func TestStepWorker(t *testing.T) {
 		}
 	})
 
-	t.Run("a step that isn't built yet is cancelled", func(t *testing.T) {
+	t.Run("an unknown command is cancelled", func(t *testing.T) {
 		var cancel *rivertype.JobCancelError
-		if err := work(CmdCreateShipment); !errors.As(err, &cancel) {
+		if err := work(Command("teleport")); !errors.As(err, &cancel) {
 			t.Errorf("err %v, want a cancel", err)
 		}
 	})
@@ -525,10 +533,10 @@ func TestExpirePaymentStep(t *testing.T) {
 	job := &river.Job[StepArgs]{JobRow: &rivertype.JobRow{}, Args: StepArgs{OrderID: id, Command: CmdExpirePayment, Seq: 1}}
 
 	p := &fakePayments{}
-	if err := NewStepWorker(s, &fakeMailer{}, p).Work(ctx, job); err != nil || !slices.Equal(p.expired, []uuid.UUID{id}) {
+	if err := NewStepWorker(s, &fakeMailer{}, p, nil).Work(ctx, job); err != nil || !slices.Equal(p.expired, []uuid.UUID{id}) {
 		t.Errorf("err %v, expired %v", err, p.expired)
 	}
-	if err := NewStepWorker(s, &fakeMailer{}, nil).Work(ctx, job); err != nil {
+	if err := NewStepWorker(s, &fakeMailer{}, nil, nil).Work(ctx, job); err != nil {
 		t.Errorf("without card payments: %v", err)
 	}
 }
@@ -554,7 +562,7 @@ func TestRefundStep(t *testing.T) {
 	t.Run("a refund done at once cancels the order", func(t *testing.T) {
 		id := refunding(t)
 		p := &fakePayments{refunded: true}
-		if err := work(NewStepWorker(s, &fakeMailer{}, p), id); err != nil {
+		if err := work(NewStepWorker(s, &fakeMailer{}, p, nil), id); err != nil {
 			t.Fatal(err)
 		}
 		if o := loadOrder(t, s, id); o.Status != StatusCancelled || o.PaidAt == nil || len(p.refunds) != 1 {
@@ -562,7 +570,7 @@ func TestRefundStep(t *testing.T) {
 		}
 
 		t.Run("and isn't asked for again", func(t *testing.T) {
-			if err := work(NewStepWorker(s, &fakeMailer{}, p), id); err != nil || len(p.refunds) != 1 {
+			if err := work(NewStepWorker(s, &fakeMailer{}, p, nil), id); err != nil || len(p.refunds) != 1 {
 				t.Errorf("err %v, refunds %v", err, p.refunds)
 			}
 		})
@@ -570,7 +578,7 @@ func TestRefundStep(t *testing.T) {
 
 	t.Run("a pending refund waits for its webhook", func(t *testing.T) {
 		id := refunding(t)
-		if err := work(NewStepWorker(s, &fakeMailer{}, &fakePayments{}), id); err != nil {
+		if err := work(NewStepWorker(s, &fakeMailer{}, &fakePayments{}, nil), id); err != nil {
 			t.Fatal(err)
 		}
 		if o := loadOrder(t, s, id); o.Status != StatusRefunding {
@@ -581,10 +589,10 @@ func TestRefundStep(t *testing.T) {
 	t.Run("an error is retried", func(t *testing.T) {
 		id := refunding(t)
 		errStripe := errors.New("stripe is down")
-		if err := work(NewStepWorker(s, &fakeMailer{}, &fakePayments{err: errStripe}), id); !errors.Is(err, errStripe) {
+		if err := work(NewStepWorker(s, &fakeMailer{}, &fakePayments{err: errStripe}, nil), id); !errors.Is(err, errStripe) {
 			t.Errorf("err %v", err)
 		}
-		if err := work(NewStepWorker(s, &fakeMailer{}, nil), id); err == nil {
+		if err := work(NewStepWorker(s, &fakeMailer{}, nil, nil), id); err == nil {
 			t.Error("no error without card payments")
 		}
 	})

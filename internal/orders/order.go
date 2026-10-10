@@ -15,7 +15,7 @@ var ErrInvalidTransition = errors.New("orders: invalid transition")
 // Status is where an order is in its lifecycle:
 //
 //	awaiting_payment ── payment_succeeded, cod_selected ──► supplier_pending ── supplier_confirmed ──► ready_to_ship
-//	  │ payment_failed, payment_timed_out                     │ supplier_rejected, cancel               │ shipment_created
+//	  │ payment_failed, payment_timed_out                     │ supplier_rejected, cancel               │ picked_up
 //	  ▼                                                       ▼                                         ▼
 //	cancelled ◄── unpaid ─────────────────────────────── (stopped) ── paid ──► refunding               shipped ── delivered ──► delivered
 //	  ▲                                                                           │ refund_succeeded
@@ -29,7 +29,7 @@ type Status string
 const (
 	StatusAwaitingPayment Status = "awaiting_payment"
 	StatusSupplierPending Status = "supplier_pending" // ordered from the supplier, waiting for their confirmation
-	StatusReadyToShip     Status = "ready_to_ship"
+	StatusReadyToShip     Status = "ready_to_ship"    // the waybill is made; the parcel waits for the courier
 	StatusShipped         Status = "shipped"
 	StatusDelivered       Status = "delivered"
 	StatusRefunding       Status = "refunding"
@@ -55,7 +55,7 @@ const (
 	EventPaymentTimedOut   Event = "payment_timed_out"
 	EventSupplierConfirmed Event = "supplier_confirmed"
 	EventSupplierRejected  Event = "supplier_rejected"
-	EventShipmentCreated   Event = "shipment_created"
+	EventPickedUp          Event = "picked_up" // the courier took the parcel
 	EventDelivered         Event = "delivered"
 	EventRefundSucceeded   Event = "refund_succeeded"
 	EventCancel            Event = "cancel" // by an admin
@@ -173,7 +173,7 @@ func (o Order) Transition(ev Event, now time.Time) (Order, []Command, error) {
 			return o.invalid(ev)
 		}
 
-	case EventShipmentCreated:
+	case EventPickedUp:
 		switch o.Status {
 		case StatusReadyToShip:
 			to(StatusShipped, CmdEmailShipped)

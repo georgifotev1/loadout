@@ -144,6 +144,66 @@ func TestOrderConfirmed(t *testing.T) {
 	}
 }
 
+func TestOrderShipped(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		order   Order
+		want    []string
+		wantNot []string
+	}{
+		{
+			"cash on delivery with a tracking page",
+			Order{TrackingNumber: "61234567890", TrackingURL: "https://example.bg/t/61234567890", CashOnDelivery: true},
+			[]string{"Товарителница: 61234567890\n", "Проследете пратката: https://example.bg/t/61234567890\n", "платете на куриера 405,99\u00a0€"},
+			nil,
+		},
+		{
+			"paid, no tracking page",
+			Order{TrackingNumber: "M1-1005", PaidByCard: true},
+			[]string{"Товарителница: M1-1005\n"},
+			[]string{"Проследете", "платете"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &recorder{}
+			s := NewService(r, "https://loadout.bg")
+			o := tt.order
+			o.ID, o.Number, o.Token, o.Email, o.TotalCents = uuid.New(), 1005, "t", "ivan@example.bg", 405_99
+			if err := s.OrderShipped(context.Background(), o); err != nil {
+				t.Fatal(err)
+			}
+			m := r.sent[0]
+			if m.To != "ivan@example.bg" || m.Subject != "Поръчка № 1005 е изпратена" {
+				t.Errorf("to %q, subject %q", m.To, m.Subject)
+			}
+			for _, want := range append(tt.want, "https://loadout.bg/order/"+o.ID.String()+"?token=t\n") {
+				if !strings.Contains(m.Text, want) {
+					t.Errorf("email doesn't contain %q:\n%s", want, m.Text)
+				}
+			}
+			for _, not := range tt.wantNot {
+				if strings.Contains(m.Text, not) {
+					t.Errorf("email contains %q:\n%s", not, m.Text)
+				}
+			}
+		})
+	}
+}
+
+func TestOrderDelivered(t *testing.T) {
+	r := &recorder{}
+	s := NewService(r, "https://loadout.bg")
+	id := uuid.New()
+	if err := s.OrderDelivered(context.Background(), Order{ID: id, Number: 1006, Token: "t", Email: "ivan@example.bg"}); err != nil {
+		t.Fatal(err)
+	}
+	m := r.sent[0]
+	if m.To != "ivan@example.bg" || m.Subject != "Поръчка № 1006 е доставена" ||
+		!strings.Contains(m.Text, "https://loadout.bg/order/"+id.String()+"?token=t\n") {
+		t.Errorf("to %q, subject %q:\n%s", m.To, m.Subject, m.Text)
+	}
+}
+
 func TestOrderCancelled(t *testing.T) {
 	for _, tt := range []struct {
 		name   string

@@ -228,7 +228,16 @@ func orderJSON(o orders.OrderDetail) Order {
 		Assembly:   optionalEUR(o.Assembly, o.AssemblyCents),
 		BuildTotal: optionalEUR(o.Assembly, o.BuildCents),
 		Total:      eur(o.TotalCents),
+		Shipment:   shipmentJSON(o.Shipment),
 	}
+}
+
+// shipmentJSON is nil for an order without a waybill.
+func shipmentJSON(s *orders.Shipment) *Shipment {
+	if s == nil {
+		return nil
+	}
+	return &Shipment{Carrier: s.Carrier, Number: s.Number, TrackingUrl: s.TrackingURL}
 }
 
 // optionalEUR is an amount the API leaves out (nil) unless present.

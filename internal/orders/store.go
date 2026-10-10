@@ -493,6 +493,9 @@ func (store) order(ctx context.Context, q db.DBTX, id uuid.UUID) (OrderDetail, e
 	if err != nil {
 		return OrderDetail{}, fmt.Errorf("orders: lines of order %s: %w", id, err)
 	}
+	if o.Shipment, err = (store{}).shipment(ctx, q, id); err != nil {
+		return OrderDetail{}, err
+	}
 	if o.Assembly {
 		o.BuildCents = o.AssemblyCents
 		for _, l := range o.Lines {

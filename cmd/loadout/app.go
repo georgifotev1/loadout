@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gfotev/loadout/internal/auth"
+	"github.com/gfotev/loadout/internal/carrier"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/orders"
@@ -28,6 +29,7 @@ type application struct {
 	configurator *configurator.Service
 	orders       *orders.Service
 	payments     *payments.Service // nil without Stripe settings: cash on delivery only
+	carrier      carrier.Carrier
 	jobs         *jobs.Client
 	shuttingDown atomic.Bool
 }

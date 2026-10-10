@@ -177,7 +177,7 @@ func TestApplyRefusesInvalidEvents(t *testing.T) {
 	ctx := context.Background()
 	id := newOrder(t, s, PaymentCOD)
 
-	if err := s.Apply(ctx, id, EventShipmentCreated); !errors.Is(err, ErrInvalidTransition) {
+	if err := s.Apply(ctx, id, EventPickedUp); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("err %v, want ErrInvalidTransition", err)
 	}
 	if o := loadOrder(t, s, id); o.Status != StatusAwaitingPayment || o.Seq != 0 {

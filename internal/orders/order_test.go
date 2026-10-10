@@ -63,7 +63,7 @@ var allEvents = []Event{
 	EventPaymentTimedOut,
 	EventSupplierConfirmed,
 	EventSupplierRejected,
-	EventShipmentCreated,
+	EventPickedUp,
 	EventDelivered,
 	EventRefundSucceeded,
 	EventCancel,
@@ -97,11 +97,11 @@ var transitions = map[move]result{
 	{pendingCard, EventSupplierRejected}:  {refundingCard, []Command{CmdRefundPayment, CmdEmailCancelled}},
 	{pendingCard, EventCancel}:            {refundingCard, []Command{CmdRefundPayment, CmdEmailCancelled}},
 
-	{readyCOD, EventShipmentCreated}: {shippedCOD, []Command{CmdEmailShipped}},
-	{readyCOD, EventCancel}:          {cancelledCOD, []Command{CmdEmailCancelled}},
+	{readyCOD, EventPickedUp}: {shippedCOD, []Command{CmdEmailShipped}},
+	{readyCOD, EventCancel}:   {cancelledCOD, []Command{CmdEmailCancelled}},
 
-	{readyCard, EventShipmentCreated}: {shippedCard, []Command{CmdEmailShipped}},
-	{readyCard, EventCancel}:          {refundingCard, []Command{CmdRefundPayment, CmdEmailCancelled}},
+	{readyCard, EventPickedUp}: {shippedCard, []Command{CmdEmailShipped}},
+	{readyCard, EventCancel}:   {refundingCard, []Command{CmdRefundPayment, CmdEmailCancelled}},
 
 	{shippedCOD, EventPaymentSucceeded}: {shippedCODPaid, nil},
 	{shippedCOD, EventDelivered}:        {deliveredCOD, []Command{CmdEmailDelivered}},
@@ -122,12 +122,12 @@ var noops = map[state][]Event{
 	pendingCard:      {EventPaymentSucceeded, EventPaymentFailed, EventPaymentTimedOut},
 	readyCOD:         {EventCODSelected, EventSupplierConfirmed},
 	readyCard:        {EventPaymentSucceeded, EventPaymentFailed, EventPaymentTimedOut, EventSupplierConfirmed},
-	shippedCOD:       {EventCODSelected, EventSupplierConfirmed, EventShipmentCreated},
-	shippedCODPaid:   {EventCODSelected, EventPaymentSucceeded, EventSupplierConfirmed, EventShipmentCreated},
-	shippedCard:      {EventPaymentSucceeded, EventPaymentFailed, EventPaymentTimedOut, EventSupplierConfirmed, EventShipmentCreated},
-	deliveredCOD:     {EventCODSelected, EventSupplierConfirmed, EventShipmentCreated, EventDelivered},
-	deliveredCODPaid: {EventCODSelected, EventPaymentSucceeded, EventSupplierConfirmed, EventShipmentCreated, EventDelivered},
-	deliveredCard:    {EventPaymentSucceeded, EventPaymentFailed, EventPaymentTimedOut, EventSupplierConfirmed, EventShipmentCreated, EventDelivered},
+	shippedCOD:       {EventCODSelected, EventSupplierConfirmed, EventPickedUp},
+	shippedCODPaid:   {EventCODSelected, EventPaymentSucceeded, EventSupplierConfirmed, EventPickedUp},
+	shippedCard:      {EventPaymentSucceeded, EventPaymentFailed, EventPaymentTimedOut, EventSupplierConfirmed, EventPickedUp},
+	deliveredCOD:     {EventCODSelected, EventSupplierConfirmed, EventPickedUp, EventDelivered},
+	deliveredCODPaid: {EventCODSelected, EventPaymentSucceeded, EventSupplierConfirmed, EventPickedUp, EventDelivered},
+	deliveredCard:    {EventPaymentSucceeded, EventPaymentFailed, EventPaymentTimedOut, EventSupplierConfirmed, EventPickedUp, EventDelivered},
 	refundingCard:    {EventPaymentSucceeded, EventPaymentFailed, EventPaymentTimedOut, EventSupplierConfirmed, EventSupplierRejected, EventCancel},
 	cancelledCOD:     {EventCODSelected, EventSupplierConfirmed, EventSupplierRejected, EventCancel},
 	cancelledCard:    {EventPaymentFailed, EventPaymentTimedOut, EventSupplierConfirmed, EventSupplierRejected, EventCancel},
@@ -229,10 +229,10 @@ func TestTransitionPaths(t *testing.T) {
 		want   state
 	}{
 		{"cash on delivery", awaitingCOD, []Event{
-			EventCODSelected, EventSupplierConfirmed, EventShipmentCreated, EventPaymentSucceeded, EventDelivered,
+			EventCODSelected, EventSupplierConfirmed, EventPickedUp, EventPaymentSucceeded, EventDelivered,
 		}, deliveredCODPaid},
 		{"card", awaitingCard, []Event{
-			EventPaymentSucceeded, EventSupplierConfirmed, EventShipmentCreated, EventDelivered,
+			EventPaymentSucceeded, EventSupplierConfirmed, EventPickedUp, EventDelivered,
 		}, deliveredCard},
 		{"paid too late", awaitingCard, []Event{
 			EventPaymentTimedOut, EventPaymentSucceeded, EventRefundSucceeded,

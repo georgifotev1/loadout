@@ -8,12 +8,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
 	"github.com/gfotev/loadout/fixtures"
 	"github.com/gfotev/loadout/internal/auth"
+	"github.com/gfotev/loadout/internal/carrier"
 	"github.com/gfotev/loadout/internal/catalog"
 	"github.com/gfotev/loadout/internal/configurator"
 	"github.com/gfotev/loadout/internal/notify"
@@ -136,10 +138,18 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		} else {
 			logger.Warn("STRIPE_SECRET_KEY isn't set: checkout offers cash on delivery only")
 		}
+		// TODO(speedy-api): the mock courier until there's a contract; Speedy's client replaces
+		// it here. The mock delivers in minutes, so development polls it every minute.
+		courier := carrier.NewMock()
+		trackEvery := 30 * time.Minute
+		if cfg.Env == config.EnvDevelopment {
+			trackEvery = time.Minute
+		}
 		workers := river.NewWorkers()
 		river.AddWorker(workers, catalog.NewSyncWorker(catalogSvc))
 		river.AddWorker(workers, auth.NewEmailWorker(authSvc, mailer))
-		river.AddWorker(workers, orders.NewStepWorker(ordersSvc, mailer, orderPayments))
+		river.AddWorker(workers, orders.NewStepWorker(ordersSvc, mailer, orderPayments, courier))
+		river.AddWorker(workers, orders.NewTrackWorker(ordersSvc, courier))
 		river.AddWorker(workers, orders.NewPaymentTimeoutWorker(ordersSvc, orderPayments))
 		jobsClient, err := jobs.New(pool, jobs.Config{
 			Logger:  logger.With("component", "jobs"),
@@ -151,6 +161,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			},
 			PeriodicJobs: []*river.PeriodicJob{
 				catalog.PeriodicSync(),
+				orders.PeriodicTracking(trackEvery),
 			},
 			StopTimeout: cfg.Jobs.StopTimeout,
 		})
@@ -167,6 +178,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			configurator: configuratorSvc,
 			orders:       ordersSvc,
 			payments:     paymentsSvc,
+			carrier:      courier,
 			jobs:         jobsClient,
 		}
 		return app.serve(ctx)

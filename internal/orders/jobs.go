@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 
+	"github.com/gfotev/loadout/internal/carrier"
 	"github.com/gfotev/loadout/internal/notify"
 	"github.com/gfotev/loadout/internal/platform/jobs"
 )
@@ -36,6 +37,8 @@ type Mailer interface {
 	OrderReceived(ctx context.Context, o notify.Order) error
 	OrderConfirmed(ctx context.Context, o notify.Order) error
 	OrderCancelled(ctx context.Context, o notify.Order) error
+	OrderShipped(ctx context.Context, o notify.Order) error
+	OrderDelivered(ctx context.Context, o notify.Order) error
 }
 
 // Payments is the card payment provider as orders needs it: *payments.Service. Declared here,
@@ -60,12 +63,13 @@ type StepWorker struct {
 	svc      *Service
 	mailer   Mailer
 	payments Payments
+	carrier  carrier.Carrier
 }
 
 // NewStepWorker returns the order_step worker. payments is nil when card payments aren't set up;
-// refunds fail then, and wait in River's UI for a person.
-func NewStepWorker(svc *Service, m Mailer, p Payments) *StepWorker {
-	return &StepWorker{svc: svc, mailer: m, payments: p}
+// refunds fail then, and wait in River's UI for a person. c makes the orders' waybills.
+func NewStepWorker(svc *Service, m Mailer, p Payments, c carrier.Carrier) *StepWorker {
+	return &StepWorker{svc: svc, mailer: m, payments: p, carrier: c}
 }
 
 func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
@@ -76,7 +80,10 @@ func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
 		// TODO(vali-api): place the order through the supplier's API, once it takes orders.
 		return nil
 
-	case CmdEmailReceived, CmdEmailConfirmed, CmdEmailCancelled:
+	case CmdCreateShipment:
+		return w.createShipment(ctx, job.Args.OrderID)
+
+	case CmdEmailReceived, CmdEmailConfirmed, CmdEmailCancelled, CmdEmailShipped, CmdEmailDelivered:
 		o, err := w.svc.store.order(ctx, w.svc.pool, job.Args.OrderID)
 		if errors.Is(err, ErrNotFound) {
 			return nil // the order is gone
@@ -92,6 +99,10 @@ func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
 				return nil // cancelled meanwhile: that email says so
 			}
 			return w.mailer.OrderConfirmed(ctx, orderEmail(o))
+		case CmdEmailShipped:
+			return w.mailer.OrderShipped(ctx, orderEmail(o))
+		case CmdEmailDelivered:
+			return w.mailer.OrderDelivered(ctx, orderEmail(o))
 		default:
 			return w.mailer.OrderCancelled(ctx, orderEmail(o))
 		}
@@ -122,9 +133,9 @@ func (w *StepWorker) Work(ctx context.Context, job *river.Job[StepArgs]) error {
 		}
 		return w.svc.Apply(ctx, o.ID, EventRefundSucceeded)
 	}
-	// TODO(phase-7): the shipment and its emails come with Speedy (step 7). Until then their
-	// jobs are cancelled, so they show in River's UI without failing again and again.
-	return river.JobCancel(fmt.Errorf("orders: %s isn't carried out yet", job.Args.Command))
+	// A command this worker doesn't know is a bug: cancelled, so it shows in River's UI without
+	// failing again and again.
+	return river.JobCancel(fmt.Errorf("orders: unknown command %s", job.Args.Command))
 }
 
 // PaymentTimeoutArgs is the job that settles a card order still waiting for its payment once
@@ -183,7 +194,7 @@ func orderEmail(o OrderDetail) notify.Order {
 	for i, l := range o.Lines {
 		lines[i] = notify.OrderLine{Name: l.Name, Quantity: l.Quantity, LineCents: l.TotalCents, InBuild: l.InBuild}
 	}
-	return notify.Order{
+	e := notify.Order{
 		ID:             o.ID,
 		Number:         o.Number,
 		Token:          o.Token,
@@ -201,4 +212,9 @@ func orderEmail(o OrderDetail) notify.Order {
 		CashOnDelivery: o.Payment == PaymentCOD,
 		PaidByCard:     o.Payment == PaymentCard && o.PaidAt != nil,
 	}
+	if o.Shipment != nil {
+		e.TrackingNumber = o.Shipment.Number
+		e.TrackingURL = o.Shipment.TrackingURL
+	}
+	return e
 }
