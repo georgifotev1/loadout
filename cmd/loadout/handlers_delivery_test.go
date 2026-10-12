@@ -44,7 +44,7 @@ func TestDeliveryAPI(t *testing.T) {
 		t.Fatalf("deliveries %+v", co.Deliveries)
 	}
 	body := `{"name": "Иван Иванов", "email": "ivan@example.bg", "phone": "0888 123 456",
-		"delivery_method": "office", "office_id": "102", "payment": "cod",
+		"delivery_method": "office", "office_id": "102", "payment": "cod", "accept_terms": true,
 		"expected_total_cents": ` + strconv.FormatInt(co.Deliveries[0].Total.AmountCents, 10) + `}`
 	placed := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", body, guest), http.StatusCreated)
 	o := decodeJSON[Order](t, get(t, app, "/api/orders/"+placed.Id.String()+"?token="+placed.Token), http.StatusOK)

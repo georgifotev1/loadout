@@ -376,10 +376,10 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 		INSERT INTO orders.orders (
 			status, payment, token, user_id, email, name, phone, delivery, office_id, office_name,
 			city, postcode, address, subtotal_cents, delivery_cents, assembly, assembly_cents,
-			total_cents
+			total_cents, terms_version
 		)
 		VALUES ('awaiting_payment', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-		        $15, $16, $17)
+		        $15, $16, $17, $18)
 		RETURNING id, number`
 
 	var id uuid.UUID
@@ -402,6 +402,7 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 		o.Assembly,
 		o.AssemblyCents,
 		o.SubtotalCents+o.DeliveryCents+o.AssemblyCents,
+		TermsVersion,
 	).Scan(
 		&id,
 		&number,

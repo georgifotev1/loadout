@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRelativeTime, m } from "#/i18n";
+import { formatLongDate, formatRelativeTime, m } from "#/i18n";
 
 describe("formatRelativeTime", () => {
 	const now = Date.parse("2026-10-06T12:00:00Z");
@@ -26,5 +26,11 @@ describe("admin duration", () => {
 		[3 * 3600 + 5 * 60 + 9, "3 ч 5 мин"],
 	])("%i seconds is %s", (s, want) => {
 		expect(m.admin.duration(s)).toBe(want);
+	});
+});
+
+describe("formatLongDate", () => {
+	it("writes the day out in Bulgarian, whatever the time zone", () => {
+		expect(formatLongDate("2026-10-12")).toBe("12 октомври 2026 г.");
 	});
 });

@@ -50,6 +50,7 @@ func checkoutInput(total money.Cents) CheckoutInput {
 		Address:            "ул. Граф Игнатиев 1, ет. 2",
 		Payment:            PaymentCOD,
 		ExpectedTotalCents: total,
+		AcceptTerms:        true,
 	}
 }
 
@@ -124,6 +125,17 @@ func TestCheckout(t *testing.T) {
 		}
 		if sku != "CPU" || dealer != 160_00 || vat != money.VATStandardBP {
 			t.Errorf("sku %q, dealer %d, vat %d", sku, dealer, vat)
+		}
+	})
+
+	t.Run("the order keeps the terms the customer accepted", func(t *testing.T) {
+		var version string
+		err := s.pool.QueryRow(ctx, `SELECT terms_version FROM orders.orders WHERE id = $1`, placed.ID).Scan(&version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if version != TermsVersion {
+			t.Errorf("terms_version %q, want %q", version, TermsVersion)
 		}
 	})
 
@@ -231,6 +243,7 @@ func TestCheckoutRefuses(t *testing.T) {
 			"city: required",
 			"postcode: invalid_postcode",
 			"payment: unsupported",
+			"accept_terms: required",
 		}
 		if got := fieldCodes(t, err); !slices.Equal(got, want) {
 			t.Errorf("got %v, want %v", got, want)

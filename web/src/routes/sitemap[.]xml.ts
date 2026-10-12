@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { legalPaths } from "#/components/legal/legal-page";
 import { api, unwrap } from "#/lib/api/client";
 import { categories } from "#/lib/categories";
 
-// /sitemap.xml lists the home page, every category and every visible product, so search
+// /sitemap.xml lists the home page, every category, the legal pages and every visible product, so search
 // engines find products that no listing page links to directly.
 export const Route = createFileRoute("/sitemap.xml")({
 	server: {
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/sitemap.xml")({
 				const paths = [
 					"/",
 					...categories.map((c) => `/c/${c}`),
+					...Object.values(legalPaths),
 					...(await productSlugs()).map((s) => `/p/${encodeURIComponent(s)}`),
 				];
 				const urls = paths

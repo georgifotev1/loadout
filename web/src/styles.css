@@ -142,3 +142,19 @@
 		background-color: color-mix(in oklab, var(--brand) 25%, transparent);
 	}
 }
+
+/* The legal pages' long text (@tailwindcss/typography), in the theme's colours. */
+.prose {
+	--tw-prose-body: var(--foreground);
+	--tw-prose-headings: var(--foreground);
+	--tw-prose-lead: var(--muted-foreground);
+	--tw-prose-links: var(--foreground);
+	--tw-prose-bold: var(--foreground);
+	--tw-prose-counters: var(--muted-foreground);
+	--tw-prose-bullets: var(--border-strong);
+	--tw-prose-hr: var(--border);
+	--tw-prose-quotes: var(--foreground);
+	--tw-prose-quote-borders: var(--border-strong);
+	--tw-prose-th-borders: var(--border-strong);
+	--tw-prose-td-borders: var(--border);
+}

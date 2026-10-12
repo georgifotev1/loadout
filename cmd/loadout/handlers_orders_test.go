@@ -52,7 +52,7 @@ func checkoutBody(total int64) string {
 func checkoutBodyPaying(total int64, payment string) string {
 	return `{"name": "Иван Иванов", "email": "ivan@example.bg", "phone": "0888 123 456",
 		"delivery_method": "address", "city": "София", "postcode": "1000", "address": "ул. Граф Игнатиев 1",
-		"payment": "` + payment + `",
+		"payment": "` + payment + `", "accept_terms": true,
 		"expected_total_cents": ` + strconv.FormatInt(total, 10) + `}`
 }
 

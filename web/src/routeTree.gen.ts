@@ -19,12 +19,19 @@ import { Route as ShopIndexRouteImport } from './routes/_shop/index'
 import { Route as ShopAccountRouteImport } from './routes/_shop/account'
 import { Route as ShopBuilderRouteImport } from './routes/_shop/builder'
 import { Route as ShopCartRouteImport } from './routes/_shop/cart'
+import { Route as ShopContactsRouteImport } from './routes/_shop/contacts'
+import { Route as ShopCookiesRouteImport } from './routes/_shop/cookies'
+import { Route as ShopDeliveryRouteImport } from './routes/_shop/delivery'
 import { Route as ShopForgotPasswordRouteImport } from './routes/_shop/forgot-password'
 import { Route as ShopLoginRouteImport } from './routes/_shop/login'
+import { Route as ShopPrivacyRouteImport } from './routes/_shop/privacy'
 import { Route as ShopRegisterRouteImport } from './routes/_shop/register'
 import { Route as ShopResetPasswordRouteImport } from './routes/_shop/reset-password'
+import { Route as ShopReturnsRouteImport } from './routes/_shop/returns'
 import { Route as ShopSearchRouteImport } from './routes/_shop/search'
+import { Route as ShopTermsRouteImport } from './routes/_shop/terms'
 import { Route as ShopVerifyEmailRouteImport } from './routes/_shop/verify-email'
+import { Route as ShopWarrantyRouteImport } from './routes/_shop/warranty'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAccountRouteImport } from './routes/admin/account'
 import { Route as AdminJobsRouteImport } from './routes/admin/jobs'
@@ -89,6 +96,21 @@ const ShopCartRoute = ShopCartRouteImport.update({
   path: '/cart',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopContactsRoute = ShopContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopCookiesRoute = ShopCookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopDeliveryRoute = ShopDeliveryRouteImport.update({
+  id: '/delivery',
+  path: '/delivery',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopForgotPasswordRoute = ShopForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
@@ -97,6 +119,11 @@ const ShopForgotPasswordRoute = ShopForgotPasswordRouteImport.update({
 const ShopLoginRoute = ShopLoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopPrivacyRoute = ShopPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => ShopRoute,
 } as any)
 const ShopRegisterRoute = ShopRegisterRouteImport.update({
@@ -109,14 +136,29 @@ const ShopResetPasswordRoute = ShopResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopReturnsRoute = ShopReturnsRouteImport.update({
+  id: '/returns',
+  path: '/returns',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopSearchRoute = ShopSearchRouteImport.update({
   id: '/search',
   path: '/search',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopTermsRoute = ShopTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopVerifyEmailRoute = ShopVerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopWarrantyRoute = ShopWarrantyRouteImport.update({
+  id: '/warranty',
+  path: '/warranty',
   getParentRoute: () => ShopRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -204,12 +246,19 @@ export interface FileRoutesByFullPath {
   '/account': typeof ShopAccountRoute
   '/builder': typeof ShopBuilderRoute
   '/cart': typeof ShopCartRoute
+  '/contacts': typeof ShopContactsRoute
+  '/cookies': typeof ShopCookiesRoute
+  '/delivery': typeof ShopDeliveryRoute
   '/forgot-password': typeof ShopForgotPasswordRoute
   '/login': typeof ShopLoginRoute
+  '/privacy': typeof ShopPrivacyRoute
   '/register': typeof ShopRegisterRoute
   '/reset-password': typeof ShopResetPasswordRoute
+  '/returns': typeof ShopReturnsRoute
   '/search': typeof ShopSearchRoute
+  '/terms': typeof ShopTermsRoute
   '/verify-email': typeof ShopVerifyEmailRoute
+  '/warranty': typeof ShopWarrantyRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
@@ -233,12 +282,19 @@ export interface FileRoutesByTo {
   '/account': typeof ShopAccountRoute
   '/builder': typeof ShopBuilderRoute
   '/cart': typeof ShopCartRoute
+  '/contacts': typeof ShopContactsRoute
+  '/cookies': typeof ShopCookiesRoute
+  '/delivery': typeof ShopDeliveryRoute
   '/forgot-password': typeof ShopForgotPasswordRoute
   '/login': typeof ShopLoginRoute
+  '/privacy': typeof ShopPrivacyRoute
   '/register': typeof ShopRegisterRoute
   '/reset-password': typeof ShopResetPasswordRoute
+  '/returns': typeof ShopReturnsRoute
   '/search': typeof ShopSearchRoute
+  '/terms': typeof ShopTermsRoute
   '/verify-email': typeof ShopVerifyEmailRoute
+  '/warranty': typeof ShopWarrantyRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
@@ -266,12 +322,19 @@ export interface FileRoutesById {
   '/_shop/account': typeof ShopAccountRoute
   '/_shop/builder': typeof ShopBuilderRoute
   '/_shop/cart': typeof ShopCartRoute
+  '/_shop/contacts': typeof ShopContactsRoute
+  '/_shop/cookies': typeof ShopCookiesRoute
+  '/_shop/delivery': typeof ShopDeliveryRoute
   '/_shop/forgot-password': typeof ShopForgotPasswordRoute
   '/_shop/login': typeof ShopLoginRoute
+  '/_shop/privacy': typeof ShopPrivacyRoute
   '/_shop/register': typeof ShopRegisterRoute
   '/_shop/reset-password': typeof ShopResetPasswordRoute
+  '/_shop/returns': typeof ShopReturnsRoute
   '/_shop/search': typeof ShopSearchRoute
+  '/_shop/terms': typeof ShopTermsRoute
   '/_shop/verify-email': typeof ShopVerifyEmailRoute
+  '/_shop/warranty': typeof ShopWarrantyRoute
   '/admin/account': typeof AdminAccountRoute
   '/admin/jobs': typeof AdminJobsRoute
   '/admin/markup-rules': typeof AdminMarkupRulesRoute
@@ -300,12 +363,19 @@ export interface FileRouteTypes {
     | '/account'
     | '/builder'
     | '/cart'
+    | '/contacts'
+    | '/cookies'
+    | '/delivery'
     | '/forgot-password'
     | '/login'
+    | '/privacy'
     | '/register'
     | '/reset-password'
+    | '/returns'
     | '/search'
+    | '/terms'
     | '/verify-email'
+    | '/warranty'
     | '/admin/account'
     | '/admin/jobs'
     | '/admin/markup-rules'
@@ -329,12 +399,19 @@ export interface FileRouteTypes {
     | '/account'
     | '/builder'
     | '/cart'
+    | '/contacts'
+    | '/cookies'
+    | '/delivery'
     | '/forgot-password'
     | '/login'
+    | '/privacy'
     | '/register'
     | '/reset-password'
+    | '/returns'
     | '/search'
+    | '/terms'
     | '/verify-email'
+    | '/warranty'
     | '/admin/account'
     | '/admin/jobs'
     | '/admin/markup-rules'
@@ -361,12 +438,19 @@ export interface FileRouteTypes {
     | '/_shop/account'
     | '/_shop/builder'
     | '/_shop/cart'
+    | '/_shop/contacts'
+    | '/_shop/cookies'
+    | '/_shop/delivery'
     | '/_shop/forgot-password'
     | '/_shop/login'
+    | '/_shop/privacy'
     | '/_shop/register'
     | '/_shop/reset-password'
+    | '/_shop/returns'
     | '/_shop/search'
+    | '/_shop/terms'
     | '/_shop/verify-email'
+    | '/_shop/warranty'
     | '/admin/account'
     | '/admin/jobs'
     | '/admin/markup-rules'
@@ -465,6 +549,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopCartRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/contacts': {
+      id: '/_shop/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof ShopContactsRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/cookies': {
+      id: '/_shop/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof ShopCookiesRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/delivery': {
+      id: '/_shop/delivery'
+      path: '/delivery'
+      fullPath: '/delivery'
+      preLoaderRoute: typeof ShopDeliveryRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/forgot-password': {
       id: '/_shop/forgot-password'
       path: '/forgot-password'
@@ -477,6 +582,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof ShopLoginRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/privacy': {
+      id: '/_shop/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof ShopPrivacyRouteImport
       parentRoute: typeof ShopRoute
     }
     '/_shop/register': {
@@ -493,6 +605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopResetPasswordRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/returns': {
+      id: '/_shop/returns'
+      path: '/returns'
+      fullPath: '/returns'
+      preLoaderRoute: typeof ShopReturnsRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/search': {
       id: '/_shop/search'
       path: '/search'
@@ -500,11 +619,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopSearchRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/terms': {
+      id: '/_shop/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof ShopTermsRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/verify-email': {
       id: '/_shop/verify-email'
       path: '/verify-email'
       fullPath: '/verify-email'
       preLoaderRoute: typeof ShopVerifyEmailRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/warranty': {
+      id: '/_shop/warranty'
+      path: '/warranty'
+      fullPath: '/warranty'
+      preLoaderRoute: typeof ShopWarrantyRouteImport
       parentRoute: typeof ShopRoute
     }
     '/admin/': {
@@ -673,12 +806,19 @@ interface ShopRouteChildren {
   ShopAccountRoute: typeof ShopAccountRoute
   ShopBuilderRoute: typeof ShopBuilderRoute
   ShopCartRoute: typeof ShopCartRoute
+  ShopContactsRoute: typeof ShopContactsRoute
+  ShopCookiesRoute: typeof ShopCookiesRoute
+  ShopDeliveryRoute: typeof ShopDeliveryRoute
   ShopForgotPasswordRoute: typeof ShopForgotPasswordRoute
   ShopLoginRoute: typeof ShopLoginRoute
+  ShopPrivacyRoute: typeof ShopPrivacyRoute
   ShopRegisterRoute: typeof ShopRegisterRoute
   ShopResetPasswordRoute: typeof ShopResetPasswordRoute
+  ShopReturnsRoute: typeof ShopReturnsRoute
   ShopSearchRoute: typeof ShopSearchRoute
+  ShopTermsRoute: typeof ShopTermsRoute
   ShopVerifyEmailRoute: typeof ShopVerifyEmailRoute
+  ShopWarrantyRoute: typeof ShopWarrantyRoute
   ShopIndexRoute: typeof ShopIndexRoute
   ShopBuildSlugRoute: typeof ShopBuildSlugRoute
   ShopCCategoryRoute: typeof ShopCCategoryRoute
@@ -690,12 +830,19 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopAccountRoute: ShopAccountRoute,
   ShopBuilderRoute: ShopBuilderRoute,
   ShopCartRoute: ShopCartRoute,
+  ShopContactsRoute: ShopContactsRoute,
+  ShopCookiesRoute: ShopCookiesRoute,
+  ShopDeliveryRoute: ShopDeliveryRoute,
   ShopForgotPasswordRoute: ShopForgotPasswordRoute,
   ShopLoginRoute: ShopLoginRoute,
+  ShopPrivacyRoute: ShopPrivacyRoute,
   ShopRegisterRoute: ShopRegisterRoute,
   ShopResetPasswordRoute: ShopResetPasswordRoute,
+  ShopReturnsRoute: ShopReturnsRoute,
   ShopSearchRoute: ShopSearchRoute,
+  ShopTermsRoute: ShopTermsRoute,
   ShopVerifyEmailRoute: ShopVerifyEmailRoute,
+  ShopWarrantyRoute: ShopWarrantyRoute,
   ShopIndexRoute: ShopIndexRoute,
   ShopBuildSlugRoute: ShopBuildSlugRoute,
   ShopCCategoryRoute: ShopCCategoryRoute,

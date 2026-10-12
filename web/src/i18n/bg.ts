@@ -472,8 +472,15 @@ export const bg = {
 		cashOnDeliveryDetail: "Плащате на куриера при получаване",
 		card: "Карта",
 		cardDetail: "Плащате онлайн, на сигурната страница на Stripe",
-		placeOrder: "Поръчай",
-		placeOrderAndPay: "Към плащане",
+		// The law asks the final button to say plainly that the order means paying.
+		placeOrder: "Поръчка със задължение за плащане",
+		terms: {
+			before: "Прочетох и приемам ",
+			terms: "Общите условия",
+			and: " и ",
+			privacy: "Политиката за поверителност",
+			after: ".",
+		},
 		placing: "Поръчване…",
 		yourOrder: "Вашата поръчка",
 		secure: "Сигурна поръчка",
@@ -495,6 +502,8 @@ export const bg = {
 			empty: "Количката е празна.",
 			deliveryUnavailable:
 				"Сглобеният компютър не се побира в автомат. Изберете офис или адрес.",
+			termsRequired:
+				"За да поръчате, приемете Общите условия и Политиката за поверителност.",
 			generic: "Поръчката не мина. Опитайте отново след малко.",
 		},
 	},
@@ -1197,16 +1206,35 @@ export const bg = {
 		sidebarDescription: "Разделите на администрацията.",
 		toggleSidebar: "Скрий или покажи страничната лента",
 	},
+	// The legal and help pages: their titles (in the footer and the pages' own menu) and frame.
+	legal: {
+		pages: {
+			terms: "Общи условия",
+			privacy: "Поверителност",
+			cookies: "Бисквитки",
+			delivery: "Доставка",
+			returns: "Връщане и отказ",
+			warranty: "Гаранция и рекламации",
+			contacts: "Контакти",
+		},
+		titles: {
+			terms: "Общи условия",
+			privacy: "Политика за поверителност",
+			cookies: "Политика за бисквитките",
+			delivery: "Доставка",
+			returns: "Връщане и право на отказ",
+			warranty: "Гаранция и рекламации",
+			contacts: "Контакти",
+		},
+		effective: (date: string) => `В сила от ${date}`,
+		menu: "Информация",
+		draft:
+			"Проект. Текстът предстои да бъде прегледан от юрист и може да се промени.",
+	},
 	footer: {
 		shop: "Магазин",
 		help: "Помощ",
 		company: "Loadout",
-		deliveryInfo: "Доставка",
-		returnsInfo: "Връщане и рекламации",
-		warrantyInfo: "Гаранция",
-		contacts: "Контакти",
-		terms: "Общи условия",
-		privacy: "Поверителност",
 		rights: (year: number) => `© ${year} Loadout. Всички права запазени.`,
 	},
 };

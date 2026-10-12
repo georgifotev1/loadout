@@ -112,6 +112,7 @@ func (app *application) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		Address:            in.Address,
 		Payment:            orders.Payment(in.Payment),
 		ExpectedTotalCents: money.Cents(in.ExpectedTotalCents),
+		AcceptTerms:        in.AcceptTerms,
 		UserID:             owner.UserID,
 	})
 	if err != nil {

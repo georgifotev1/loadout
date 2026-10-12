@@ -38,6 +38,18 @@ export function formatShortDate(d: Date): string {
 	return shortDate.format(d);
 }
 
+const longDate = new Intl.DateTimeFormat(locale, {
+	day: "numeric",
+	month: "long",
+	year: "numeric",
+	timeZone: "UTC",
+});
+
+// formatLongDate formats a calendar day, "2026-10-12", as "12 октомври 2026 г.".
+export function formatLongDate(day: string): string {
+	return longDate.format(new Date(`${day}T00:00:00Z`));
+}
+
 const dateTime = new Intl.DateTimeFormat(locale, {
 	day: "numeric",
 	month: "numeric",

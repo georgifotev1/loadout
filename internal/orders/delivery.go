@@ -30,7 +30,8 @@ const (
 var Deliveries = []Delivery{DeliveryOffice, DeliveryAPT, DeliveryAddress}
 
 // What delivery costs the customer, VAT included: our prices, not the courier's quote, so they
-// don't depend on weights we don't know yet.
+// don't depend on weights we don't know yet. The delivery page
+// (web/src/routes/_shop/delivery.tsx) states them too.
 const (
 	AddressDeliveryCents money.Cents = 5_99
 	OfficeDeliveryCents  money.Cents = 3_99

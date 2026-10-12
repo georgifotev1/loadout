@@ -284,7 +284,7 @@ export interface paths {
          *     courier's offices of that kind); `payment` (`unsupported`: not in `GET /checkout`'s
          *     `payments`); `cart` (`empty`; `unavailable`: a product is no longer for sale or out of
          *     stock); `expected_total_cents` (`changed`: prices or the assembly offer moved since
-         *     `GET /checkout`). The PC is assembled as `GET /checkout` said.
+         *     `GET /checkout`); `accept_terms` (`required`). The PC is assembled as `GET /checkout` said.
          *
          *     A card order waits for its payment: send the customer to `payment_url`. Without one
          *     (Stripe didn't answer), the order page gets it with `POST /orders/{order_id}/payment`.
@@ -1392,6 +1392,11 @@ export interface components {
              * @description The `total` the customer saw at `GET /checkout`.
              */
             expected_total_cents: number;
+            /**
+             * @description The customer accepted the terms and the privacy policy. Must be true, or 422
+             *     `accept_terms: required`.
+             */
+            accept_terms: boolean;
         };
         OrderPlaced: {
             /** Format: uuid */

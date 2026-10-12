@@ -1079,6 +1079,10 @@ type Checkout struct {
 
 // CheckoutRequest defines model for CheckoutRequest.
 type CheckoutRequest struct {
+	// AcceptTerms The customer accepted the terms and the privacy policy. Must be true, or 422
+	// `accept_terms: required`.
+	AcceptTerms bool `json:"accept_terms"`
+
 	// Address For `address`: street, number, floor, what the courier needs.
 	Address string `json:"address,omitempty"`
 

@@ -59,6 +59,10 @@ type DeliveryQuote struct {
 	Available bool
 }
 
+// TermsVersion is the date the storefront's terms (/terms) took effect, stored on each order as
+// the version its customer accepted. Change it together with the date on the terms page.
+const TermsVersion = "2026-10-12"
+
 // CheckoutInput is what the customer fills in at checkout.
 type CheckoutInput struct {
 	Name     string
@@ -76,6 +80,8 @@ type CheckoutInput struct {
 	// ExpectedTotalCents is the total the customer saw. If prices moved since, checkout refuses
 	// and they look again, instead of being charged an amount they didn't agree to.
 	ExpectedTotalCents money.Cents
+	// AcceptTerms is the checkbox for the terms and the privacy policy: no order without it.
+	AcceptTerms bool
 	// UserID is the logged-in customer, uuid.Nil for a guest.
 	UserID uuid.UUID
 }
@@ -306,6 +312,7 @@ func (in CheckoutInput) validate() error {
 		v.Add("delivery_method", "unsupported")
 	}
 	v.Check(in.Payment == PaymentCOD || in.Payment == PaymentCard, "payment", "unsupported")
+	v.Check(in.AcceptTerms, "accept_terms", "required")
 	return v.Err()
 }
 

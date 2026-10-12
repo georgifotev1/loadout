@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { type LegalPageKey, legalPaths } from "#/components/legal/legal-page";
 import { m } from "#/i18n";
 import type { Category } from "#/lib/categories";
 import { Container } from "./container";
@@ -11,24 +12,15 @@ const shopLinks: Category[] = [
 	"peripheral.monitor",
 ];
 
-export function SiteFooter() {
-	// TODO(phase-7): link the info pages once they exist.
-	const columns = [
-		{
-			title: m.footer.help,
-			links: [
-				m.footer.deliveryInfo,
-				m.footer.returnsInfo,
-				m.footer.warrantyInfo,
-				m.footer.contacts,
-			],
-		},
-		{
-			title: m.footer.company,
-			links: [m.footer.terms, m.footer.privacy],
-		},
-	];
+const columns: { title: string; pages: LegalPageKey[] }[] = [
+	{
+		title: m.footer.help,
+		pages: ["delivery", "returns", "warranty", "contacts"],
+	},
+	{ title: m.footer.company, pages: ["terms", "privacy", "cookies"] },
+];
 
+export function SiteFooter() {
 	return (
 		<footer className="mt-24 border-t bg-card">
 			<Container className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-5">
@@ -58,14 +50,14 @@ export function SiteFooter() {
 					<div key={col.title}>
 						<h2 className="font-medium text-sm">{col.title}</h2>
 						<ul className="mt-3 space-y-2 text-muted-foreground text-sm">
-							{col.links.map((l) => (
-								<li key={l}>
-									<a
-										href="#top"
+							{col.pages.map((key) => (
+								<li key={key}>
+									<Link
+										to={legalPaths[key]}
 										className="transition-colors hover:text-foreground"
 									>
-										{l}
-									</a>
+										{m.legal.pages[key]}
+									</Link>
 								</li>
 							))}
 						</ul>

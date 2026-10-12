@@ -128,10 +128,25 @@ type OrderLine struct {
 	InBuild   bool // a part of the assembled PC
 }
 
+// Seller is who the customer buys from, as the order email names them. The contacts page
+// (web/src/lib/company.ts) shows the same.
+// TODO(company): the registered company's details, once the company exists.
+var Seller = struct {
+	Name, ID, Address, Email, Phone string
+}{
+	Name:    "[Име на фирмата] ЕООД",
+	ID:      "[ЕИК]",
+	Address: "[Седалище и адрес на управление]",
+	Email:   "[имейл за връзка]",
+	Phone:   "[телефон]",
+}
+
 // OrderReceived confirms a new order: what was ordered, the totals, where it goes, and the link
-// to follow it.
-// TODO(phase-7): what the email must repeat by law (terms, withdrawal) comes with the lawyer's
-// review (step 8).
+// to follow it. It's the confirmation the law asks for on a durable medium, so it also repeats
+// who the seller is, the right of withdrawal with the model form, and the legal guarantee: a link
+// to a web page we can change wouldn't do. The terms themselves are linked, with the version the
+// customer accepted.
+// TODO(lawyer): confirm this is enough, or whether the terms must go along as a PDF.
 func (s *Service) OrderReceived(ctx context.Context, o Order) error {
 	ls := []string{
 		"Здравейте, " + o.Name + ",",
@@ -189,7 +204,9 @@ func (s *Service) OrderReceived(ctx context.Context, o Order) error {
 		"Следете поръчката от тук:",
 		"",
 		s.orderLink(o),
+		"",
 	)
+	ls = append(ls, s.orderTerms()...)
 	return s.sender.Send(ctx, Message{
 		To:      o.Email,
 		Subject: fmt.Sprintf("Поръчка № %d е приета", o.Number),
@@ -240,8 +257,10 @@ func (s *Service) OrderCancelled(ctx context.Context, o Order) error {
 			"",
 		)
 	}
-	// TODO(phase-8): how to reach us, once the contacts page exists; replies go to noreply.
+	// Replies go to noreply, so the email says where to write.
 	ls = append(ls,
+		"Въпроси? Пишете ни на "+Seller.Email+" или вижте "+s.siteURL+"/contacts",
+		"",
 		"Поръчката:",
 		"",
 		s.orderLink(o),
@@ -297,6 +316,55 @@ func (s *Service) OrderDelivered(ctx context.Context, o Order) error {
 			s.orderLink(o),
 		),
 	})
+}
+
+// orderTerms is what the order email repeats from the terms: the seller, the right of withdrawal
+// with the model form (Annex 6 to the Consumer Protection Act), and the legal guarantee.
+func (s *Service) orderTerms() []string {
+	return []string{
+		"Продавач: " + Seller.Name + ", ЕИК " + Seller.ID + ", " + Seller.Address,
+		"Връзка с нас: " + Seller.Email + ", " + Seller.Phone,
+		"Общи условия, които приехте с поръчката: " + s.siteURL + "/terms",
+		"",
+		"ПРАВО НА ОТКАЗ",
+		"",
+		"Имате право да се откажете от договора в 14-дневен срок, без да посочвате причина.",
+		"Срокът изтича 14 дни след деня, в който вие или посочено от вас трето лице, различно от",
+		"превозвача, получите стоките. Ако поръчката пристигне в няколко пратки, срокът тече от",
+		"получаването на последната.",
+		"",
+		"За да се откажете, ни уведомете ясно преди срокът да изтече: на " + Seller.Email,
+		"или с писмо до " + Seller.Address + ". Можете да използвате образеца по-долу, но не сте",
+		"длъжни. Повече за връщането: " + s.siteURL + "/returns",
+		"",
+		"Последици от отказа: връщаме всичко, което сте платили, включително стандартната",
+		"доставка, до 14 дни от деня, в който научим за отказа ви: по картата, с която сте",
+		"платили, или по банкова сметка, която ни посочите, ако сте платили на куриера. Можем да",
+		"задържим връщането, докато получим стоките или доказателство, че сте ги изпратили. Изпратете",
+		"стоките до 14 дни след като ни уведомите. Разходите по връщането са за ваша сметка.",
+		"Отговаряте само за намалената стойност на стоките, ако сте ги използвали повече,",
+		"отколкото е нужно, за да разберете какви са, какви са характеристиките им и как работят.",
+		"",
+		"ЗАКОНОВА ГАРАНЦИЯ",
+		"",
+		"Отговаряме за всяко несъответствие на стоките с договора, което се прояви до 2 години",
+		"след доставката. Тази отговорност е отделна от търговската гаранция на производителя",
+		"и не зависи от нея.",
+		"",
+		"ОБРАЗЕЦ НА ФОРМУЛЯР ЗА ОТКАЗ",
+		"(попълнете го и го изпратете само ако искате да се откажете от договора)",
+		"",
+		"До " + Seller.Name + ", " + Seller.Address + ", " + Seller.Email + ":",
+		"С настоящото уведомявам/уведомяваме*, че се отказвам/отказваме* от сключения от",
+		"мен/нас* договор за покупка на следните стоки:",
+		"— Поръчани на*/получени на*:",
+		"— Номер на поръчката:",
+		"— Име на потребителя/ите:",
+		"— Адрес на потребителя/ите:",
+		"— Подпис на потребителя/ите (само ако формулярът е на хартия):",
+		"— Дата:",
+		"(*) Ненужното се зачертава.",
+	}
 }
 
 // orderLink opens the order page without logging in.

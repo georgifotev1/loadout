@@ -37,6 +37,12 @@ describe("checkoutError", () => {
 		expect(checkoutError(invalid(["phone", "invalid_phone"]))).toBeUndefined();
 	});
 
+	it("asks for the terms", () => {
+		expect(checkoutError(invalid(["accept_terms", "required"]))).toBe(
+			m.checkout.errors.termsRequired,
+		);
+	});
+
 	it("explains a changed cart", () => {
 		const err = invalid(["expected_total_cents", "changed"]);
 		expect(checkoutError(err)).toBe(m.checkout.errors.priceChanged);

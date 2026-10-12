@@ -25,6 +25,7 @@ import { Container } from "#/components/site/container";
 import { PageSkeleton } from "#/components/site/page-skeletons";
 import { StatusPage } from "#/components/site/status-page";
 import { Button } from "#/components/ui/button";
+import { Checkbox } from "#/components/ui/checkbox";
 import { Label } from "#/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "#/components/ui/radio-group";
 import { m } from "#/i18n";
@@ -168,6 +169,8 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 	const [mistakes, setMistakes] = useState<
 		Partial<Record<CheckoutField, string>>
 	>({});
+	const [termsAccepted, setTermsAccepted] = useState(false);
+	const [termsMissing, setTermsMissing] = useState(false);
 	const err = submit.error;
 	const formError =
 		checkoutError(err) ??
@@ -207,11 +210,16 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 					};
 					const found = checkCheckoutFields(values);
 					setMistakes(found);
+					setTermsMissing(!termsAccepted);
 					const first = Object.keys(values).find(
 						(k) => found[k as CheckoutField],
 					);
 					if (first) {
 						form.querySelector<HTMLInputElement>(`[name="${first}"]`)?.focus();
+						return;
+					}
+					if (!termsAccepted) {
+						form.querySelector<HTMLButtonElement>("#accept-terms")?.focus();
 						return;
 					}
 					const { office_id, city, postcode, address, ...rest } = values;
@@ -222,6 +230,7 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 							: { office_id }),
 						payment,
 						expected_total_cents: delivery.total.amount_cents,
+						accept_terms: true,
 					});
 				}}
 			>
@@ -454,10 +463,18 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 							</span>
 						</p>
 					) : null}
+					<TermsCheckbox
+						checked={termsAccepted}
+						missing={termsMissing}
+						onChange={(on) => {
+							setTermsAccepted(on);
+							if (on) setTermsMissing(false);
+						}}
+					/>
 					<Button
 						type="submit"
 						size="lg"
-						className="mt-6 h-11 w-full"
+						className="mt-4 h-11 w-full"
 						disabled={
 							!checkout.orderable ||
 							repricing ||
@@ -466,15 +483,58 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 						}
 					>
 						<Lock />{" "}
-						{submit.isPending || submit.isSuccess
-							? t.placing
-							: payment === "card"
-								? t.placeOrderAndPay
-								: t.placeOrder}
+						{submit.isPending || submit.isSuccess ? t.placing : t.placeOrder}
 					</Button>
 				</aside>
 			</form>
 		</Container>
+	);
+}
+
+// TermsCheckbox is the acceptance of the terms and the privacy policy, required to order. The
+// links open in a new tab, so reading them doesn't lose what's typed.
+function TermsCheckbox({
+	checked,
+	missing,
+	onChange,
+}: {
+	checked: boolean;
+	missing: boolean;
+	onChange: (on: boolean) => void;
+}) {
+	const legal = { target: "_blank", className: "underline underline-offset-4" };
+	return (
+		<div className="mt-6">
+			<div className="flex items-start gap-3">
+				<Checkbox
+					id="accept-terms"
+					checked={checked}
+					onCheckedChange={(on) => onChange(on)}
+					aria-invalid={missing || undefined}
+					aria-describedby={missing ? "accept-terms-error" : undefined}
+					className="mt-0.5"
+				/>
+				<Label
+					htmlFor="accept-terms"
+					className="block cursor-pointer font-normal text-sm leading-snug"
+				>
+					{t.terms.before}
+					<Link to="/terms" {...legal}>
+						{t.terms.terms}
+					</Link>
+					{t.terms.and}
+					<Link to="/privacy" {...legal}>
+						{t.terms.privacy}
+					</Link>
+					{t.terms.after}
+				</Label>
+			</div>
+			{missing ? (
+				<p id="accept-terms-error" className="mt-2 text-destructive text-sm">
+					{t.errors.termsRequired}
+				</p>
+			) : null}
+		</div>
 	);
 }
 

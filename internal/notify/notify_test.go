@@ -76,6 +76,11 @@ func TestOrderReceived(t *testing.T) {
 		"Общо: 405,99\u00a0€ (с ДДС)\n",
 		"наложен платеж",
 		"https://loadout.bg/order/" + id.String() + "?token=t%2Bk\n",
+		"https://loadout.bg/terms\n",
+		"ПРАВО НА ОТКАЗ",
+		"14-дневен срок",
+		"ОБРАЗЕЦ НА ФОРМУЛЯР ЗА ОТКАЗ",
+		"2 години",
 	} {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("email doesn't contain %q:\n%s", want, m.Text)

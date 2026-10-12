@@ -120,6 +120,7 @@ export function checkoutError(err: unknown): string | undefined {
 		return m.checkout.errors.priceChanged;
 	if (code("delivery_method") === "unavailable")
 		return m.checkout.errors.deliveryUnavailable;
+	if (code("accept_terms")) return m.checkout.errors.termsRequired;
 	if (code("delivery_method")) return m.checkout.errors.generic;
 	if (code("payment")) return m.checkout.errors.generic;
 	return undefined;
