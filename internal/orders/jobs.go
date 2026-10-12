@@ -201,7 +201,7 @@ func orderEmail(o OrderDetail) notify.Order {
 		Email:          o.Email,
 		Name:           o.Name,
 		Phone:          o.Phone,
-		Address:        o.Address + ", " + o.Postcode + " " + o.City,
+		Address:        deliveryAddress(o),
 		Lines:          lines,
 		SubtotalCents:  o.SubtotalCents,
 		DeliveryCents:  o.DeliveryCents,
@@ -217,4 +217,17 @@ func orderEmail(o OrderDetail) notify.Order {
 		e.TrackingURL = o.Shipment.TrackingURL
 	}
 	return e
+}
+
+// deliveryAddress is where the parcel goes, on one line: the street, postcode and city, after
+// the office's name for an office or a locker.
+func deliveryAddress(o OrderDetail) string {
+	addr := o.Address + ", " + o.Postcode + " " + o.City
+	switch o.Delivery {
+	case DeliveryOffice:
+		return "офис „" + o.OfficeName + "“, " + addr
+	case DeliveryAPT:
+		return "автомат „" + o.OfficeName + "“, " + addr
+	}
+	return addr
 }

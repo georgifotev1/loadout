@@ -126,11 +126,11 @@ func (f *fixture) newOrder(t *testing.T, p orders.Payment, createdAt time.Time) 
 	var id uuid.UUID
 	err := f.svc.pool.QueryRow(ctx, `
 		INSERT INTO orders.orders (
-			status, payment, token, email, name, phone, city, postcode, address,
+			status, payment, token, email, name, phone, delivery, city, postcode, address,
 			subtotal_cents, delivery_cents, total_cents, created_at
 		)
-		VALUES ('awaiting_payment', $1, $2, 'ivan@example.bg', 'Иван', '0888123456', 'София', '1000',
-		        'ул. 1', 48000, 599, 48599, $3)
+		VALUES ('awaiting_payment', $1, $2, 'ivan@example.bg', 'Иван', '0888123456', 'address', 'София',
+		        '1000', 'ул. 1', 48000, 599, 48599, $3)
 		RETURNING id`, p, "tok-"+uuid.NewString(), createdAt,
 	).Scan(&id)
 	if err != nil {

@@ -285,6 +285,11 @@ function OrderView({
 			<section className="mt-4 grid gap-6 rounded-xl border bg-card p-6 text-sm sm:grid-cols-3">
 				<Detail title={t.deliveryTo}>
 					<p>{order.name}</p>
+					{order.office && order.delivery_method !== "address" ? (
+						<p>
+							{t.officeLabel[order.delivery_method]} „{order.office.name}“
+						</p>
+					) : null}
 					<p>{order.address}</p>
 					<p>
 						{order.postcode} {order.city}

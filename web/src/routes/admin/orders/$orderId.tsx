@@ -118,6 +118,12 @@ function OrderPage() {
 						</p>
 					</Panel>
 					<Panel title={t.address}>
+						{o.office && o.delivery_method !== "address" ? (
+							<p>
+								{m.order.officeLabel[o.delivery_method]} „{o.office.name}“{" "}
+								<span className="text-muted-foreground">№ {o.office.id}</span>
+							</p>
+						) : null}
 						<p>{o.address}</p>
 						<p>
 							{o.postcode} {o.city}

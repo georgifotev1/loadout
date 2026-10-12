@@ -264,11 +264,11 @@ export interface paths {
         };
         /**
          * The cart as checkout shows it, with delivery and the total
-         * @description The shopper's cart (as `GET /cart`) plus delivery and the total to send back as
-         *     `expected_total_cents`. `orderable` is false for an empty cart or one with a product no
-         *     longer for sale or out of stock. `payments` lists the payment methods on offer.
-         *     `assembly` says whether the cart's PC parts can be assembled; the total includes it when
-         *     the cart asks for it (`PUT /cart/assembly`).
+         * @description The shopper's cart (as `GET /cart`) plus the ways to deliver it, each with its price and
+         *     the order's total, to send back as `expected_total_cents`. `orderable` is false for an
+         *     empty cart or one with a product no longer for sale or out of stock. `payments` lists the
+         *     payment methods on offer. `assembly` says whether the cart's PC parts can be assembled;
+         *     the totals include it when the cart asks for it (`PUT /cart/assembly`).
          */
         get: operations["getCheckout"];
         put?: never;
@@ -276,17 +276,42 @@ export interface paths {
          * Place an order with the cart
          * @description Turns the cart into an order at today's prices and empties it (a guest's `cart` cookie is
          *     cleared). A logged-in customer's order is theirs; a guest opens it with the returned
-         *     `token`. Field errors: `name`, `city`, `address` (`required`, `too_long`); `email`
-         *     (`required`, `invalid_email`); `phone` (`required`, `invalid_phone`); `postcode`
-         *     (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`: not in
-         *     `GET /checkout`'s `payments`); `cart` (`empty`; `unavailable`: a product is no longer for
-         *     sale or out of stock); `expected_total_cents` (`changed`: prices or the assembly offer
-         *     moved since `GET /checkout`). The PC is assembled as `GET /checkout` said.
+         *     `token`. Field errors: `name` (`required`, `too_long`); `email` (`required`,
+         *     `invalid_email`); `phone` (`required`, `invalid_phone`); `delivery_method`
+         *     (`unsupported`; `unavailable`: an assembled PC to a locker); for an address, `city`,
+         *     `address` (`required`, `too_long`) and `postcode` (`required`, `invalid_postcode`: four
+         *     digits); for an office or a locker, `office_id` (`required`; `unknown`: not one of the
+         *     courier's offices of that kind); `payment` (`unsupported`: not in `GET /checkout`'s
+         *     `payments`); `cart` (`empty`; `unavailable`: a product is no longer for sale or out of
+         *     stock); `expected_total_cents` (`changed`: prices or the assembly offer moved since
+         *     `GET /checkout`). The PC is assembled as `GET /checkout` said.
          *
          *     A card order waits for its payment: send the customer to `payment_url`. Without one
          *     (Stripe didn't answer), the order page gets it with `POST /orders/{order_id}/payment`.
          */
         post: operations["placeOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/delivery/offices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find the courier's offices or parcel lockers
+         * @description The offices (or lockers) whose name, city, postcode or address contain every word of
+         *     `q`, ignoring case: up to 20, by city and name. A `q` shorter than two letters finds
+         *     none. The list is the courier's, copied once a day.
+         */
+        get: operations["searchOffices"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1284,18 +1309,51 @@ export interface components {
         };
         Checkout: {
             cart: components["schemas"]["Cart"];
-            /** @description Delivery to an address. */
-            delivery: components["schemas"]["Price"];
+            /** @description The ways to deliver the cart, office first. */
+            deliveries: components["schemas"]["DeliveryOption"][];
             assembly: components["schemas"]["AssemblyOffer"];
-            /**
-             * @description The subtotal, delivery and, when `assembly.chosen`, assembly. Send it back as
-             *     `expected_total_cents`.
-             */
-            total: components["schemas"]["Price"];
             /** @description Whether the cart can be ordered as it is. */
             orderable: boolean;
             /** @description The payment methods on offer, cash on delivery first. */
             payments: components["schemas"]["PaymentMethod"][];
+        };
+        /**
+         * @description `office`: to a courier's office, where the customer collects it; `apt`: to a parcel
+         *     locker; `address`: to the customer's door.
+         * @enum {string}
+         */
+        DeliveryMethod: "office" | "apt" | "address";
+        DeliveryOption: {
+            method: components["schemas"]["DeliveryMethod"];
+            price: components["schemas"]["Price"];
+            /**
+             * @description The order delivered this way: the subtotal, the delivery and, when
+             *     `assembly.chosen`, assembly. Send it back as `expected_total_cents`.
+             */
+            total: components["schemas"]["Price"];
+            /** @description Whether the parcel can go this way. An assembled PC doesn't fit a locker. */
+            available: boolean;
+        };
+        /** @description A courier's office or parcel locker. */
+        Office: {
+            /** @description The courier's id, to send as `office_id`. */
+            id: string;
+            method: components["schemas"]["DeliveryMethod"];
+            name: string;
+            city: string;
+            postcode: string;
+            /** @description The street and number */
+            address: string;
+            /** @description When it's open, as people read it. Absent if the courier doesn't say. */
+            hours?: string;
+        };
+        OfficeList: {
+            offices: components["schemas"]["Office"][];
+        };
+        /** @description The office or locker an order goes to, as it was at checkout. */
+        OrderOffice: {
+            id: string;
+            name: string;
         };
         /**
          * @description Assembly of the PC the cart's parts make: offered when they're one complete, compatible
@@ -1319,11 +1377,15 @@ export interface components {
             name: string;
             email: string;
             phone: string;
-            city: string;
-            /** @description Four digits. */
-            postcode: string;
-            /** @description Street, number, floor: what the courier needs. */
-            address: string;
+            delivery_method: components["schemas"]["DeliveryMethod"];
+            /** @description For `office` and `apt`, from `GET /delivery/offices`. */
+            office_id?: string;
+            /** @description For `address`. */
+            city?: string;
+            /** @description For `address`: four digits. */
+            postcode?: string;
+            /** @description For `address`: street, number, floor, what the courier needs. */
+            address?: string;
             payment: components["schemas"]["PaymentMethod"];
             /**
              * Format: int64
@@ -1372,6 +1434,10 @@ export interface components {
             name: string;
             email: string;
             phone: string;
+            delivery_method: components["schemas"]["DeliveryMethod"];
+            /** @description The office or locker it goes to. Absent for delivery to an address. */
+            office?: components["schemas"]["OrderOffice"];
+            /** @description Where it goes: the office's city for an office. */
             city: string;
             postcode: string;
             address: string;
@@ -1809,6 +1875,10 @@ export interface components {
             name: string;
             email: string;
             phone: string;
+            delivery_method: components["schemas"]["DeliveryMethod"];
+            /** @description The office or locker it goes to. Absent for delivery to an address. */
+            office?: components["schemas"]["OrderOffice"];
+            /** @description Where it goes: the office's city for an office. */
             city: string;
             postcode: string;
             address: string;
@@ -2488,6 +2558,32 @@ export interface operations {
                 };
             };
             400: components["responses"]["InvalidBody"];
+            422: components["responses"]["ValidationFailed"];
+            default: components["responses"]["Error"];
+        };
+    };
+    searchOffices: {
+        parameters: {
+            query: {
+                q: string;
+                /** @description `office` or `apt`. */
+                method: components["schemas"]["DeliveryMethod"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matching offices */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficeList"];
+                };
+            };
             422: components["responses"]["ValidationFailed"];
             default: components["responses"]["Error"];
         };

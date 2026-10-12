@@ -44,12 +44,23 @@ func checkoutInput(total money.Cents) CheckoutInput {
 		Name:               " Иван Иванов ",
 		Email:              "Ivan@Example.bg",
 		Phone:              "+359 888 123-456",
+		Delivery:           DeliveryAddress,
 		City:               "София",
 		Postcode:           "1000",
 		Address:            "ул. Граф Игнатиев 1, ет. 2",
 		Payment:            PaymentCOD,
 		ExpectedTotalCents: total,
 	}
+}
+
+// addressTotal is the quote's total with delivery to an address.
+func addressTotal(q Quote) money.Cents {
+	for _, d := range q.Deliveries {
+		if d.Delivery == DeliveryAddress {
+			return d.TotalCents
+		}
+	}
+	panic("no delivery to an address")
 }
 
 func countOrders(t *testing.T, s *Service) int {
@@ -73,11 +84,11 @@ func TestCheckout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !q.Orderable || q.DeliveryCents != DeliveryCents || q.TotalCents != 480_00+DeliveryCents {
+	if !q.Orderable || addressTotal(q) != 480_00+AddressDeliveryCents {
 		t.Fatalf("quote %+v", q)
 	}
 
-	placed, err := s.Checkout(ctx, owner, checkoutInput(q.TotalCents))
+	placed, err := s.Checkout(ctx, owner, checkoutInput(addressTotal(q)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +102,7 @@ func TestCheckout(t *testing.T) {
 	}
 	if o.Status != StatusSupplierPending || o.Payment != PaymentCOD || o.UserID != nil ||
 		o.Name != "Иван Иванов" || o.Email != "Ivan@Example.bg" ||
-		o.SubtotalCents != 480_00 || o.DeliveryCents != DeliveryCents || o.TotalCents != q.TotalCents {
+		o.SubtotalCents != 480_00 || o.DeliveryCents != AddressDeliveryCents || o.TotalCents != addressTotal(q) {
 		t.Errorf("order %+v", o)
 	}
 	// In the cart's order: the last added first.
@@ -142,7 +153,7 @@ func TestCheckout(t *testing.T) {
 		if _, _, err := s.AddToCart(ctx, owner, []AddLine{{Slug: "ram", Quantity: 1}}, false); err != nil {
 			t.Fatal(err)
 		}
-		in := checkoutInput(80_00 + DeliveryCents)
+		in := checkoutInput(80_00 + AddressDeliveryCents)
 		in.UserID = user
 		placed, err := s.Checkout(ctx, owner, in)
 		if err != nil {
@@ -163,7 +174,7 @@ func TestCheckoutByCard(t *testing.T) {
 	s, _ := newCheckoutService(t)
 	ctx := context.Background()
 	owner := guestCart(t, s, AddLine{Slug: "cpu", Quantity: 1})
-	in := checkoutInput(200_00 + DeliveryCents)
+	in := checkoutInput(200_00 + AddressDeliveryCents)
 	in.Payment = PaymentCard
 
 	placed, err := s.Checkout(ctx, owner, in)
@@ -199,13 +210,14 @@ func TestCheckoutByCard(t *testing.T) {
 func TestCheckoutRefuses(t *testing.T) {
 	s, cat := newCheckoutService(t)
 	ctx := context.Background()
-	total := 200_00 + DeliveryCents
+	total := 200_00 + AddressDeliveryCents
 
 	t.Run("bad fields", func(t *testing.T) {
 		owner := guestCart(t, s, AddLine{Slug: "cpu", Quantity: 1})
 		in := CheckoutInput{
 			Email:    "ivan",
 			Phone:    "0888",
+			Delivery: DeliveryAddress,
 			City:     "  ",
 			Postcode: "10000",
 			Address:  "x",
@@ -222,6 +234,26 @@ func TestCheckoutRefuses(t *testing.T) {
 		}
 		if got := fieldCodes(t, err); !slices.Equal(got, want) {
 			t.Errorf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("bad delivery", func(t *testing.T) {
+		owner := guestCart(t, s, AddLine{Slug: "cpu", Quantity: 1})
+		for _, tt := range []struct {
+			delivery Delivery
+			want     string
+		}{
+			{"", "delivery_method: unsupported"},
+			{"pigeon", "delivery_method: unsupported"},
+			{DeliveryOffice, "office_id: required"},
+			{DeliveryAPT, "office_id: required"},
+		} {
+			in := checkoutInput(200_00 + tt.delivery.Cents())
+			in.Delivery = tt.delivery
+			_, err := s.Checkout(ctx, owner, in)
+			if got := fieldCodes(t, err); !slices.Equal(got, []string{tt.want}) {
+				t.Errorf("%q: got %v, want %v", tt.delivery, got, tt.want)
+			}
 		}
 	})
 
@@ -242,7 +274,7 @@ func TestCheckoutRefuses(t *testing.T) {
 			owner := guestCart(t, s, AddLine{Slug: "ram", Quantity: 1})
 			cat.update("ram", func(p *catalog.Part) { p.StockQty = 0 })
 			t.Cleanup(func() { cat.update("ram", func(p *catalog.Part) { p.StockQty = 5 }) })
-			return owner, 80_00 + DeliveryCents
+			return owner, 80_00 + AddressDeliveryCents
 		}, "cart: unavailable"},
 		{"a price that moved since the customer looked", func(t *testing.T) (CartOwner, money.Cents) {
 			owner := guestCart(t, s, AddLine{Slug: "cpu", Quantity: 1})
@@ -281,7 +313,7 @@ func TestCheckoutConcurrently(t *testing.T) {
 	errs := make([]error, 2)
 	var wg sync.WaitGroup
 	for i := range errs {
-		wg.Go(func() { _, errs[i] = s.Checkout(ctx, owner, checkoutInput(200_00+DeliveryCents)) })
+		wg.Go(func() { _, errs[i] = s.Checkout(ctx, owner, checkoutInput(200_00+AddressDeliveryCents)) })
 	}
 	wg.Wait()
 
@@ -306,7 +338,7 @@ func TestCheckoutRollsBack(t *testing.T) {
 	owner := guestCart(t, s, AddLine{Slug: "cpu", Quantity: 1})
 	s.jobs = &failingInserter{jobs: s.jobs, ok: 1}
 
-	if _, err := s.Checkout(ctx, owner, checkoutInput(200_00+DeliveryCents)); !errors.Is(err, errInsert) {
+	if _, err := s.Checkout(ctx, owner, checkoutInput(200_00+AddressDeliveryCents)); !errors.Is(err, errInsert) {
 		t.Fatalf("err %v, want the insert error", err)
 	}
 	if n := countOrders(t, s); n != 0 {
@@ -336,14 +368,14 @@ func TestOrderAccess(t *testing.T) {
 	ctx := context.Background()
 	user, other := uuid.New(), uuid.New()
 
-	guest, err := s.Checkout(ctx, guestCart(t, s, AddLine{Slug: "cpu", Quantity: 1}), checkoutInput(200_00+DeliveryCents))
+	guest, err := s.Checkout(ctx, guestCart(t, s, AddLine{Slug: "cpu", Quantity: 1}), checkoutInput(200_00+AddressDeliveryCents))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := s.AddToCart(ctx, UserCart(user), []AddLine{{Slug: "ram", Quantity: 3}}, false); err != nil {
 		t.Fatal(err)
 	}
-	in := checkoutInput(240_00 + DeliveryCents)
+	in := checkoutInput(240_00 + AddressDeliveryCents)
 	in.UserID, in.Email = user, "someone@else.bg"
 	own, err := s.Checkout(ctx, UserCart(user), in)
 	if err != nil {
@@ -387,7 +419,7 @@ func TestOrderAccess(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !slices.Equal(ids(got), []uuid.UUID{own.ID}) || got[0].Count != 3 || got[0].TotalCents != 240_00+DeliveryCents {
+		if !slices.Equal(ids(got), []uuid.UUID{own.ID}) || got[0].Count != 3 || got[0].TotalCents != 240_00+AddressDeliveryCents {
 			t.Errorf("unverified: %+v", got)
 		}
 		got, err = s.CustomerOrders(ctx, user, "IVAN@example.bg")
@@ -438,7 +470,7 @@ func (f *fakeMailer) OrderDelivered(_ context.Context, o notify.Order) error {
 func TestStepWorker(t *testing.T) {
 	s, _ := newCheckoutService(t)
 	ctx := context.Background()
-	placed, err := s.Checkout(ctx, guestCart(t, s, AddLine{Slug: "cpu", Quantity: 2}), checkoutInput(400_00+DeliveryCents))
+	placed, err := s.Checkout(ctx, guestCart(t, s, AddLine{Slug: "cpu", Quantity: 2}), checkoutInput(400_00+AddressDeliveryCents))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -457,7 +489,7 @@ func TestStepWorker(t *testing.T) {
 	e := m.sent[0]
 	if e.ID != placed.ID || e.Number != placed.Number || e.Token != placed.Token || e.Email != "Ivan@Example.bg" ||
 		e.Address != "ул. Граф Игнатиев 1, ет. 2, 1000 София" || !e.CashOnDelivery ||
-		len(e.Lines) != 1 || e.Lines[0].LineCents != 400_00 || e.TotalCents != 400_00+DeliveryCents {
+		len(e.Lines) != 1 || e.Lines[0].LineCents != 400_00 || e.TotalCents != 400_00+AddressDeliveryCents {
 		t.Errorf("email %+v", e)
 	}
 

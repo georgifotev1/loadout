@@ -150,6 +150,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		river.AddWorker(workers, auth.NewEmailWorker(authSvc, mailer))
 		river.AddWorker(workers, orders.NewStepWorker(ordersSvc, mailer, orderPayments, courier))
 		river.AddWorker(workers, orders.NewTrackWorker(ordersSvc, courier))
+		river.AddWorker(workers, orders.NewOfficeSyncWorker(ordersSvc, courier))
 		river.AddWorker(workers, orders.NewPaymentTimeoutWorker(ordersSvc, orderPayments))
 		jobsClient, err := jobs.New(pool, jobs.Config{
 			Logger:  logger.With("component", "jobs"),
@@ -162,6 +163,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			PeriodicJobs: []*river.PeriodicJob{
 				catalog.PeriodicSync(),
 				orders.PeriodicTracking(trackEvery),
+				orders.PeriodicOfficeSync(),
 			},
 			StopTimeout: cfg.Jobs.StopTimeout,
 		})

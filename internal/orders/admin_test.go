@@ -210,7 +210,7 @@ func TestAdminOrders(t *testing.T) {
 func TestAdminOrder(t *testing.T) {
 	s, _ := newCheckoutService(t)
 	ctx := context.Background()
-	placed, err := s.Checkout(ctx, guestCart(t, s, AddLine{Slug: "cpu", Quantity: 2}, AddLine{Slug: "ram", Quantity: 1}), checkoutInput(480_00+DeliveryCents))
+	placed, err := s.Checkout(ctx, guestCart(t, s, AddLine{Slug: "cpu", Quantity: 2}, AddLine{Slug: "ram", Quantity: 1}), checkoutInput(480_00+AddressDeliveryCents))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,16 +1,20 @@
 import { m } from "#/i18n";
 import { ApiError } from "#/lib/api/client";
+import type { DeliveryMethod } from "#/lib/api/orders";
 
 // The checkout form's fields, by the names the API's field errors use.
 export type CheckoutField =
 	| "name"
 	| "email"
 	| "phone"
+	| "office_id"
 	| "city"
 	| "postcode"
 	| "address";
 
-export type CheckoutValues = Record<CheckoutField, string>;
+export type CheckoutValues = Record<CheckoutField, string> & {
+	delivery_method: DeliveryMethod;
+};
 
 /** The message for an input error on a checkout field, if err has one. */
 export function checkoutFieldError(
@@ -18,7 +22,7 @@ export function checkoutFieldError(
 	field: CheckoutField,
 ): string | undefined {
 	if (!(err instanceof ApiError)) return undefined;
-	return fieldMessage(err.fields.find((f) => f.field === field)?.code);
+	return fieldMessage(err.fields.find((f) => f.field === field)?.code, field);
 }
 
 /**
@@ -39,14 +43,19 @@ export function checkCheckoutFields(
 	else if (!email(v.email)) codes.email = "invalid_email";
 	if (v.phone === "") codes.phone = "required";
 	else if (!phone(v.phone)) codes.phone = "invalid_phone";
-	text("city", 100);
-	if (v.postcode === "") codes.postcode = "required";
-	else if (!/^[0-9]{4}$/.test(v.postcode)) codes.postcode = "invalid_postcode";
-	text("address", 200);
+	if (v.delivery_method === "address") {
+		text("city", 100);
+		if (v.postcode === "") codes.postcode = "required";
+		else if (!/^[0-9]{4}$/.test(v.postcode))
+			codes.postcode = "invalid_postcode";
+		text("address", 200);
+	} else if (v.office_id === "") {
+		codes.office_id = "required";
+	}
 
 	const out: Partial<Record<CheckoutField, string>> = {};
 	for (const [f, code] of Object.entries(codes)) {
-		out[f as CheckoutField] = fieldMessage(code);
+		out[f as CheckoutField] = fieldMessage(code, f as CheckoutField);
 	}
 	return out;
 }
@@ -68,12 +77,17 @@ function phone(s: string) {
 	return digits >= 9 && digits <= 15;
 }
 
-function fieldMessage(code: string | undefined): string | undefined {
+function fieldMessage(
+	code: string | undefined,
+	field: CheckoutField,
+): string | undefined {
 	switch (code) {
 		case undefined:
 			return undefined;
 		case "required":
-			return m.auth.fields.required;
+			return field === "office_id"
+				? m.checkout.fields.officeRequired
+				: m.auth.fields.required;
 		case "invalid_email":
 			return m.auth.fields.invalidEmail;
 		case "invalid_phone":
@@ -82,6 +96,8 @@ function fieldMessage(code: string | undefined): string | undefined {
 			return m.checkout.fields.invalidPostcode;
 		case "too_long":
 			return m.checkout.fields.tooLong;
+		case "unknown":
+			return m.checkout.fields.unknownOffice;
 		default:
 			return m.checkout.errors.generic;
 	}
@@ -102,6 +118,9 @@ export function checkoutError(err: unknown): string | undefined {
 	if (code("cart") === "unavailable") return m.checkout.errors.unavailable;
 	if (code("expected_total_cents") === "changed")
 		return m.checkout.errors.priceChanged;
+	if (code("delivery_method") === "unavailable")
+		return m.checkout.errors.deliveryUnavailable;
+	if (code("delivery_method")) return m.checkout.errors.generic;
 	if (code("payment")) return m.checkout.errors.generic;
 	return undefined;
 }

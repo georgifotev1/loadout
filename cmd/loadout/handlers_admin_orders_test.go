@@ -21,13 +21,13 @@ func TestAdminOrdersAPI(t *testing.T) {
 	cpu := slugs(t, app)["AMD-AM5-R5-7600-BOX"]
 	guest := cookieNamed(cartRequest(t, app, http.MethodPost, "/api/cart/lines", `{"lines":[{"slug":"`+cpu+`","quantity":2}]}`), "cart")
 	co := decodeJSON[Checkout](t, get(t, app, "/api/checkout", guest), http.StatusOK)
-	placed := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents), guest), http.StatusCreated)
+	placed := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(addressOption(co).Total.AmountCents), guest), http.StatusCreated)
 	target := "/api/admin/orders/" + placed.Id.String()
 
 	t.Run("list", func(t *testing.T) {
 		list := decode[AdminOrderList](t, get(t, app, "/api/admin/orders?needs_action=true&q="+strconv.FormatInt(placed.Number, 10), admin), http.StatusOK)
 		if list.Total != 1 || list.Items[0].Id != placed.Id || list.Items[0].Status != OrderStatusSupplierPending ||
-			list.Items[0].Count != 2 || list.Items[0].Total != co.Total || list.Items[0].Stale {
+			list.Items[0].Count != 2 || list.Items[0].Total != addressOption(co).Total || list.Items[0].Stale {
 			t.Errorf("list %+v", list)
 		}
 	})

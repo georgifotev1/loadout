@@ -3,17 +3,36 @@ import { api, type Schemas, unwrap } from "./client";
 
 export type Checkout = Schemas["Checkout"];
 export type CheckoutRequest = Schemas["CheckoutRequest"];
+export type DeliveryMethod = Schemas["DeliveryMethod"];
+export type DeliveryOption = Schemas["DeliveryOption"];
+export type Office = Schemas["Office"];
 export type Order = Schemas["Order"];
 export type OrderLine = Schemas["OrderLine"];
 export type OrderStatus = Schemas["OrderStatus"];
 export type OrderSummary = Schemas["OrderSummary"];
 export type PaymentMethod = Schemas["PaymentMethod"];
 
-// The cart with delivery and the total. Fetched in the browser only, like the cart.
+// The cart with the ways to deliver it and the total of each. Fetched in the browser only, like the cart.
 export const checkoutQuery = queryOptions({
 	queryKey: ["checkout"],
 	queryFn: async ({ signal }) => unwrap(await api.GET("/checkout", { signal })),
 });
+
+// The courier's offices or lockers matching what the shopper typed. The API finds none for
+// fewer than two letters, so the query waits for them.
+export const officesQuery = (q: string, method: "office" | "apt") =>
+	queryOptions({
+		queryKey: ["delivery", "offices", method, q],
+		queryFn: async ({ signal }) =>
+			unwrap(
+				await api.GET("/delivery/offices", {
+					params: { query: { q, method } },
+					signal,
+				}),
+			),
+		enabled: [...q.replace(/\s/g, "")].length >= 2,
+		staleTime: 5 * 60_000,
+	});
 
 export async function placeOrder(body: CheckoutRequest) {
 	return unwrap(await api.POST("/checkout", { body }));

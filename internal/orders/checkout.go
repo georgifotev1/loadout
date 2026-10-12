@@ -20,10 +20,6 @@ import (
 	"github.com/gfotev/loadout/internal/platform/validate"
 )
 
-// DeliveryCents is what delivery to an address costs, VAT included.
-// TODO(phase-7): Speedy's own quote replaces the flat fee, with office and APT delivery (step 7).
-const DeliveryCents money.Cents = 5_99
-
 // PaymentWindow is how long a card order waits for its payment after checkout. Stripe's payment
 // page expires then, and the order is cancelled.
 const PaymentWindow = time.Hour
@@ -32,12 +28,12 @@ const PaymentWindow = time.Hour
 // expiry event usually cancels the order first.
 const paymentTimeoutGrace = 10 * time.Minute
 
-// Quote is a cart as checkout shows it: the lines, delivery and what the order would cost.
+// Quote is a cart as checkout shows it: the lines, the ways to deliver it and what the order
+// would cost with each.
 type Quote struct {
-	Cart          Cart
-	DeliveryCents money.Cents
-	Assembly      AssemblyQuote
-	TotalCents    money.Cents // with assembly when it's chosen and offered
+	Cart       Cart
+	Assembly   AssemblyQuote
+	Deliveries []DeliveryQuote
 	// Orderable is whether checkout would take the cart: it has lines, and every product is for
 	// sale and in stock.
 	Orderable bool
@@ -53,11 +49,26 @@ type AssemblyQuote struct {
 	Cents  money.Cents
 }
 
+// DeliveryQuote is one way to deliver the cart.
+type DeliveryQuote struct {
+	Delivery Delivery
+	Cents    money.Cents
+	// TotalCents is what the order costs delivered this way, with assembly when it's chosen.
+	TotalCents money.Cents
+	// Available is whether the parcel can go this way: an assembled PC doesn't fit a locker.
+	Available bool
+}
+
 // CheckoutInput is what the customer fills in at checkout.
 type CheckoutInput struct {
 	Name     string
 	Email    string
 	Phone    string
+	Delivery Delivery
+	// OfficeID is the courier's office or locker, for DeliveryOffice and DeliveryAPT.
+	OfficeID string
+	// City, Postcode and Address are for DeliveryAddress; checkout fills them in with the
+	// office's for the others.
 	City     string
 	Postcode string
 	Address  string
@@ -76,16 +87,15 @@ type Placed struct {
 	Token  string
 }
 
-// Quote returns the owner's cart with delivery and the total, with assembly if the cart asks for
-// it and its PC parts can be assembled.
+// Quote returns the owner's cart with each way to deliver it and the total, with assembly if the
+// cart asks for it and its PC parts can be assembled.
 func (s *Service) Quote(ctx context.Context, owner CartOwner) (Quote, error) {
 	c, err := s.Cart(ctx, owner)
 	if err != nil {
 		return Quote{}, err
 	}
 	q := Quote{
-		Cart:          c,
-		DeliveryCents: DeliveryCents,
+		Cart: c,
 		Assembly: AssemblyQuote{
 			Offered: c.Assembly.Offered,
 			Chosen:  c.Assembly.Chosen(),
@@ -98,9 +108,17 @@ func (s *Service) Quote(ctx context.Context, owner CartOwner) (Quote, error) {
 			q.Orderable = false
 		}
 	}
-	q.TotalCents = c.SubtotalCents + q.DeliveryCents
+	goods := c.SubtotalCents
 	if q.Assembly.Chosen {
-		q.TotalCents += q.Assembly.Cents
+		goods += q.Assembly.Cents
+	}
+	for _, d := range Deliveries {
+		q.Deliveries = append(q.Deliveries, DeliveryQuote{
+			Delivery:   d,
+			Cents:      d.Cents(),
+			TotalCents: goods + d.Cents(),
+			Available:  d.fits(q.Assembly.Chosen),
+		})
 	}
 	return q, nil
 }
@@ -116,9 +134,13 @@ func (s *Service) Quote(ctx context.Context, owner CartOwner) (Quote, error) {
 // The PC is assembled if the cart asks for it and its parts make one complete, compatible build,
 // as Quote says; if not, the order has no assembly, and the total the customer saw tells which.
 //
+// An order to an office or a locker takes the office's city, postcode and address, as they are
+// at checkout.
+//
 // It refuses (field errors) an empty cart ("cart: empty"), a product no longer for sale or out
-// of stock ("cart: unavailable"), and a total other than the one the customer saw
-// ("expected_total_cents: changed").
+// of stock ("cart: unavailable"), an office the courier doesn't have ("office_id: unknown"), an
+// assembled PC to a locker ("delivery_method: unavailable"), and a total other than the one the
+// customer saw ("expected_total_cents: changed").
 func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInput) (Placed, error) {
 	in.trim()
 	if err := in.validate(); err != nil {
@@ -160,7 +182,19 @@ func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInpu
 			byID[p.ID] = p
 		}
 
-		o := draft{CheckoutInput: in, DeliveryCents: DeliveryCents}
+		o := draft{CheckoutInput: in, DeliveryCents: in.Delivery.Cents()}
+		if in.Delivery != DeliveryAddress {
+			office, err := s.store.office(ctx, tx, in.OfficeID, in.Delivery.officeKind())
+			if err != nil {
+				return err
+			}
+			if office == nil {
+				v.Add("office_id", "unknown")
+				return v.Err()
+			}
+			o.OfficeName = office.Name
+			o.City, o.Postcode, o.Address = office.City, office.Postcode, office.Address
+		}
 		build := make([]buildPart, 0, len(lines))
 		for _, l := range lines {
 			p, ok := byID[l.ProductID]
@@ -194,6 +228,7 @@ func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInpu
 				return slotRank(a.Category) - slotRank(b.Category)
 			})
 		}
+		v.Check(in.Delivery.fits(o.Assembly), "delivery_method", "unavailable")
 		v.Check(o.SubtotalCents+o.DeliveryCents+o.AssemblyCents == in.ExpectedTotalCents, "expected_total_cents", "changed")
 		if err := v.Err(); err != nil {
 			return err
@@ -228,6 +263,7 @@ func (s *Service) Checkout(ctx context.Context, owner CartOwner, in CheckoutInpu
 type draft struct {
 	CheckoutInput
 	Token         string
+	OfficeName    string // "" for delivery to an address
 	Lines         []orderLine
 	SubtotalCents money.Cents
 	DeliveryCents money.Cents
@@ -242,7 +278,7 @@ type orderLine struct {
 }
 
 func (in *CheckoutInput) trim() {
-	for _, f := range []*string{&in.Name, &in.Email, &in.Phone, &in.City, &in.Postcode, &in.Address} {
+	for _, f := range []*string{&in.Name, &in.Email, &in.Phone, &in.OfficeID, &in.City, &in.Postcode, &in.Address} {
 		*f = strings.TrimSpace(*f)
 	}
 }
@@ -258,10 +294,17 @@ func (in CheckoutInput) validate() error {
 	v.Check(validate.Email(in.Email), "email", "invalid_email")
 	v.Check(in.Phone != "", "phone", "required")
 	v.Check(phone(in.Phone), "phone", "invalid_phone")
-	text("city", in.City, 100)
-	v.Check(in.Postcode != "", "postcode", "required")
-	v.Check(postcode(in.Postcode), "postcode", "invalid_postcode")
-	text("address", in.Address, 200)
+	switch in.Delivery {
+	case DeliveryAddress:
+		text("city", in.City, 100)
+		v.Check(in.Postcode != "", "postcode", "required")
+		v.Check(postcode(in.Postcode), "postcode", "invalid_postcode")
+		text("address", in.Address, 200)
+	case DeliveryOffice, DeliveryAPT:
+		v.Check(in.OfficeID != "", "office_id", "required")
+	default:
+		v.Add("delivery_method", "unsupported")
+	}
 	v.Check(in.Payment == PaymentCOD || in.Payment == PaymentCard, "payment", "unsupported")
 	return v.Err()
 }

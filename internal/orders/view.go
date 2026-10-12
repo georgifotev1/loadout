@@ -13,17 +13,22 @@ import (
 
 // OrderDetail is an order as its customer sees it. It leaves out what we pay the supplier.
 type OrderDetail struct {
-	ID            uuid.UUID
-	Number        int64
-	Token         string
-	Status        Status
-	Payment       Payment
-	PaidAt        *time.Time
-	CreatedAt     time.Time
-	UserID        *uuid.UUID
-	Email         string
-	Name          string
-	Phone         string
+	ID        uuid.UUID
+	Number    int64
+	Token     string
+	Status    Status
+	Payment   Payment
+	PaidAt    *time.Time
+	CreatedAt time.Time
+	UserID    *uuid.UUID
+	Email     string
+	Name      string
+	Phone     string
+	Delivery  Delivery
+	// OfficeID and OfficeName are the courier's office or locker; "" for an address.
+	OfficeID   string
+	OfficeName string
+	// City, Postcode and Address are where the parcel goes: the office's for an office.
 	City          string
 	Postcode      string
 	Address       string

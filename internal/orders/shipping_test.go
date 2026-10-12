@@ -52,7 +52,7 @@ func TestShipping(t *testing.T) {
 	}
 	confirmed := func(p Payment) uuid.UUID {
 		t.Helper()
-		in := checkoutInput(400_00 + DeliveryCents)
+		in := checkoutInput(400_00 + AddressDeliveryCents)
 		in.Payment = p
 		placed, err := s.Checkout(ctx, guestCart(t, s, AddLine{Slug: "cpu", Quantity: 2}), in)
 		if err != nil {
@@ -75,7 +75,7 @@ func TestShipping(t *testing.T) {
 	if len(c.requests) != 1 {
 		t.Fatalf("%d waybills", len(c.requests))
 	}
-	if r := c.requests[0]; r.CODCents != 400_00+DeliveryCents || r.DeclaredCents != 400_00 || r.Name != "Иван Иванов" ||
+	if r := c.requests[0]; r.CODCents != 400_00+AddressDeliveryCents || r.DeclaredCents != 400_00 || r.Name != "Иван Иванов" ||
 		r.City != "София" || r.Contents != "Компютърни компоненти" {
 		t.Errorf("request %+v", r)
 	}

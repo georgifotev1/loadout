@@ -39,11 +39,11 @@ func newOrder(t *testing.T, s *Service, p Payment) uuid.UUID {
 	var id uuid.UUID
 	err := s.pool.QueryRow(context.Background(), `
 		INSERT INTO orders.orders (
-			status, payment, token, email, name, phone, city, postcode, address,
+			status, payment, token, email, name, phone, delivery, city, postcode, address,
 			subtotal_cents, delivery_cents, total_cents
 		)
-		VALUES ('awaiting_payment', $1, $2, 'ivan@example.bg', 'Иван', '0888123456', 'София', '1000',
-		        'ул. 1', 0, 0, 0)
+		VALUES ('awaiting_payment', $1, $2, 'ivan@example.bg', 'Иван', '0888123456', 'address', 'София',
+		        '1000', 'ул. 1', 0, 0, 0)
 		RETURNING id`, p, randomToken(),
 	).Scan(&id)
 	if err != nil {

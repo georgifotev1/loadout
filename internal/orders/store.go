@@ -368,12 +368,18 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 	if o.UserID != uuid.Nil {
 		userID = &o.UserID
 	}
+	var officeID, officeName *string
+	if o.Delivery != DeliveryAddress {
+		officeID, officeName = &o.OfficeID, &o.OfficeName
+	}
 	insert := `
 		INSERT INTO orders.orders (
-			status, payment, token, user_id, email, name, phone, city, postcode, address,
-			subtotal_cents, delivery_cents, assembly, assembly_cents, total_cents
+			status, payment, token, user_id, email, name, phone, delivery, office_id, office_name,
+			city, postcode, address, subtotal_cents, delivery_cents, assembly, assembly_cents,
+			total_cents
 		)
-		VALUES ('awaiting_payment', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		VALUES ('awaiting_payment', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+		        $15, $16, $17)
 		RETURNING id, number`
 
 	var id uuid.UUID
@@ -385,6 +391,9 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 		o.Email,
 		o.Name,
 		o.Phone,
+		o.Delivery,
+		officeID,
+		officeName,
 		o.City,
 		o.Postcode,
 		o.Address,
@@ -433,8 +442,8 @@ func (store) insertOrder(ctx context.Context, q db.DBTX, o draft) (uuid.UUID, in
 func (store) order(ctx context.Context, q db.DBTX, id uuid.UUID) (OrderDetail, error) {
 	query := `
 		SELECT id, number, token, status, payment, paid_at, created_at, user_id, email, name, phone,
-		       city, postcode, address, subtotal_cents, delivery_cents, assembly, assembly_cents,
-		       total_cents
+		       delivery, coalesce(office_id, ''), coalesce(office_name, ''), city, postcode,
+		       address, subtotal_cents, delivery_cents, assembly, assembly_cents, total_cents
 		FROM orders.orders
 		WHERE id = $1`
 
@@ -451,6 +460,9 @@ func (store) order(ctx context.Context, q db.DBTX, id uuid.UUID) (OrderDetail, e
 		&o.Email,
 		&o.Name,
 		&o.Phone,
+		&o.Delivery,
+		&o.OfficeID,
+		&o.OfficeName,
 		&o.City,
 		&o.Postcode,
 		&o.Address,

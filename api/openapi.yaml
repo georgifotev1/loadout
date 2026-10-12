@@ -353,11 +353,11 @@ paths:
       operationId: getCheckout
       summary: The cart as checkout shows it, with delivery and the total
       description: |
-        The shopper's cart (as `GET /cart`) plus delivery and the total to send back as
-        `expected_total_cents`. `orderable` is false for an empty cart or one with a product no
-        longer for sale or out of stock. `payments` lists the payment methods on offer.
-        `assembly` says whether the cart's PC parts can be assembled; the total includes it when
-        the cart asks for it (`PUT /cart/assembly`).
+        The shopper's cart (as `GET /cart`) plus the ways to deliver it, each with its price and
+        the order's total, to send back as `expected_total_cents`. `orderable` is false for an
+        empty cart or one with a product no longer for sale or out of stock. `payments` lists the
+        payment methods on offer. `assembly` says whether the cart's PC parts can be assembled;
+        the totals include it when the cart asks for it (`PUT /cart/assembly`).
       tags: [checkout]
       responses:
         "200":
@@ -372,12 +372,15 @@ paths:
       description: |
         Turns the cart into an order at today's prices and empties it (a guest's `cart` cookie is
         cleared). A logged-in customer's order is theirs; a guest opens it with the returned
-        `token`. Field errors: `name`, `city`, `address` (`required`, `too_long`); `email`
-        (`required`, `invalid_email`); `phone` (`required`, `invalid_phone`); `postcode`
-        (`required`, `invalid_postcode`: four digits); `payment` (`unsupported`: not in
-        `GET /checkout`'s `payments`); `cart` (`empty`; `unavailable`: a product is no longer for
-        sale or out of stock); `expected_total_cents` (`changed`: prices or the assembly offer
-        moved since `GET /checkout`). The PC is assembled as `GET /checkout` said.
+        `token`. Field errors: `name` (`required`, `too_long`); `email` (`required`,
+        `invalid_email`); `phone` (`required`, `invalid_phone`); `delivery_method`
+        (`unsupported`; `unavailable`: an assembled PC to a locker); for an address, `city`,
+        `address` (`required`, `too_long`) and `postcode` (`required`, `invalid_postcode`: four
+        digits); for an office or a locker, `office_id` (`required`; `unknown`: not one of the
+        courier's offices of that kind); `payment` (`unsupported`: not in `GET /checkout`'s
+        `payments`); `cart` (`empty`; `unavailable`: a product is no longer for sale or out of
+        stock); `expected_total_cents` (`changed`: prices or the assembly offer moved since
+        `GET /checkout`). The PC is assembled as `GET /checkout` said.
 
         A card order waits for its payment: send the customer to `payment_url`. Without one
         (Stripe didn't answer), the order page gets it with `POST /orders/{order_id}/payment`.
@@ -394,6 +397,34 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/OrderPlaced" }
         "400": { $ref: "#/components/responses/InvalidBody" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /delivery/offices:
+    get:
+      operationId: searchOffices
+      summary: Find the courier's offices or parcel lockers
+      description: |
+        The offices (or lockers) whose name, city, postcode or address contain every word of
+        `q`, ignoring case: up to 20, by city and name. A `q` shorter than two letters finds
+        none. The list is the courier's, copied once a day.
+      tags: [checkout]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, maxLength: 100 }
+        - name: method
+          in: query
+          required: true
+          description: "`office` or `apt`."
+          schema: { $ref: "#/components/schemas/DeliveryMethod" }
+      responses:
+        "200":
+          description: The matching offices
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfficeList" }
         "422": { $ref: "#/components/responses/ValidationFailed" }
         default: { $ref: "#/components/responses/Error" }
 
@@ -1816,18 +1847,14 @@ components:
 
     Checkout:
       type: object
-      required: [cart, delivery, assembly, total, orderable, payments]
+      required: [cart, deliveries, assembly, orderable, payments]
       properties:
         cart: { $ref: "#/components/schemas/Cart" }
-        delivery:
-          $ref: "#/components/schemas/Price"
-          description: Delivery to an address.
+        deliveries:
+          type: array
+          description: The ways to deliver the cart, office first.
+          items: { $ref: "#/components/schemas/DeliveryOption" }
         assembly: { $ref: "#/components/schemas/AssemblyOffer" }
-        total:
-          $ref: "#/components/schemas/Price"
-          description: |
-            The subtotal, delivery and, when `assembly.chosen`, assembly. Send it back as
-            `expected_total_cents`.
         orderable:
           type: boolean
           description: Whether the cart can be ordered as it is.
@@ -1835,6 +1862,59 @@ components:
           type: array
           description: The payment methods on offer, cash on delivery first.
           items: { $ref: "#/components/schemas/PaymentMethod" }
+
+    DeliveryMethod:
+      type: string
+      description: |
+        `office`: to a courier's office, where the customer collects it; `apt`: to a parcel
+        locker; `address`: to the customer's door.
+      enum: [office, apt, address]
+
+    DeliveryOption:
+      type: object
+      required: [method, price, total, available]
+      properties:
+        method: { $ref: "#/components/schemas/DeliveryMethod" }
+        price: { $ref: "#/components/schemas/Price" }
+        total:
+          description: |
+            The order delivered this way: the subtotal, the delivery and, when
+            `assembly.chosen`, assembly. Send it back as `expected_total_cents`.
+          allOf: [{ $ref: "#/components/schemas/Price" }]
+        available:
+          type: boolean
+          description: Whether the parcel can go this way. An assembled PC doesn't fit a locker.
+
+    Office:
+      type: object
+      description: A courier's office or parcel locker.
+      required: [id, method, name, city, postcode, address]
+      properties:
+        id: { type: string, description: "The courier's id, to send as `office_id`." }
+        method: { $ref: "#/components/schemas/DeliveryMethod" }
+        name: { type: string }
+        city: { type: string }
+        postcode: { type: string }
+        address: { type: string, description: The street and number, without the city. }
+        hours:
+          type: string
+          description: When it's open, as people read it. Absent if the courier doesn't say.
+
+    OfficeList:
+      type: object
+      required: [offices]
+      properties:
+        offices:
+          type: array
+          items: { $ref: "#/components/schemas/Office" }
+
+    OrderOffice:
+      type: object
+      description: The office or locker an order goes to, as it was at checkout.
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
 
     AssemblyOffer:
       type: object
@@ -1859,14 +1939,20 @@ components:
 
     CheckoutRequest:
       type: object
-      required: [name, email, phone, city, postcode, address, payment, expected_total_cents]
+      required: [name, email, phone, delivery_method, payment, expected_total_cents]
       properties:
         name: { type: string, description: The recipient's full name. }
         email: { type: string }
         phone: { type: string }
-        city: { type: string }
-        postcode: { type: string, description: Four digits. }
-        address: { type: string, description: "Street, number, floor: what the courier needs." }
+        delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
+        office_id:
+          type: string
+          description: For `office` and `apt`, from `GET /delivery/offices`.
+        city: { type: string, description: For `address`. }
+        postcode: { type: string, description: "For `address`: four digits." }
+        address:
+          type: string
+          description: "For `address`: street, number, floor, what the courier needs."
         payment: { $ref: "#/components/schemas/PaymentMethod" }
         expected_total_cents:
           type: integer
@@ -1919,6 +2005,7 @@ components:
         - name
         - email
         - phone
+        - delivery_method
         - city
         - postcode
         - address
@@ -1942,7 +2029,12 @@ components:
         name: { type: string }
         email: { type: string }
         phone: { type: string }
-        city: { type: string }
+        delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
+        office:
+          description: The office or locker it goes to. Absent for delivery to an address.
+          allOf: [{ $ref: "#/components/schemas/OrderOffice" }]
+          x-go-type-skip-optional-pointer: false
+        city: { type: string, description: "Where it goes: the office's city for an office." }
         postcode: { type: string }
         address: { type: string }
         lines:
@@ -2467,6 +2559,7 @@ components:
         - name
         - email
         - phone
+        - delivery_method
         - city
         - postcode
         - address
@@ -2500,7 +2593,12 @@ components:
         name: { type: string }
         email: { type: string }
         phone: { type: string }
-        city: { type: string }
+        delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
+        office:
+          description: The office or locker it goes to. Absent for delivery to an address.
+          allOf: [{ $ref: "#/components/schemas/OrderOffice" }]
+          x-go-type-skip-optional-pointer: false
+        city: { type: string, description: "Where it goes: the office's city for an office." }
         postcode: { type: string }
         address: { type: string }
         lines:

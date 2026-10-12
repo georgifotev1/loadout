@@ -25,6 +25,9 @@ describe("checkoutFieldError", () => {
 		);
 		expect(checkoutFieldError(err, "name")).toBe(m.auth.fields.required);
 		expect(checkoutFieldError(err, "city")).toBeUndefined();
+		expect(
+			checkoutFieldError(invalid(["office_id", "unknown"]), "office_id"),
+		).toBe(m.checkout.fields.unknownOffice);
 	});
 });
 
@@ -42,6 +45,9 @@ describe("checkoutError", () => {
 			m.checkout.errors.unavailable,
 		);
 		expect(cartChanged(invalid(["phone", "required"]))).toBe(false);
+		expect(checkoutError(invalid(["delivery_method", "unavailable"]))).toBe(
+			m.checkout.errors.deliveryUnavailable,
+		);
 	});
 
 	it("falls back to a generic message", () => {
@@ -57,6 +63,8 @@ describe("checkCheckoutFields", () => {
 		name: "Иван Иванов",
 		email: "ivan@example.bg",
 		phone: "+359 (888) 123-456",
+		delivery_method: "address",
+		office_id: "",
 		city: "София",
 		postcode: "1000",
 		address: "ул. Граф Игнатиев 1",
@@ -73,6 +81,8 @@ describe("checkCheckoutFields", () => {
 				name: "",
 				email: "ivan",
 				phone: "0888 12",
+				delivery_method: "address",
+				office_id: "",
 				city: "С".repeat(101),
 				postcode: "10000",
 				address: "",
@@ -85,6 +95,20 @@ describe("checkCheckoutFields", () => {
 			postcode: f.invalidPostcode,
 			address: m.auth.fields.required,
 		});
+	});
+
+	it("asks for an office instead of an address", () => {
+		const toOffice = {
+			...valid,
+			delivery_method: "office" as const,
+			city: "",
+			postcode: "",
+			address: "",
+		};
+		expect(checkCheckoutFields(toOffice)).toEqual({
+			office_id: m.checkout.fields.officeRequired,
+		});
+		expect(checkCheckoutFields({ ...toOffice, office_id: "102" })).toEqual({});
 	});
 
 	it("follows the API's rules at the edges", () => {

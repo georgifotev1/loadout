@@ -442,12 +442,30 @@ export const bg = {
 		phone: "Телефон",
 		phoneHint: "За куриера.",
 		delivery: "Доставка",
-		toAddress: "До адрес",
+		methods: {
+			office: "До офис на Спиди",
+			apt: "До автомат на Спиди",
+			address: "До адрес",
+		},
+		methodDetails: {
+			office: "Взимате я от офиса",
+			apt: "Взимате я от автомата",
+			address: "Куриерът я носи до вас",
+		},
+		aptTooSmall: "Сглобеният компютър не се побира в автомат.",
+		officeSearch: { office: "Офис", apt: "Автомат" },
+		officeSearchPlaceholder: "Град, квартал или улица",
+		officeSearchHint: "Напишете поне 2 букви.",
+		officesSearching: "Търсим…",
+		officesNone: "Не намираме такъв офис. Опитайте с името на града.",
+		officesFailed: "Списъкът не се зареди. Опитайте отново.",
+		officesMore:
+			"Показваме първите 20. Добавете квартал или улица, за да ги стесните.",
+		changeOffice: "Смени",
 		city: "Град",
 		postcode: "Пощенски код",
 		address: "Адрес",
 		addressHint: "Улица, номер, вход, етаж, апартамент.",
-		officesSoon: "Доставка до офис или автомат на Спиди идва скоро.",
 		assembly: "Сглобяване",
 		payment: "Плащане",
 		cashOnDelivery: "Наложен платеж",
@@ -466,6 +484,8 @@ export const bg = {
 			invalidPhone: "Въведете телефон с поне 9 цифри.",
 			invalidPostcode: "Пощенският код е от 4 цифри.",
 			tooLong: "Текстът е твърде дълъг.",
+			officeRequired: "Изберете откъде да вземете пратката.",
+			unknownOffice: "Този офис вече не работи. Изберете друг.",
 		},
 		errors: {
 			unavailable:
@@ -473,6 +493,8 @@ export const bg = {
 			priceChanged:
 				"Цените се промениха, докато поръчвахте. Проверете новата сума и поръчайте отново.",
 			empty: "Количката е празна.",
+			deliveryUnavailable:
+				"Сглобеният компютър не се побира в автомат. Изберете офис или адрес.",
 			generic: "Поръчката не мина. Опитайте отново след малко.",
 		},
 	},
@@ -517,6 +539,7 @@ export const bg = {
 		unpaid: "Неплатена",
 		items: "Продукти",
 		deliveryTo: "Доставка до",
+		officeLabel: { office: "Офис на Спиди", apt: "Автомат на Спиди" },
 		contact: "За контакт",
 		payment: "Плащане",
 		notFoundTitle: "Не намираме поръчката",

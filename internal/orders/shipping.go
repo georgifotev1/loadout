@@ -73,6 +73,7 @@ func shipmentRequest(o OrderDetail) carrier.Request {
 		Name:          o.Name,
 		Phone:         o.Phone,
 		Email:         o.Email,
+		OfficeID:      o.OfficeID,
 		City:          o.City,
 		Postcode:      o.Postcode,
 		Address:       o.Address,

@@ -113,6 +113,27 @@ func (e Category) Valid() bool {
 	}
 }
 
+// Defines values for DeliveryMethod.
+const (
+	DeliveryMethodAddress DeliveryMethod = "address"
+	DeliveryMethodApt     DeliveryMethod = "apt"
+	DeliveryMethodOffice  DeliveryMethod = "office"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryMethod enum.
+func (e DeliveryMethod) Valid() bool {
+	switch e {
+	case DeliveryMethodAddress:
+		return true
+	case DeliveryMethodApt:
+		return true
+	case DeliveryMethodOffice:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ErrorCode.
 const (
 	ErrorCodeAlreadyQueued        ErrorCode = "already_queued"
@@ -607,7 +628,9 @@ type AdminOrder struct {
 
 	// Assembly The assembly fee, passed on at what the supplier charges. Absent when the PC isn't
 	// assembled.
-	Assembly  *Price    `json:"assembly,omitempty"`
+	Assembly *Price `json:"assembly,omitempty"`
+
+	// City Where it goes: the office's city for an office.
 	City      string    `json:"city"`
 	CreatedAt time.Time `json:"created_at"`
 
@@ -615,15 +638,22 @@ type AdminOrder struct {
 	DealerTotal Price `json:"dealer_total"`
 
 	// Delivery A retail price. The web app formats it; it never does price math.
-	Delivery Price              `json:"delivery"`
-	Email    string             `json:"email"`
-	Id       openapi_types.UUID `json:"id"`
-	Lines    []AdminOrderLine   `json:"lines"`
+	Delivery Price `json:"delivery"`
+
+	// DeliveryMethod `office`: to a courier's office, where the customer collects it; `apt`: to a parcel
+	// locker; `address`: to the customer's door.
+	DeliveryMethod DeliveryMethod     `json:"delivery_method"`
+	Email          string             `json:"email"`
+	Id             openapi_types.UUID `json:"id"`
+	Lines          []AdminOrderLine   `json:"lines"`
 
 	// Margin The lines' subtotal minus `dealer_total`, VAT included; delivery and assembly left out.
 	Margin Price  `json:"margin"`
 	Name   string `json:"name"`
 	Number int64  `json:"number"`
+
+	// Office The office or locker it goes to. Absent for delivery to an address.
+	Office *OrderOffice `json:"office,omitempty"`
 
 	// PaidAt Missing while unpaid.
 	PaidAt *time.Time `json:"paid_at,omitempty"`
@@ -1037,25 +1067,28 @@ type Checkout struct {
 	Assembly AssemblyOffer `json:"assembly"`
 	Cart     Cart          `json:"cart"`
 
-	// Delivery A retail price. The web app formats it; it never does price math.
-	Delivery Price `json:"delivery"`
+	// Deliveries The ways to deliver the cart, office first.
+	Deliveries []DeliveryOption `json:"deliveries"`
 
 	// Orderable Whether the cart can be ordered as it is.
 	Orderable bool `json:"orderable"`
 
 	// Payments The payment methods on offer, cash on delivery first.
 	Payments []PaymentMethod `json:"payments"`
-
-	// Total A retail price. The web app formats it; it never does price math.
-	Total Price `json:"total"`
 }
 
 // CheckoutRequest defines model for CheckoutRequest.
 type CheckoutRequest struct {
-	// Address Street, number, floor: what the courier needs.
-	Address string `json:"address"`
-	City    string `json:"city"`
-	Email   string `json:"email"`
+	// Address For `address`: street, number, floor, what the courier needs.
+	Address string `json:"address,omitempty"`
+
+	// City For `address`.
+	City string `json:"city,omitempty"`
+
+	// DeliveryMethod `office`: to a courier's office, where the customer collects it; `apt`: to a parcel
+	// locker; `address`: to the customer's door.
+	DeliveryMethod DeliveryMethod `json:"delivery_method"`
+	Email          string         `json:"email"`
 
 	// ExpectedTotalCents The `total` the customer saw at `GET /checkout`.
 	ExpectedTotalCents int64 `json:"expected_total_cents"`
@@ -1063,18 +1096,42 @@ type CheckoutRequest struct {
 	// Name The recipient's full name.
 	Name string `json:"name"`
 
+	// OfficeId For `office` and `apt`, from `GET /delivery/offices`.
+	OfficeId string `json:"office_id,omitempty"`
+
 	// Payment `cod`: cash on delivery, paid to the courier; `card`: online on Stripe's payment page
 	// (cards, Apple Pay, Google Pay, … as set up in Stripe).
 	Payment PaymentMethod `json:"payment"`
 	Phone   string        `json:"phone"`
 
-	// Postcode Four digits.
-	Postcode string `json:"postcode"`
+	// Postcode For `address`: four digits.
+	Postcode string `json:"postcode,omitempty"`
 }
 
 // CodeRequest defines model for CodeRequest.
 type CodeRequest struct {
 	Code string `json:"code"`
+}
+
+// DeliveryMethod `office`: to a courier's office, where the customer collects it; `apt`: to a parcel
+// locker; `address`: to the customer's door.
+type DeliveryMethod string
+
+// DeliveryOption defines model for DeliveryOption.
+type DeliveryOption struct {
+	// Available Whether the parcel can go this way. An assembled PC doesn't fit a locker.
+	Available bool `json:"available"`
+
+	// Method `office`: to a courier's office, where the customer collects it; `apt`: to a parcel
+	// locker; `address`: to the customer's door.
+	Method DeliveryMethod `json:"method"`
+
+	// Price A retail price. The web app formats it; it never does price math.
+	Price Price `json:"price"`
+
+	// Total The order delivered this way: the subtotal, the delivery and, when
+	// `assembly.chosen`, assembly. Send it back as `expected_total_cents`.
+	Total Price `json:"total"`
 }
 
 // DiscardedJob defines model for DiscardedJob.
@@ -1321,6 +1378,30 @@ type Me struct {
 	SecondFactor SecondFactor `json:"second_factor"`
 }
 
+// Office A courier's office or parcel locker.
+type Office struct {
+	// Address The street and number
+	Address string `json:"address"`
+	City    string `json:"city"`
+
+	// Hours When it's open, as people read it. Absent if the courier doesn't say.
+	Hours string `json:"hours,omitempty"`
+
+	// Id The courier's id, to send as `office_id`.
+	Id string `json:"id"`
+
+	// Method `office`: to a courier's office, where the customer collects it; `apt`: to a parcel
+	// locker; `address`: to the customer's door.
+	Method   DeliveryMethod `json:"method"`
+	Name     string         `json:"name"`
+	Postcode string         `json:"postcode"`
+}
+
+// OfficeList defines model for OfficeList.
+type OfficeList struct {
+	Offices []Office `json:"offices"`
+}
+
 // Order defines model for Order.
 type Order struct {
 	Address string `json:"address"`
@@ -1330,17 +1411,26 @@ type Order struct {
 
 	// BuildTotal The assembled PC as one item: the lines `in_build` and the fee. Absent when the PC
 	// isn't assembled.
-	BuildTotal *Price    `json:"build_total,omitempty"`
-	City       string    `json:"city"`
-	CreatedAt  time.Time `json:"created_at"`
+	BuildTotal *Price `json:"build_total,omitempty"`
+
+	// City Where it goes: the office's city for an office.
+	City      string    `json:"city"`
+	CreatedAt time.Time `json:"created_at"`
 
 	// Delivery A retail price. The web app formats it; it never does price math.
-	Delivery Price              `json:"delivery"`
-	Email    string             `json:"email"`
-	Id       openapi_types.UUID `json:"id"`
-	Lines    []OrderLine        `json:"lines"`
-	Name     string             `json:"name"`
-	Number   int64              `json:"number"`
+	Delivery Price `json:"delivery"`
+
+	// DeliveryMethod `office`: to a courier's office, where the customer collects it; `apt`: to a parcel
+	// locker; `address`: to the customer's door.
+	DeliveryMethod DeliveryMethod     `json:"delivery_method"`
+	Email          string             `json:"email"`
+	Id             openapi_types.UUID `json:"id"`
+	Lines          []OrderLine        `json:"lines"`
+	Name           string             `json:"name"`
+	Number         int64              `json:"number"`
+
+	// Office The office or locker it goes to. Absent for delivery to an address.
+	Office *OrderOffice `json:"office,omitempty"`
 
 	// PaidAt When the money came: the card payment, or the courier collecting cash on delivery.
 	// Missing while unpaid.
@@ -1388,6 +1478,12 @@ type OrderLine struct {
 // OrderList defines model for OrderList.
 type OrderList struct {
 	Orders []OrderSummary `json:"orders"`
+}
+
+// OrderOffice The office or locker an order goes to, as it was at checkout.
+type OrderOffice struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // OrderPlaced defines model for OrderPlaced.
@@ -1978,6 +2074,14 @@ type ListBuilderOptionsParams struct {
 	Cooler BuildCooler `form:"cooler,omitempty" json:"cooler,omitempty"`
 }
 
+// SearchOfficesParams defines parameters for SearchOffices.
+type SearchOfficesParams struct {
+	Q string `form:"q" json:"q"`
+
+	// Method `office` or `apt`.
+	Method DeliveryMethod `form:"method" json:"method"`
+}
+
 // GetOrderParams defines parameters for GetOrder.
 type GetOrderParams struct {
 	Token string `form:"token,omitempty" json:"token,omitempty"`
@@ -2210,6 +2314,9 @@ type ServerInterface interface {
 	// PlaceOrder Place an order with the cart
 	// (POST /checkout)
 	PlaceOrder(w http.ResponseWriter, r *http.Request)
+	// SearchOffices Find the courier's offices or parcel lockers
+	// (GET /delivery/offices)
+	SearchOffices(w http.ResponseWriter, r *http.Request, params SearchOfficesParams)
 	// GetHealth Health summary
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -2495,6 +2602,12 @@ func (_ Unimplemented) GetCheckout(w http.ResponseWriter, r *http.Request) {
 // PlaceOrder Place an order with the cart
 // (POST /checkout)
 func (_ Unimplemented) PlaceOrder(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SearchOffices Find the courier's offices or parcel lockers
+// (GET /delivery/offices)
+func (_ Unimplemented) SearchOffices(w http.ResponseWriter, r *http.Request, params SearchOfficesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3772,6 +3885,52 @@ func (siw *ServerInterfaceWrapper) PlaceOrder(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// SearchOffices operation middleware
+func (siw *ServerInterfaceWrapper) SearchOffices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchOfficesParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "method" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "method", r.URL.Query(), &params.Method, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "method"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchOffices(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -4308,6 +4467,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/checkout", wrapper.PlaceOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/delivery/offices", wrapper.SearchOffices)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/orders", wrapper.ListMyOrders)

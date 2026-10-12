@@ -5,11 +5,20 @@ import {
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Banknote, CreditCard, Lock, TriangleAlert, Truck } from "lucide-react";
+import {
+	Banknote,
+	Building2,
+	CreditCard,
+	Lock,
+	Package,
+	TriangleAlert,
+	Truck,
+} from "lucide-react";
 import { useState } from "react";
 import { Field } from "#/components/auth/field";
 import { AssemblyOption } from "#/components/order/assembly-option";
 import { CompactLines } from "#/components/order/compact-lines";
+import { OfficePicker } from "#/components/order/office-picker";
 import { Totals } from "#/components/order/totals";
 import { Price } from "#/components/product/price";
 import { Container } from "#/components/site/container";
@@ -24,6 +33,8 @@ import { cartQuery, setCartAssembly } from "#/lib/api/cart";
 import {
 	type Checkout,
 	checkoutQuery,
+	type DeliveryMethod,
+	type Office,
 	type PaymentMethod,
 	placeOrder,
 } from "#/lib/api/orders";
@@ -39,7 +50,7 @@ import { cn } from "#/lib/utils";
 
 const t = m.checkout;
 
-// /checkout: contact, delivery address and payment, next to the cart with the API's totals. The
+// /checkout: contact, delivery (an office, a locker or an address) and payment, next to the cart with the API's totals. The
 // cart loads in the browser only (see cartQuery); the logged-in customer's email is filled in.
 export const Route = createFileRoute("/_checkout/checkout")({
 	loader: ({ context }) => context.queryClient.query(meQuery).catch(() => null),
@@ -95,6 +106,12 @@ const paymentOptions = {
 	card: { icon: CreditCard, title: t.card, detail: t.cardDetail },
 } satisfies Record<PaymentMethod, unknown>;
 
+const deliveryIcons = {
+	office: Building2,
+	apt: Package,
+	address: Truck,
+} satisfies Record<DeliveryMethod, unknown>;
+
 function CheckoutForm({ checkout }: { checkout: Checkout }) {
 	const { data: me } = useSuspenseQuery(meQuery);
 	const queryClient = useQueryClient();
@@ -108,6 +125,19 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 	const repricing = assembly.isPending;
 	const navigate = useNavigate();
 	const [payment, setPayment] = useState<PaymentMethod>("cod");
+	const [method, setMethod] = useState<DeliveryMethod>("office");
+	// The office and the locker picked, kept apart so switching back finds the choice again.
+	const [offices, setOffices] = useState<
+		Record<"office" | "apt", Office | null>
+	>({ office: null, apt: null });
+	// The chosen way when it's still available (assembly can rule out a locker), else the first
+	// that is: the totals and the order follow it.
+	const delivery =
+		checkout.deliveries.find((d) => d.method === method && d.available) ??
+		checkout.deliveries.find((d) => d.available) ??
+		checkout.deliveries[0];
+	const office =
+		delivery.method === "address" ? null : offices[delivery.method];
 	const submit = useMutation({
 		mutationFn: placeOrder,
 		onSuccess: async (placed) => {
@@ -169,6 +199,8 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 						name: text("name"),
 						email: text("email"),
 						phone: text("phone"),
+						delivery_method: delivery.method,
+						office_id: office?.id ?? "",
 						city: text("city"),
 						postcode: text("postcode"),
 						address: text("address"),
@@ -182,10 +214,14 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 						form.querySelector<HTMLInputElement>(`[name="${first}"]`)?.focus();
 						return;
 					}
+					const { office_id, city, postcode, address, ...rest } = values;
 					submit.mutate({
-						...values,
+						...rest,
+						...(delivery.method === "address"
+							? { city, postcode, address }
+							: { office_id }),
 						payment,
-						expected_total_cents: checkout.total.amount_cents,
+						expected_total_cents: delivery.total.amount_cents,
 					});
 				}}
 			>
@@ -224,18 +260,74 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 					</Step>
 
 					<Step n={2} title={t.delivery}>
-						<div className="flex items-center gap-3 rounded-lg border border-foreground p-4">
-							<Truck className="size-5 shrink-0 text-muted-foreground" />
-							<p className="flex-1 font-medium text-sm">{t.toAddress}</p>
-							<Price
-								cents={checkout.delivery.amount_cents}
-								className="text-sm"
-							/>
-						</div>
-						<p className="mt-2 text-muted-foreground text-xs">
-							{t.officesSoon}
-						</p>
-						<div className="mt-5 grid gap-4 sm:grid-cols-[2fr_1fr]">
+						<RadioGroup
+							value={delivery.method}
+							onValueChange={(v) => setMethod(v as DeliveryMethod)}
+							className="grid gap-3 sm:grid-cols-3"
+						>
+							{checkout.deliveries.map((d) => {
+								const Icon = deliveryIcons[d.method];
+								return (
+									<Label
+										key={d.method}
+										htmlFor={`delivery-${d.method}`}
+										className={cn(
+											"flex cursor-pointer flex-col gap-2 rounded-lg border p-4 font-normal transition-colors hover:border-border-strong",
+											delivery.method === d.method &&
+												"border-foreground hover:border-foreground",
+											!d.available &&
+												"cursor-not-allowed opacity-60 hover:border-border",
+										)}
+									>
+										<div className="flex items-center gap-3">
+											<RadioGroupItem
+												value={d.method}
+												id={`delivery-${d.method}`}
+												disabled={!d.available}
+											/>
+											<Icon className="size-5 text-muted-foreground" />
+											<Price
+												cents={d.price.amount_cents}
+												className="ml-auto text-sm"
+											/>
+										</div>
+										<div>
+											<p className="font-medium text-sm">
+												{t.methods[d.method]}
+											</p>
+											<p className="mt-0.5 text-muted-foreground text-xs">
+												{d.available
+													? t.methodDetails[d.method]
+													: t.aptTooSmall}
+											</p>
+										</div>
+									</Label>
+								);
+							})}
+						</RadioGroup>
+						{delivery.method === "address" ? null : (
+							<div className="mt-5">
+								<OfficePicker
+									key={delivery.method}
+									method={delivery.method}
+									value={office}
+									onChange={(o) => {
+										setOffices((all) => ({ ...all, [delivery.method]: o }));
+										if (o) {
+											setMistakes(({ office_id: _, ...rest }) => rest);
+										}
+									}}
+									error={field("office_id").error}
+								/>
+							</div>
+						)}
+						{/* Hidden rather than gone, so what was typed stays when switching back. */}
+						<div
+							className={cn(
+								"mt-5 grid gap-4 sm:grid-cols-[2fr_1fr]",
+								delivery.method !== "address" && "hidden",
+							)}
+						>
 							<Field
 								{...field("city")}
 								label={t.city}
@@ -337,13 +429,13 @@ function CheckoutForm({ checkout }: { checkout: Checkout }) {
 					</div>
 					<Totals
 						subtotal={checkout.cart.subtotal.amount_cents}
-						delivery={checkout.delivery.amount_cents}
+						delivery={delivery.price.amount_cents}
 						assembly={
 							checkout.assembly.chosen
 								? checkout.assembly.price.amount_cents
 								: undefined
 						}
-						total={checkout.total.amount_cents}
+						total={delivery.total.amount_cents}
 						className="mt-6 border-t pt-5"
 					/>
 					{formError || !checkout.orderable ? (

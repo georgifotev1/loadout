@@ -94,7 +94,7 @@ func TestCheckoutWithAssembly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if without.Assembly.Chosen || without.Cart.Assembly.Requested || without.TotalCents != 200_00+DeliveryCents {
+	if without.Assembly.Chosen || without.Cart.Assembly.Requested || addressTotal(without) != 200_00+AddressDeliveryCents {
 		t.Errorf("not asked for: %+v", without.Assembly)
 	}
 
@@ -115,18 +115,18 @@ func TestCheckoutWithAssembly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !with.Assembly.Chosen || with.TotalCents != 400_00+DeliveryCents+fee {
-		t.Errorf("with assembly %+v, total %d", with.Assembly, with.TotalCents)
+	if !with.Assembly.Chosen || addressTotal(with) != 400_00+AddressDeliveryCents+fee {
+		t.Errorf("with assembly %+v, total %d", with.Assembly, addressTotal(with))
 	}
 
 	t.Run("the total the customer saw must have the fee", func(t *testing.T) {
-		_, err := s.Checkout(ctx, owner, checkoutInput(with.TotalCents-fee))
+		_, err := s.Checkout(ctx, owner, checkoutInput(addressTotal(with)-fee))
 		if got := fieldCodes(t, err); !slices.Equal(got, []string{"expected_total_cents: changed"}) {
 			t.Errorf("errors %v", got)
 		}
 	})
 
-	placed, err := s.Checkout(ctx, owner, checkoutInput(with.TotalCents))
+	placed, err := s.Checkout(ctx, owner, checkoutInput(addressTotal(with)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestCheckoutWithAssembly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !o.Assembly || o.AssemblyCents != fee || o.BuildCents != 360_00+fee || o.SubtotalCents != 400_00 || o.TotalCents != with.TotalCents {
+	if !o.Assembly || o.AssemblyCents != fee || o.BuildCents != 360_00+fee || o.SubtotalCents != 400_00 || o.TotalCents != addressTotal(with) {
 		t.Errorf("order %+v", o)
 	}
 	// The PC's parts first, in the builder's order; the mouse after them.
@@ -180,10 +180,10 @@ func TestCartAssembly(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if q.Assembly.Chosen || q.TotalCents != 400_00+DeliveryCents {
+		if q.Assembly.Chosen || addressTotal(q) != 400_00+AddressDeliveryCents {
 			t.Fatalf("quote %+v", q.Assembly)
 		}
-		placed, err := s.Checkout(ctx, owner, checkoutInput(q.TotalCents))
+		placed, err := s.Checkout(ctx, owner, checkoutInput(addressTotal(q)))
 		if err != nil {
 			t.Fatal(err)
 		}

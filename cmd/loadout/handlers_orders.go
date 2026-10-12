@@ -4,10 +4,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	"github.com/gfotev/loadout/internal/auth"
+	"github.com/gfotev/loadout/internal/carrier"
 	"github.com/gfotev/loadout/internal/money"
 	"github.com/gfotev/loadout/internal/orders"
 	"github.com/gfotev/loadout/internal/payments"
@@ -21,18 +23,60 @@ func (app *application) GetCheckout(w http.ResponseWriter, r *http.Request) {
 		app.handleError(w, r, err)
 		return
 	}
+	deliveries := make([]DeliveryOption, len(q.Deliveries))
+	for i, d := range q.Deliveries {
+		deliveries[i] = DeliveryOption{
+			Method:    DeliveryMethod(d.Delivery),
+			Price:     eur(d.Cents),
+			Total:     eur(d.TotalCents),
+			Available: d.Available,
+		}
+	}
 	app.writeJSON(w, r, http.StatusOK, Checkout{
-		Cart:     cart(q.Cart),
-		Delivery: eur(q.DeliveryCents),
+		Cart:       cart(q.Cart),
+		Deliveries: deliveries,
 		Assembly: AssemblyOffer{
 			Offered: q.Assembly.Offered,
 			Chosen:  q.Assembly.Chosen,
 			Price:   eur(q.Assembly.Cents),
 		},
-		Total:     eur(q.TotalCents),
 		Orderable: q.Orderable,
 		Payments:  app.paymentMethods(),
 	})
+}
+
+// SearchOffices handles GET /api/delivery/offices.
+func (app *application) SearchOffices(w http.ResponseWriter, r *http.Request, params SearchOfficesParams) {
+	var v validate.Validator
+	v.Check(utf8.RuneCountInString(params.Q) <= 100, "q", "too_long")
+	v.Check(params.Method == DeliveryMethodOffice || params.Method == DeliveryMethodApt, "method", "unsupported")
+	if err := v.Err(); err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	list, err := app.orders.SearchOffices(r.Context(), params.Q, carrier.OfficeKind(params.Method))
+	if err != nil {
+		app.handleError(w, r, err)
+		return
+	}
+	out := make([]Office, len(list))
+	for i, o := range list {
+		out[i] = Office{
+			Id:       o.ID,
+			Method:   DeliveryMethod(o.Kind),
+			Name:     o.Name,
+			City:     o.City,
+			Postcode: o.Postcode,
+			Address:  o.Address,
+			Hours:    o.Hours,
+		}
+	}
+	// The list changes once a day; a shopper typing the same letters again needn't wait. An
+	// empty answer isn't kept: on a new database it may come before the first sync.
+	if len(out) > 0 {
+		w.Header().Set("Cache-Control", "public, max-age=300")
+	}
+	app.writeJSON(w, r, http.StatusOK, OfficeList{Offices: out})
 }
 
 // paymentMethods are the payment methods on offer: card only when Stripe is set up.
@@ -61,6 +105,8 @@ func (app *application) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 		Name:               in.Name,
 		Email:              in.Email,
 		Phone:              in.Phone,
+		Delivery:           orders.Delivery(in.DeliveryMethod),
+		OfficeID:           in.OfficeId,
 		City:               in.City,
 		Postcode:           in.Postcode,
 		Address:            in.Address,
@@ -210,26 +256,36 @@ func orderJSON(o orders.OrderDetail) Order {
 		}
 	}
 	return Order{
-		Id:         o.ID,
-		Number:     o.Number,
-		Status:     OrderStatus(o.Status),
-		Payment:    PaymentMethod(o.Payment),
-		PaidAt:     o.PaidAt,
-		CreatedAt:  o.CreatedAt,
-		Name:       o.Name,
-		Email:      o.Email,
-		Phone:      o.Phone,
-		City:       o.City,
-		Postcode:   o.Postcode,
-		Address:    o.Address,
-		Lines:      lines,
-		Subtotal:   eur(o.SubtotalCents),
-		Delivery:   eur(o.DeliveryCents),
-		Assembly:   optionalEUR(o.Assembly, o.AssemblyCents),
-		BuildTotal: optionalEUR(o.Assembly, o.BuildCents),
-		Total:      eur(o.TotalCents),
-		Shipment:   shipmentJSON(o.Shipment),
+		Id:             o.ID,
+		Number:         o.Number,
+		Status:         OrderStatus(o.Status),
+		Payment:        PaymentMethod(o.Payment),
+		PaidAt:         o.PaidAt,
+		CreatedAt:      o.CreatedAt,
+		Name:           o.Name,
+		Email:          o.Email,
+		Phone:          o.Phone,
+		DeliveryMethod: DeliveryMethod(o.Delivery),
+		Office:         officeJSON(o),
+		City:           o.City,
+		Postcode:       o.Postcode,
+		Address:        o.Address,
+		Lines:          lines,
+		Subtotal:       eur(o.SubtotalCents),
+		Delivery:       eur(o.DeliveryCents),
+		Assembly:       optionalEUR(o.Assembly, o.AssemblyCents),
+		BuildTotal:     optionalEUR(o.Assembly, o.BuildCents),
+		Total:          eur(o.TotalCents),
+		Shipment:       shipmentJSON(o.Shipment),
 	}
+}
+
+// officeJSON is nil for delivery to an address.
+func officeJSON(o orders.OrderDetail) *OrderOffice {
+	if o.Delivery == orders.DeliveryAddress {
+		return nil
+	}
+	return &OrderOffice{Id: o.OfficeID, Name: o.OfficeName}
 }
 
 // shipmentJSON is nil for an order without a waybill.

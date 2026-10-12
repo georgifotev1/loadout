@@ -51,8 +51,19 @@ func checkoutBody(total int64) string {
 
 func checkoutBodyPaying(total int64, payment string) string {
 	return `{"name": "Иван Иванов", "email": "ivan@example.bg", "phone": "0888 123 456",
-		"city": "София", "postcode": "1000", "address": "ул. Граф Игнатиев 1", "payment": "` + payment + `",
+		"delivery_method": "address", "city": "София", "postcode": "1000", "address": "ул. Граф Игнатиев 1",
+		"payment": "` + payment + `",
 		"expected_total_cents": ` + strconv.FormatInt(total, 10) + `}`
+}
+
+// addressOption is the checkout's delivery to an address.
+func addressOption(co Checkout) DeliveryOption {
+	for _, d := range co.Deliveries {
+		if d.Method == DeliveryMethodAddress {
+			return d
+		}
+	}
+	panic("no delivery to an address")
 }
 
 func TestCheckoutAPI(t *testing.T) {
@@ -64,27 +75,27 @@ func TestCheckoutAPI(t *testing.T) {
 	if !slices.Equal(co.Payments, []PaymentMethod{PaymentMethodCod}) {
 		t.Errorf("payments %v, want cash on delivery only without Stripe", co.Payments)
 	}
-	if !co.Orderable || co.Cart.Count != 2 || co.Delivery.AmountCents != int64(orders.DeliveryCents) ||
-		co.Total.AmountCents != co.Cart.Subtotal.AmountCents+co.Delivery.AmountCents {
+	if !co.Orderable || co.Cart.Count != 2 || addressOption(co).Price.AmountCents != int64(orders.AddressDeliveryCents) ||
+		addressOption(co).Total.AmountCents != co.Cart.Subtotal.AmountCents+addressOption(co).Price.AmountCents {
 		t.Fatalf("checkout %+v", co)
 	}
 
 	t.Run("card isn't on offer without Stripe", func(t *testing.T) {
-		rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBodyPaying(co.Total.AmountCents, "card"), guest)
+		rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBodyPaying(addressOption(co).Total.AmountCents, "card"), guest)
 		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), `"unsupported"`) {
 			t.Errorf("status %d: %s", rec.Code, rec.Body)
 		}
 	})
 
 	t.Run("a stale total is refused", func(t *testing.T) {
-		rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents-1), guest)
+		rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(addressOption(co).Total.AmountCents-1), guest)
 		e := decodeJSON[Error](t, rec, http.StatusUnprocessableEntity)
 		if len(e.Error.Fields) != 1 || e.Error.Fields[0].Field != "expected_total_cents" {
 			t.Errorf("fields %+v, want the request's expected_total_cents", e.Error.Fields)
 		}
 	})
 
-	rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents), guest)
+	rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(addressOption(co).Total.AmountCents), guest)
 	placed := decodeJSON[OrderPlaced](t, rec, http.StatusCreated)
 	if c := cookieNamed(rec, "cart"); c == nil || c.MaxAge >= 0 {
 		t.Errorf("cart cookie not cleared: %+v", c)
@@ -93,7 +104,7 @@ func TestCheckoutAPI(t *testing.T) {
 
 	o := decodeJSON[Order](t, get(t, app, path+"?token="+placed.Token), http.StatusOK)
 	if o.Number != placed.Number || o.Status != OrderStatusSupplierPending || o.Payment != PaymentMethodCod ||
-		o.Total != co.Total || len(o.Lines) != 1 || o.Lines[0].Slug != cpu || o.Lines[0].Quantity != 2 {
+		o.Total != addressOption(co).Total || len(o.Lines) != 1 || o.Lines[0].Slug != cpu || o.Lines[0].Quantity != 2 {
 		t.Errorf("order %+v", o)
 	}
 
@@ -106,7 +117,7 @@ func TestCheckoutAPI(t *testing.T) {
 	})
 
 	t.Run("the cart is empty now", func(t *testing.T) {
-		rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents), guest)
+		rec := cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(addressOption(co).Total.AmountCents), guest)
 		if rec.Code != http.StatusUnprocessableEntity {
 			t.Errorf("status %d: %s", rec.Code, rec.Body)
 		}
@@ -170,8 +181,8 @@ func TestCheckoutAssemblyAPI(t *testing.T) {
 		t.Errorf("build total %+v, cart total %d, mouse %d", c.Assembly.BuildTotal, c.Total.AmountCents, mouseCents)
 	}
 	co := decodeJSON[Checkout](t, get(t, app, "/api/checkout", guest), http.StatusOK)
-	if !co.Assembly.Chosen || co.Total.AmountCents != c.Total.AmountCents+co.Delivery.AmountCents {
-		t.Fatalf("checkout assembly %+v, total %d", co.Assembly, co.Total.AmountCents)
+	if !co.Assembly.Chosen || addressOption(co).Total.AmountCents != c.Total.AmountCents+addressOption(co).Price.AmountCents {
+		t.Fatalf("checkout assembly %+v, total %d", co.Assembly, addressOption(co).Total.AmountCents)
 	}
 
 	t.Run("it can be turned off and on", func(t *testing.T) {
@@ -185,9 +196,9 @@ func TestCheckoutAssemblyAPI(t *testing.T) {
 		}
 	})
 
-	placed := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents), guest), http.StatusCreated)
+	placed := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(addressOption(co).Total.AmountCents), guest), http.StatusCreated)
 	o := decodeJSON[Order](t, get(t, app, "/api/orders/"+placed.Id.String()+"?token="+placed.Token), http.StatusOK)
-	if o.Assembly == nil || o.Assembly.AmountCents != fee || o.Total != co.Total {
+	if o.Assembly == nil || o.Assembly.AmountCents != fee || o.Total != addressOption(co).Total {
 		t.Errorf("order assembly %+v, total %+v", o.Assembly, o.Total)
 	}
 	var built []string
@@ -218,10 +229,10 @@ func TestCustomerOrdersAPI(t *testing.T) {
 	cpu := slugs(t, app)["AMD-AM5-R5-7600-BOX"]
 	cartRequest(t, app, http.MethodPost, "/api/cart/lines", `{"lines":[{"slug":"`+cpu+`","quantity":1}]}`, session)
 	co := decodeJSON[Checkout](t, get(t, app, "/api/checkout", session), http.StatusOK)
-	placed := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents), session), http.StatusCreated)
+	placed := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(addressOption(co).Total.AmountCents), session), http.StatusCreated)
 
 	list := decodeJSON[OrderList](t, get(t, app, "/api/orders", session), http.StatusOK)
-	if len(list.Orders) != 1 || list.Orders[0].Id != placed.Id || list.Orders[0].Count != 1 || list.Orders[0].Total != co.Total {
+	if len(list.Orders) != 1 || list.Orders[0].Id != placed.Id || list.Orders[0].Count != 1 || list.Orders[0].Total != addressOption(co).Total {
 		t.Errorf("orders %+v", list)
 	}
 	if rec := get(t, app, "/api/orders/"+placed.Id.String(), session); rec.Code != http.StatusOK {
@@ -282,7 +293,7 @@ func TestCardCheckoutAPI(t *testing.T) {
 		if !slices.Equal(co.Payments, []PaymentMethod{PaymentMethodCod, PaymentMethodCard}) {
 			t.Errorf("payments %v", co.Payments)
 		}
-		return decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBodyPaying(co.Total.AmountCents, "card"), guest), http.StatusCreated)
+		return decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBodyPaying(addressOption(co).Total.AmountCents, "card"), guest), http.StatusCreated)
 	}
 	page := func(id uuid.UUID) string { return "https://checkout.stripe.com/c/pay/cs_test_" + id.String() }
 
@@ -333,7 +344,7 @@ func TestCardCheckoutAPI(t *testing.T) {
 	t.Run("cash on delivery isn't paid by card", func(t *testing.T) {
 		guest := cookieNamed(cartRequest(t, app, http.MethodPost, "/api/cart/lines", `{"lines":[{"slug":"`+cpu+`","quantity":1}]}`), "cart")
 		co := decodeJSON[Checkout](t, get(t, app, "/api/checkout", guest), http.StatusOK)
-		cod := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(co.Total.AmountCents), guest), http.StatusCreated)
+		cod := decodeJSON[OrderPlaced](t, cartRequest(t, app, http.MethodPost, "/api/checkout", checkoutBody(addressOption(co).Total.AmountCents), guest), http.StatusCreated)
 		rec := cartRequest(t, app, http.MethodPost, "/api/orders/"+cod.Id.String()+"/payment?token="+cod.Token, "")
 		if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), `"not_payable"`) {
 			t.Errorf("status %d: %s", rec.Code, rec.Body)
